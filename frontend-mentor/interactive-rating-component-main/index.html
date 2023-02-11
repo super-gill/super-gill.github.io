@@ -28,6 +28,7 @@
       --Button-Blue: hsl(213, 19%, 25%);
       --Very-Dark-Blue: hsl(216, 12%, 8%);
       --Orange: hsl(25, 97%, 53%);
+      --Orange-faded: hsl(25, 60%, 43%);
 
       min-height: 100vh;
       size: 16px;
@@ -97,6 +98,10 @@
       justify-content: center;
     }
 
+    .hide {
+      display: none;
+    }
+
     .ctr>.img-ctr,
     .text,
     .rating {
@@ -105,6 +110,10 @@
 
     .text {
       text-align: left;
+    }
+
+    .rating-btn {
+      cursor: pointer;
     }
 
     .rating {
@@ -120,29 +129,42 @@
     .onClick {
       background-color: var(--Light-Grey) !important;
       color: white;
-      transition: 0.5s;
+      font-weight: bold;
+      font-size: 1.5rem;
+      transition: 0.3s;
     }
 
     .submit-btn {
       padding: 10px;
       width: 340px;
       height: 45px;
-      background-color: var(--Orange);
+      background-color: var(--Medium-Grey);
       border-radius: 100px;
       font-weight: bold;
       letter-spacing: 2px;
       font-size: 0.8rem;
       border-style: none;
+      transition: 0.5s;
+    }
+
+    .superSubmit {
+      transition: 0.3s;
+      background-color: var(--Orange-faded);
+    }
+
+    .superSubmit:hover {
+      transition: 0.5s;
+      background-color: var(--Orange);
+      cursor: pointer;
+    }
+
+    .submitOnClick {
+      transition: 0.5s;
+      background-color: var(--Orange-faded) !important;
     }
 
     .submit-btn>span {
       color: white;
-    }
-
-    .card-back {
-      justify-content: flex-start;
-      text-align: center;
-      padding-top: 20px;
     }
 
     .score {
@@ -156,7 +178,6 @@
     .score>p>span {
       color: var(--Orange);
     }
-
 
     /* Back card styles */
 
@@ -187,9 +208,9 @@
 
     <!-- Rating state start -->
 
-    <div class="ctr card-front flex-col">
+    <div class="ctr flex-col" id="card-front">
       <div class="img-ctr">
-        <div class="flex-col ctr-circle"><img src="images/icon-star.svg"></div>
+        <div class="flex-col ctr-circle"><img src="images/icon-star.svg" alt="star icon"></div>
       </div>
       <div class="text flex-col">
         <h1>How did we do?</h1>
@@ -198,7 +219,7 @@
           to help us improve our offering!</p>
       </div>
 
-      <div class="rating flex-row front">
+      <div class="rating flex-row">
         <div class="rating-btn flex-col ctr-circle" id="one">
           <span>1</span>
         </div>
@@ -215,19 +236,19 @@
           <span>5</span>
         </div>
       </div>
-      <button type="submit" class="submit-btn"><span>SUBMIT</span></button>
+      <button class="submit-btn"><span>SUBMIT</span></button>
     </div>
 
     <!-- Rating state end -->
 
     <!-- Thank you state start -->
-    <div class="card-back ctr flex-col">
+    <div class="ctr flex-col hide" id="card-back">
       <div class="back-img">
-        <img src="images/illustration-thank-you.svg">
+        <img src="images/illustration-thank-you.svg" alt="cartoon image of a device with ui">
       </div>
 
       <div class="score">
-        <p><span>You selected </span><span class="scoreNumber" id="scoreNumber">#</span><span> out of 5</span></p>
+        <p><span>You selected </span><span id="scoreNumber">#</span><span> out of 5</span></p>
       </div>
 
       <div class="back-text">
