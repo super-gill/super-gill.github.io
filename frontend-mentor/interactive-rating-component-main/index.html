@@ -4,18 +4,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- displays site properly based on user's device -->
-
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32x32.png">
-
   <title>Frontend Mentor | Interactive rating component</title>
+
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;700&display=swap" rel="stylesheet">
 
   <!-- Feel free to remove these styles or customise in your own stylesheet 👍 -->
   <style>
     * {
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
     }
 
     :root {
@@ -24,15 +25,19 @@
       --Light-Grey: hsl(217, 12%, 63%);
       --Medium-Grey: hsl(216, 12%, 54%);
       --Dark-Blue: hsl(213, 19%, 18%);
+      --Button-Blue: hsl(213, 19%, 25%);
       --Very-Dark-Blue: hsl(216, 12%, 8%);
+      --Orange: hsl(25, 97%, 53%);
 
       min-height: 100vh;
       size: 16px;
+      font-family: sans-serif;
+      color: var(--Light-Grey);
     }
 
     .flex-col {
       display: flex;
-      flex-direction: col;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
     }
@@ -44,19 +49,36 @@
       justify-content: center;
     }
 
+    /* front card styles */
+
     .ctr-circle {
       border-radius: 100%;
-      background-color: var(--Medium-Grey);
+      background-color: var(--Button-Blue);
       aspect-ratio: 1/1;
       width: 50px;
+      height: 50px;
+      transition: 0.5s;
+    }
+
+    .img-ctr {
+      width: 100%;
+      align-items: flex-start;
+      justify-content: flex-start;
     }
 
     h1 {
       color: var(--White);
+      width: 100%;
+      font-size: 1.65rem;
+      margin-bottom: 15px;
     }
 
-    p {
-      color: var(--Light-Grey)
+    .text>p,
+    .back-text>p {
+      color: var(--Light-Grey);
+      word-spacing: 2px;
+      font-size: 0.9rem;
+      line-height: 1.5;
     }
 
     body {
@@ -67,9 +89,85 @@
 
     .ctr {
       width: 350px;
+      height: 350px;
+      padding: 30px;
+      border-radius: 30px;
+      background-color: var(--Dark-Blue);
+      align-items: center;
+      justify-content: center;
     }
 
-    .rating {}
+    .ctr>.img-ctr,
+    .text,
+    .rating {
+      margin-bottom: 32px;
+    }
+
+    .text {
+      text-align: left;
+    }
+
+    .rating {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .rating-btn:hover {
+      background-color: var(--Orange);
+      color: white;
+    }
+
+    .onClick {
+      background-color: var(--Light-Grey) !important;
+      color: white;
+      transition: 0.5s;
+    }
+
+    .submit-btn {
+      padding: 10px;
+      width: 340px;
+      height: 45px;
+      background-color: var(--Orange);
+      border-radius: 100px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      font-size: 0.8rem;
+      border-style: none;
+    }
+
+    .submit-btn>span {
+      color: white;
+    }
+
+    .card-back {
+      justify-content: flex-start;
+      text-align: center;
+      padding-top: 20px;
+    }
+
+    .score {
+      background-color: var(--Button-Blue);
+      padding: 9px 20px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      letter-spacing: 0.5px;
+    }
+
+    .score>p>span {
+      color: var(--Orange);
+    }
+
+
+    /* Back card styles */
+
+    .back-img {
+      margin-top: 20px;
+    }
+
+    .score,
+    .back-text {
+      margin-top: 35px;
+    }
 
     /* Footer */
     .attribution {
@@ -85,49 +183,65 @@
 
 <body class="flex-col">
 
-  <!-- Rating state start -->
+  <main>
 
-  <div class="ctr">
-    <div class="flex-col ctr-circle"><img src="images/icon-star.svg"></div>
+    <!-- Rating state start -->
 
-    <h1>How did we do?</h1>
+    <div class="ctr card-front flex-col">
+      <div class="img-ctr">
+        <div class="flex-col ctr-circle"><img src="images/icon-star.svg"></div>
+      </div>
+      <div class="text flex-col">
+        <h1>How did we do?</h1>
 
-    <p>Please let us know how we did with your support request. All feedback is appreciated
-      to help us improve our offering!</p>
+        <p>Please let us know how we did with your support request. All feedback is appreciated
+          to help us improve our offering!</p>
+      </div>
 
-    <div class="rating flex-row">
-      <div class="flex-col ctr-circle">
-        <p>1</p>
+      <div class="rating flex-row front">
+        <div class="rating-btn flex-col ctr-circle" id="one">
+          <span>1</span>
+        </div>
+        <div class="rating-btn flex-col ctr-circle" id="two">
+          <span>2</span>
+        </div>
+        <div class="rating-btn flex-col ctr-circle" id="three">
+          <span>3</span>
+        </div>
+        <div class="rating-btn flex-col ctr-circle" id="four">
+          <span>4</span>
+        </div>
+        <div class="rating-btn flex-col ctr-circle" id="five">
+          <span>5</span>
+        </div>
       </div>
-      <div class="flex-col ctr-circle">
-        <p>2</p>
+      <button type="submit" class="submit-btn"><span>SUBMIT</span></button>
+    </div>
+
+    <!-- Rating state end -->
+
+    <!-- Thank you state start -->
+    <div class="card-back ctr flex-col">
+      <div class="back-img">
+        <img src="images/illustration-thank-you.svg">
       </div>
-      <div class="flex-col ctr-circle">
-        <p>3</p>
+
+      <div class="score">
+        <p><span>You selected </span><span class="scoreNumber" id="scoreNumber">#</span><span> out of 5</span></p>
       </div>
-      <div class="flex-col ctr-circle">
-        <p>4</p>
-      </div>
-      <div class="flex-col ctr-circle">
-        <p>5</p>
+
+      <div class="back-text">
+        <h1>Thank you!</h1>
+
+        <p>
+          We appreciate you taking the time to give a rating. If you ever need more support,
+          don’t hesitate to get in touch!
+        </p>
       </div>
     </div>
-    <div><p>Submit</p></div>
-  </div>
+    <!-- Thank you state end -->
 
-  <!-- Rating state end -->
-
-  <!-- Thank you state start -->
-  <div style="display:none">
-    You selected <!-- Add rating here --> out of 5
-
-    Thank you!
-
-    We appreciate you taking the time to give a rating. If you ever need more support,
-    don’t hesitate to get in touch!
-
-  </div>
-  <!-- Thank you state end -->
+  </main>
 
 
   <footer class="attribution" style="display:none">
@@ -135,10 +249,7 @@
     Coded by <a href="#">Your Name Here</a>.
   </footer>
 
-  <dcript>
-
-
-  </dcript>
+  <script src="java.js"></script>
 </body>
 
 </html>
