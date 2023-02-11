@@ -30,15 +30,15 @@ for (i = 0; i < 5; i++) {
             for (i = 0; i < 4; i++) {
                 document.getElementById(buttonID[i]).classList.remove("onClick");
             }
-        }     
-    })
-}
-
-function submit(submitReady) {
-    document.querySelector(".submit-btn").addEventListener("click", function () {
-        if (submitReady == "true") {
-            document.getElementById("card-front").classList.add("hide");
-            document.getElementById("card-back").classList.remove("hide");
-        } else { console.log("submit if failed") };
+        }
+        
+        function submit(submitReady) {
+            document.querySelector(".submit-btn").addEventListener("click", function () {
+                if (submitReady == "true") {
+                    document.getElementById("card-front").classList.add("hide");
+                    document.getElementById("card-back").classList.remove("hide");
+                } else { console.log("submit if failed") };
+            })
+        }
     })
 }

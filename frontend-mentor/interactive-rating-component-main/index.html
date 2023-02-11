@@ -1,18 +1,13 @@
 <!DOCTYPE html>
 <html class="flex-col" lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32x32.png">
-  <title>Frontend Mentor | Interactive rating component</title>
-
-  <!-- Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;700&display=swap" rel="stylesheet">
-
-  <!-- Feel free to remove these styles or customise in your own stylesheet 👍 -->
+  <title>Frontend Mentor | Interactive rating component</title>
   <style>
     * {
       margin: 0;
@@ -20,7 +15,6 @@
     }
 
     :root {
-      /* Colours */
       --White: hsl(0, 0%, 100%);
       --Light-Grey: hsl(217, 12%, 63%);
       --Medium-Grey: hsl(216, 12%, 54%);
@@ -29,7 +23,6 @@
       --Very-Dark-Blue: hsl(216, 12%, 8%);
       --Orange: hsl(25, 97%, 53%);
       --Orange-faded: hsl(25, 60%, 43%);
-
       min-height: 100vh;
       size: 16px;
       font-family: sans-serif;
@@ -50,14 +43,18 @@
       justify-content: center;
     }
 
+    .hide {
+      display: none;
+    }
+
     /* front card styles */
 
     .ctr-circle {
       border-radius: 100%;
       background-color: var(--Button-Blue);
       aspect-ratio: 1/1;
-      width: 50px;
-      height: 50px;
+      width: 3.125rem;
+      height: 3.125rem;
       transition: 0.5s;
     }
 
@@ -71,15 +68,16 @@
       color: var(--White);
       width: 100%;
       font-size: 1.65rem;
-      margin-bottom: 15px;
+      margin-bottom: 0.938rem;
     }
 
     .text>p,
     .back-text>p {
       color: var(--Light-Grey);
-      word-spacing: 2px;
+      word-spacing: 0.125rem;
       font-size: 0.9rem;
       line-height: 1.5;
+      text-align: left;
     }
 
     body {
@@ -89,27 +87,19 @@
     }
 
     .ctr {
-      width: 350px;
-      height: 350px;
-      padding: 30px;
-      border-radius: 30px;
+      width: 21.875rem;
+      height: 21.875rem;
+      padding: 1.875rem;
+      border-radius: 1.875rem;
       background-color: var(--Dark-Blue);
       align-items: center;
       justify-content: center;
     }
 
-    .hide {
-      display: none;
-    }
-
     .ctr>.img-ctr,
     .text,
     .rating {
-      margin-bottom: 32px;
-    }
-
-    .text {
-      text-align: left;
+      margin-bottom: 2rem;
     }
 
     .rating-btn {
@@ -135,32 +125,28 @@
     }
 
     .submit-btn {
-      padding: 10px;
-      width: 340px;
-      height: 45px;
+      padding: 0.625rem;
+      width: 100%;
+      height: 2.813rem;
       background-color: var(--Medium-Grey);
-      border-radius: 100px;
+      border-radius: 6.25rem;
       font-weight: bold;
-      letter-spacing: 2px;
+      letter-spacing: 0.125rem;
       font-size: 0.8rem;
       border-style: none;
       transition: 0.5s;
     }
 
-    .superSubmit {
+    .superSubmit,
+    .submitOnClick {
       transition: 0.3s;
       background-color: var(--Orange-faded);
     }
 
     .superSubmit:hover {
-      transition: 0.5s;
+      transition: 0.3s;
       background-color: var(--Orange);
       cursor: pointer;
-    }
-
-    .submitOnClick {
-      transition: 0.5s;
-      background-color: var(--Orange-faded) !important;
     }
 
     .submit-btn>span {
@@ -169,31 +155,33 @@
 
     .score {
       background-color: var(--Button-Blue);
-      padding: 9px 20px;
-      border-radius: 20px;
+      padding: 0.563rem 1.25rem;
+      border-radius: 1.25rem;
       font-size: 0.9rem;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.031;
     }
 
     .score>p>span {
       color: var(--Orange);
     }
 
-    /* Back card styles */
-
     .back-img {
-      margin-top: 20px;
+      margin-top: 1.25rem;
     }
 
     .score,
     .back-text {
-      margin-top: 35px;
+      margin-top: 2.188rem;
     }
 
     /* Footer */
     .attribution {
-      font-size: 11px;
+      position: absolute;
+      bottom: 0%;
+      margin: 1.25rem 0;
+      font-size: 0.688rem;
       text-align: center;
+      z-index: -1;
     }
 
     .attribution a {
@@ -203,74 +191,59 @@
 </head>
 
 <body class="flex-col">
-
   <main>
-
-    <!-- Rating state start -->
-
-    <div class="ctr flex-col" id="card-front">
-      <div class="img-ctr">
-        <div class="flex-col ctr-circle"><img src="images/icon-star.svg" alt="star icon"></div>
-      </div>
-      <div class="text flex-col">
-        <h1>How did we do?</h1>
-
-        <p>Please let us know how we did with your support request. All feedback is appreciated
-          to help us improve our offering!</p>
-      </div>
-
-      <div class="rating flex-row">
-        <div class="rating-btn flex-col ctr-circle" id="one">
-          <span>1</span>
+    <section>
+      <div class="ctr flex-col" id="card-front">
+        <div class="img-ctr">
+          <div class="flex-col ctr-circle"><img src="images/icon-star.svg" alt="star icon"></div>
         </div>
-        <div class="rating-btn flex-col ctr-circle" id="two">
-          <span>2</span>
+        <div class="text flex-col">
+          <h1>How did we do?</h1>
+          <p>Please let us know how we did with your support request. All feedback is appreciated
+            to help us improve our offering!</p>
         </div>
-        <div class="rating-btn flex-col ctr-circle" id="three">
-          <span>3</span>
+        <div class="rating flex-row">
+          <div class="rating-btn flex-col ctr-circle" id="one">
+            <span>1</span>
+          </div>
+          <div class="rating-btn flex-col ctr-circle" id="two">
+            <span>2</span>
+          </div>
+          <div class="rating-btn flex-col ctr-circle" id="three">
+            <span>3</span>
+          </div>
+          <div class="rating-btn flex-col ctr-circle" id="four">
+            <span>4</span>
+          </div>
+          <div class="rating-btn flex-col ctr-circle" id="five">
+            <span>5</span>
+          </div>
         </div>
-        <div class="rating-btn flex-col ctr-circle" id="four">
-          <span>4</span>
+        <button class="submit-btn"><span>SUBMIT</span></button>
+      </div>
+    </section>
+    <section>
+      <div class="ctr flex-col hide" id="card-back">
+        <div class="back-img">
+          <img src="images/illustration-thank-you.svg" alt="cartoon image of a device with ui">
         </div>
-        <div class="rating-btn flex-col ctr-circle" id="five">
-          <span>5</span>
+        <div class="score">
+          <p><span>You selected </span><span id="scoreNumber">#</span><span> out of 5</span></p>
+        </div>
+        <div class="back-text">
+          <h1>Thank you!</h1>
+          <p>
+            We appreciate you taking the time to give a rating. If you ever need more support,
+            don’t hesitate to get in touch!
+          </p>
         </div>
       </div>
-      <button class="submit-btn"><span>SUBMIT</span></button>
-    </div>
-
-    <!-- Rating state end -->
-
-    <!-- Thank you state start -->
-    <div class="ctr flex-col hide" id="card-back">
-      <div class="back-img">
-        <img src="images/illustration-thank-you.svg" alt="cartoon image of a device with ui">
-      </div>
-
-      <div class="score">
-        <p><span>You selected </span><span id="scoreNumber">#</span><span> out of 5</span></p>
-      </div>
-
-      <div class="back-text">
-        <h1>Thank you!</h1>
-
-        <p>
-          We appreciate you taking the time to give a rating. If you ever need more support,
-          don’t hesitate to get in touch!
-        </p>
-      </div>
-    </div>
-    <!-- Thank you state end -->
-
+    </section>
   </main>
-
-
-  <footer class="attribution" style="display:none">
+  <footer class="attribution">
     Challenge by <a href="https://www.frontendmentor.io?ref=challenge" target="_blank">Frontend Mentor</a>.
-    Coded by <a href="#">Your Name Here</a>.
+    Coded by <a href="#">Jason Mcdill</a>.
   </footer>
-
   <script src="java.js"></script>
 </body>
-
 </html>
