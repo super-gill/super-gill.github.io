@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html class="flex-col" lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- displays site properly based on user's device -->
+
+  <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
+
+  <title>Frontend Mentor | Tip calculator app</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    :root {
+      --Strong-cyan: hsl(172, 67%, 45%);
+      --Very-dark-cyan: hsl(183, 100%, 15%);
+      --Dark-grayish-cyan: hsl(186, 14%, 43%);
+      --Grayish-cyan: hsl(184, 14%, 56%);
+      --Light-grayish-cyan: hsl(185, 41%, 84%);
+      --Very-light-grayish-cyan: hsl(189, 41%, 97%);
+      --White: hsl(0, 0%, 100%);
+      min-height: 100vh;
+    }
+
+    .flex-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .flex-row {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+    }
+
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    .option-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      grid-template-areas: 
+      "opt1 opt2 opt3"
+      "opt4 opt5 opt6";
+    }
+
+    div[class*="opt" i] {
+      border: solid black;
+    }
+
+    .opt1 {
+      border-style: solid black;
+    }
+
+    .attribution {
+      font-size: 11px;
+      text-align: center;
+    }
+
+    .attribution a {
+      color: hsl(228, 45%, 44%);
+    }
+  </style>
+</head>
+
+<body>
+  <main class="flex-col">
+
+
+    <h1>SPLI<br>TTER</h1>
+
+    <div>
+      <div>
+
+        <div>
+          <p>Bill</p>
+          <input type="text">
+        </div>
+
+        <div>
+          <p>Select Tip %</p>
+        </div>
+
+        <div class="option-grid">
+          <div class="opt1">5%</div>
+          <div class="opt2">10%</div>
+          <div class="opt3">15%</div>
+          <div class="opt4">25%</div>
+          <div class="opt5">50%</div>
+          <div class="opt6"><input type="text" placeholder="Custom"></div>
+        </div>
+
+        <div>
+          <p>Number of People</p>
+          <input type="text">
+        </div>
+
+      </div>
+
+      <div>
+
+        <div>
+          <p>Tip Amount</p>
+          <p>/ person</p>
+        </div>
+
+        <div>
+          <p>Total</p>
+          <p>/ person</p>
+        </div>
+
+        <div>
+          <p>Reset</p>
+        </div>
+
+      </div>
+
+
+    </div>
+
+    <div class="attribution">
+      Challenge by <a href="https://www.frontendmentor.io?ref=challenge" target="_blank">Frontend Mentor</a>.
+      Coded by <a href="#">Your Name Here</a>.
+    </div>
+
+
+  </main>
+</body>
+
+</html>
