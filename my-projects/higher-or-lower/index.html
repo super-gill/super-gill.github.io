@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html class="flex-col" lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Higher or Lower</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        :root {
+            font-size: 16px;
+            font-family: monospace;
+            min-height: 75vh;
+        }
+
+        body {
+            height: 100%;
+            width: 100%;
+        }
+
+        .flex-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .flex-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .guess-buttons {
+            width: 200px;
+            height: 20%;
+        }
+
+        .history {
+            height: 80%;
+        }
+        
+        .container {
+            width: 600px;
+            height: 600px;
+            border: solid black;
+        }
+
+        .left-pane {
+            height: 100%;
+            justify-content: flex-start;
+        }
+
+        .right-pane {
+            height: 100%;
+            border: solid black;
+            width: 10rem;
+        }
+
+        .card-back-img {
+            object-fit: contain;
+            width: 100%;
+        }
+
+        button {
+            height: 50%;
+            width: 50%;
+        }
+    </style>
+
+</head>
+
+<body class="flex-col">
+    <H1>Higher or Lower!</H1>
+    <div class="container flex-row">
+
+        <div class="left-pane flex-col">
+            <div class="guess-buttons flex-col">
+                <button class="game-button" value="higher">HIGHER!</button>
+                <button class="game-button" value="lower">LOWER!</button>
+            </div>
+            <div class="history flex-col">
+                    <p>LAST CARD: <br><span>[PLACEHOLDER]</span></p>
+            </div>
+        </div>
+
+        <div class="right-pane flex-row">
+            <div class="card-back">
+                <p>Card Back</p>
+            </div>
+            <div class="card-front hidden"></div>
+        </div>
+
+    </div>
+
+    <div>
+        <div class="history">
+            <p>[PLACEHOLDER HISTORY TEXT]</p>
+        </div>
+    </div>
+    <script src="java.js"></script>
+</body>
+
+</html>
