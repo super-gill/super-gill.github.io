@@ -1,100 +1,75 @@
-let randomNumber = Math.floor(Math.random() * 2);
-let continueGame = true;
-let level = 0;
-let randomPattern = [];
-let currentUserClick;
-let buttonClicked;
+let userSelection;
+let computerSelection;
+let randomNumber = Math.floor(Math.random * 2) + 1;
+let history = [];
+let level;
+let pauseGame = true;
 
-pressAnyKey();
+const title = document.querySelector("h1");
+const redBTN = document.querySelector(".red");
+const blueBTN = document.querySelector(".blue");
+const redBTNValue = document.querySelector(".red").value;
+const BlueBTNValue = document.querySelector(".blue").value;
 
-function pressAnyKey() {
-  if (continueGame) {
-    document.addEventListener(
-      "click",
-      () => {
-        computerPress();
-        setTimeout(() => {
-          document.querySelector(
-            "h1"
-          ).innerHTML = `Click what the computer pressed:
-            Level ${level}`;
-        }, 1500);
-      },
-      { once: true }
-    );
-  }
+
+pause();
+
+
+function pause() {
+  title.innerHTML = ("Game paused, click HERE to continue");
+  if (pauseGame) {
+    title.addEventListener("click", function () {
+      title.innerHTML = ("Wait for the computer to go!");
+      computerClick();
+    })
+  } return -1;
 }
 
-function computerPress() {
-  if (continueGame) {
-    if (randomNumber === 0) {
+function computerClick() {
+  if (pauseGame == true) {
+    if (randomNumber == 1) {
       setTimeout(() => {
-        document.querySelector(".red").classList.add("pressed");
+        redBTN.classList.add("pressed");
       }, 500);
       setTimeout(() => {
-        document.querySelector(".red").classList.remove("pressed");
+        redBTN.classList.remove("pressed");
       }, 600);
+      computerSelection = 1;
+      console.log("The computer chose the RED button");
+      userClick();
+
     } else {
       setTimeout(() => {
-        document.querySelector(".blue").classList.add("pressed");
+        blueBTN.classList.add("pressed");
       }, 500);
       setTimeout(() => {
-        document.querySelector(".blue").classList.remove("pressed");
+        blueBTN.classList.remove("pressed");
       }, 600);
+      computerSelection = 2;
+      console.log("The computer chose the BLUE button");
+      userClick();
     }
-    randomPattern.push(randomNumber);
-    randomNumber = Math.floor(Math.random() * 2);
   }
-  continueGame = false; //to prevent continuous clicking to trigger this function
-  userClick();
 }
 
 function userClick() {
-  continueGame = true;
-  if (continueGame) {
-    let buttons = document.querySelectorAll(".btn");
-    for (const button of buttons) {
-      button.addEventListener("click", identifyUserClick);
-      //   console.log(button);
 
-      function identifyUserClick() {
-        buttonClicked = this;
-        console.log(buttonClicked);
+  for (var i = 1; i <= 2; i++) {
+    document.querySelectorAll(".btn")[i].addEventListener("click", function () {
 
-        // to apply the animation to show which button was clicked
-        if (buttonClicked.classList.contains("red")) {
-          buttonClicked.classList.add("pressed");
-          setTimeout(() => {
-            buttonClicked.classList.remove("pressed");
-          }, 100);
-          currentUserClick = 0;
-        } else {
-          buttonClicked.classList.add("pressed");
-          setTimeout(() => {
-            buttonClicked.classList.remove("pressed");
-          }, 100);
-          currentUserClick = 1;
-        }
-        //checks for match
-        checkForMatch();
+      userSelection = this;
+
+      if (userSelection.classList.contains("red")) {
+        buttonClicked.classList.add("pressed");
+        setTimeout(() => {
+          userSelection.classList.remove("pressed");
+        }, 100);
+      } else {
+        userSelection.classList.add("pressed");
+        setTimeout(() => {
+          userSelection.classList.remove("pressed");
+        }, 100);
       }
-    }
-  }
-}
-
-function checkForMatch() {
-  if (currentUserClick === randomPattern[level]) {
-    if (level > 1) {
-      console.log("correct");
-    } else {
-      console.log("correct");
-      level = ++level;
-      document.querySelector("h1").innerHTML = `Click what the computer pressed:
-            Level ${level}`;
-      //   button.removeEventListener("click", identifyUserClick);
-    }
-  } else {
-    console.log("Game over");
-    // button.removeEventListener("click", identifyUserClick);
+    })
   }
 }
