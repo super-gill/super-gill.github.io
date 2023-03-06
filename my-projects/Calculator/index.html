@@ -26,7 +26,8 @@
         font-size: 36px;
         margin-bottom: 10px;
         padding: 10px;
-        border: none;
+        border: solid black 2px;
+        border-radius: 5px;
         outline: none;
         width: 100%;
         background-color: #fff;
@@ -67,7 +68,7 @@
         <button onclick="add('7')">7</button>
         <button onclick="add('8')">8</button>
         <button onclick="add('9')">9</button>
-        <button onclick="clear()">C</button>
+        <button onclick="clearAll()">C</button>
       </div>
       <div class="row">
         <button onclick="add('4')">4</button>
@@ -100,7 +101,7 @@
         result.value = eval(result.value);
       }
       
-      function clear() {
+      function clearAll() {
         result.value = '';
       }
     </script>
