@@ -9,6 +9,8 @@ var history = [];
 var userGuess = undefined;
 var activeCard;
 var nextCard;
+var previousCard;
+
 
 var randomSuitOne;
 var randomCardOne;
@@ -119,7 +121,6 @@ function gamePlay() {
         checkUserGuess();
     }
 }
-
 
 function checkUserGuess() {
     switch (userGuess) {
