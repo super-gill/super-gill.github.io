@@ -1,9 +1,12 @@
+console.log(">>>>>>>>>>>>>>>>>>>>>>> SCRIPT START");
+
+console.log("variables are defined");
 var suitClubs = [];
 var suitDiamonds = [];
 var suitHearts = [];
 var suitSpade = [];
 var history = [];
-var userGuess;
+var userGuess = undefined;
 var activeCard;
 var nextCard;
 
@@ -15,17 +18,18 @@ var randomCardTwo;
 var activeCardValue;
 var nextCardValue;
 
+var gameCycle = 0;
 
 const card = document.querySelector(".card");
 const title = document.querySelector(".title");
 const historyP = document.querySelector(".history-p");
 
-
-console.log("Called buildDeck");
+console.log("buildDeck() is called")
 buildDeck();
 
 
 function buildDeck() {
+    console.log("Deck is built");
     for (i = 1; i <= 13; i++) {
         suitDiamonds.push(i + " Diamond");
     }
@@ -39,19 +43,20 @@ function buildDeck() {
         suitSpade.push(i + " Spade");
     }
     var deck = suitClubs.concat(suitDiamonds, suitHearts, suitSpade);
-    console.log("Built the deck, called cardChoice");
+    console.log("cardChoice is called");
     cardChoice();
 };
 
 function cardChoice() {
-    console.log("Change title to Higher or Lower!");
+    gameCycle = gameCycle + 1;
+    console.log(">>>>>>>>>>>>>>>>>>>>>>> GAME CYCLE START");
     title.innerHTML = "Higher or Lower!"
 
-    console.log("Call activeSequenceCard");
     activeSequenceCard();
+    // console.log("activeSequenceCard is called to randomize the active card");
 
     function activeSequenceCard() {
-        randomSuitOne = Math.floor((Math.random() * 4)+1);
+        randomSuitOne = Math.floor((Math.random() * 4) + 1);
         randomCardOne = Math.floor((Math.random() * 13));
 
         switch (randomSuitOne) {
@@ -72,102 +77,99 @@ function cardChoice() {
                 break;
         }
         card.innerHTML = activeCard;
-        console.log("Call nextSequenceCard");
         nextSequenceCard();
     }
 
     function nextSequenceCard() {
-        randomSuitTwo = Math.floor((Math.random() * 4)+1);
+        randomSuitTwo = Math.floor((Math.random() * 4) + 1);
         randomCardTwo = Math.floor((Math.random() * 13));
-
         switch (randomSuitTwo) {
             case 1:
                 nextCard = suitClubs[randomCardTwo];
                 break;
-
             case 2:
                 nextCard = suitDiamonds[randomCardTwo];
                 break;
-
             case 3:
                 nextCard = suitSpade[randomCardTwo];
                 break;
-
             case 4:
                 nextCard = suitHearts[randomCardTwo];
                 break;
         }
         historyP.innerHTML = ("The next card will be: " + nextCard);
-        console.log("Call gamePlay")
-        gamePlay();
-
+        console.log("randomSuitOne is: " + randomSuitOne + " randomCardOne is: " + randomCardOne);
+        console.log("randomSuitTwo is: " + randomSuitTwo + " randomCardTwo is: " + randomCardTwo);
     }
-
-
-
-    console.log("At the end of cardSelection, activeCard is: " + activeCard);
-
 }
 
 function gamePlay() {
-    console.log("Create game loop");
 
-    for (i = 0; i < 2; i++) {
+    activeCardValue = activeCard.split(" ");
+    activeCardValue = parseInt(activeCardValue.splice(0, 1));
+    console.log("activeCardValue is: " + activeCardValue);
 
-        document.getElementsByClassName("game-button")[i].addEventListener("click", function () {
+    nextCardValue = nextCard.split(" ");
+    nextCardValue = parseInt(nextCardValue.splice(0, 1));
+    console.log("nextCardValue is: " + nextCardValue);
 
-            activeCardValue = activeCard.split(" ");
-            activeCardValue.splice(1, 1);
-            console.log("activeCardValue is:" + activeCardValue)
-
-            nextCardValue = nextCard.split(" ");
-            nextCardValue.splice(1, 1);
-            console.log("nextCardValue is:" + nextCardValue)
-
-            userGuess = parseInt(this.value);
-            console.log("The user clicked button (1=higher 2=lower): " + userGuess);
-
-            switch (parseInt(userGuess)) {
-                case 1:
-                    if (parseInt(activeCardValue) >= parseInt(nextCardValue)) {
-
-                        console.log("User selection was correct");
-
-                        console.log("change title to CORRECT!");
-                        title.innerHTML = "CORRECT!"
-
-                        console.log("wait 5 seconds");
-                        setTimeout(cardChoice, 2000);
-
-                    } else {
-                        console.log("User selection was wrong, game ended");
-
-                        title.innerHTML = "GAME OVER!"
-                    }
-                    break;
-
-                case 2:
-                    if (parseInt(activeCardValue) <= parseInt(nextCardValue)) {
-
-                        console.log("User selection was correct");
-
-                        console.log("change title to CORRECT!");
-                        title.innerHTML = "CORRECT!"
-
-                        console.log("wait 5 seconds");
-                        setTimeout(cardChoice, 2000);
-                    } else {
-                        console.log("User selection was wrong, game ended");
-
-                        title.innerHTML = "GAME OVER!"
-                    }
-                    break;
-            }
-        })
+    if (userGuess == undefined) {
+        makeUserGuess();
+    } else {
+        checkUserGuess();
     }
 }
 
 
+function checkUserGuess() {
+    switch (userGuess) {
+        case 1: console.log("User clicked HIGHER");
+            if (activeCardValue <= nextCardValue) {
+                console.log("Case 1: TRUE fired");
+                title.innerHTML = "CORRECT!"
+                userGuess = undefined;
+                setTimeout(cardChoice, 2000);
+                console.log(">>>>>>>>>>>>>>>>>>>>>>> GAME CYCLE ENDS, this is cycle: " + gameCycle);
+                break;
+            } else {
+                console.log("Case 1: FALSE fired");
+                title.innerHTML = "GAME OVER!"
+                userGuess = undefined;
+            }
+            break;
+        case 2: console.log("User clicked LOWER");
+            if (activeCardValue >= nextCardValue) {
+                console.log("Case 2: TRUE fired - GAME ENDED");
+                title.innerHTML = "CORRECT!"
+                userGuess = undefined;
+                setTimeout(cardChoice, 2000);
+                console.log(">>>>>>>>>>>>>>>>>>>>>>> GAME CYCLE ENDS, this is cycle: " + gameCycle);
+                break;
+            } else {
+                console.log("Case 2: FALSE fired - GAME ENDED");
+                title.innerHTML = "GAME OVER!"
+                userGuess = undefined;
+            }
+            break;
+    }
+}
 
+function makeUserGuess() {
 
+    document.querySelector("#high").addEventListener("click", function () { 
+        console.log("High button clicked.");
+        userGuess = parseInt(this.value); 
+        checkUserGuess();
+        gamePlay();
+    });
+    
+    document.querySelector("#low").addEventListener("click", function () { 
+        console.log("Low button clicked.");
+        userGuess = parseInt(this.value); 
+        checkUserGuess();
+        gamePlay();
+    });;
 
+}
+
+makeUserGuess();
