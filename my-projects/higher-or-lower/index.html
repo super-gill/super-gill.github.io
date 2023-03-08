@@ -1,13 +1,7 @@
 <!DOCTYPE html>
 <html class="flex-col" lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Higher or Lower</title>
-
-    <style>
+<style>
         * {
             box-sizing: border-box;
         }
@@ -59,8 +53,20 @@
         }
 
         button {
-            height: 100px;
-            width: 200px;
+            border-radius: 5px;
+            margin: 10px;
+            height: 50px;
+            width: 100px;
+        }
+
+        button:hover {
+            background-color: lightgray;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        button:active {
+            background-color: grey;
         }
 
         .last-card {
@@ -86,6 +92,10 @@
         .history {
             height: 80%;
         }
+
+        .hidden {
+            display: none;
+        }
     </style>
 
 </head>
@@ -96,12 +106,12 @@
 
         <div class="left-pane flex-col">
 
-            <div class="guess-buttons flex-col">
-                <button class="game-button" id="high" value="1">HIGHER!</button>
-                <button class="game-button" id="low" value="2">LOWER!</button>
+            <div class="guess-buttons flex-row">
+                <button class="game-button" id="high" onclick="higher()" value="1">HIGHER!</button>
+                <button class="game-button" id="low" onclick="lower()" value="2">LOWER!</button>
             </div>
             <div class="last-card flex-col">
-                    <p>LAST CARD: <br><span id="last-card">[PLACEHOLDER]</span></p>
+                <p>LAST CARD: <br><span id="last-card">[PLACEHOLDER]</span></p>
             </div>
         </div>
 
@@ -117,9 +127,9 @@
         <div>
             <p class="history-p"></p>
         </div>
-            <div class="flex-col">
-                <p id="deck">[PLACEHOLDER CARD]</p>
-            </div>
+        <div class="flex-col">
+            <p id="deck">[PLACEHOLDER CARD]</p>
+        </div>
     </div>
     <script src="java.js"></script>
 </body>

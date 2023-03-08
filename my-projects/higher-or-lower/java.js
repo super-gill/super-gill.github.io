@@ -10,6 +10,7 @@ var nextCard;
 var previousCard;
 var guessListenersAdded = false;
 var score = '-1';
+var buttonDisable = false;
 
 var activeCardRandomizer = 0;
 var nextCardRandomizer = 0;
@@ -31,7 +32,7 @@ buildDeck();
 function gameStart() {
     title.innerHTML = "Welcome to Higher or Lower!";
     score = 0;
-    setTimeout(buildDeck, 5000);
+    setTimeout(buildDeck, 2000);
 }
 
 function buildDeck() {
@@ -58,7 +59,7 @@ function buildDeck() {
 
 function cardChoice() {
     gameCycle = gameCycle + 1;
-    title.innerHTML = "Higher or Lower!"
+    title.innerHTML = "Make your guess: Higher or Lower!"
     userGuess = undefined;
     activeSequenceCard();
 
@@ -76,84 +77,125 @@ function cardChoice() {
         nextSequenceCard();
     }
 
-    function nextSequenceCard() {      
+    function nextSequenceCard() {
         nextCardRandomizer = Math.floor((Math.random() * deck.length));
         nextCard = deck[nextCardRandomizer];
-        console.log("The next card will be: " + nextCard);        
+        console.log("The next card will be: " + nextCard);
+        createCardObject()
     }
 }
 
 function createCardObject() {
-    if (userGuess == undefined) {
-        makeUserGuess();
-    } else {
         activeCardValue = activeCard.split(" ");
         activeCardValue = parseInt(activeCardValue.splice(0, 1));
         nextCardValue = nextCard.split(" ");
         nextCardValue = parseInt(nextCardValue.splice(0, 1));
-        checkUserGuess();
+        // checkUserGuess();
+        // do nothing
+        buttonDisable = false;
+        console.log("paused");
+}
+
+// function makeUserGuess() {
+//     if (!guessListenersAdded) {
+//         document.querySelector("#high").addEventListener("click", function () {
+//             userGuess = parseInt(this.value);
+//             createCardObject();
+//         });
+
+//         document.querySelector("#low").addEventListener("click", function () {
+//             userGuess = parseInt(this.value);
+//             createCardObject();
+//         });
+//         guessListenersAdded = true;
+//     }
+
+// }
+
+function higher() {
+    if (buttonDisable == true) {
+        // do nothing
+    } else {
+        console.log("higher button was pressed");
+        userGuess = 1;
+        buttonDisable = true;
+        checkUserGuess()
     }
 }
 
-function makeUserGuess() {
-    if (!guessListenersAdded) {
-        document.querySelector("#high").addEventListener("click", function () {
-            userGuess = parseInt(this.value);
-            createCardObject();
-        });
-
-        document.querySelector("#low").addEventListener("click", function () {
-            userGuess = parseInt(this.value);
-            createCardObject();
-        });
-        guessListenersAdded = true;
+function lower() {
+    if (buttonDisable == true) {
+        // do nothing
+    } else {
+        console.log("lower button was pressed");
+        userGuess = 2;
+        buttonDisable = true;
+        checkUserGuess()
     }
-
 }
 
 function checkUserGuess() {
-    switch (userGuess) {
-        case 1:
-            if (nextCardValue >= activeCardValue) {
-                title.innerHTML = "CORRECT!"
-                document.querySelector("#high").removeEventListener("click", makeUserGuess);
-                document.querySelector("#low").removeEventListener("click", makeUserGuess);
-                userGuess = undefined;
-                lastCardOut.innerHTML = activeCard;
-                gameHistory.push(" "+activeCard);
-                deck.splice(activeCardRandomizer, 1);
-                deckOutput.innerHTML = gameHistory;
-                guessListenersAdded = false;
-                setTimeout(cardChoice, 2000);
+    if (userGuess == false) {
+        // do nothing
+        console.log("paused");
+    } else {
+        switch (userGuess) {
+            case 1:
+                if (nextCardValue >= activeCardValue) {
+                    console.log("case 1 true");
+                    console.log("nextCardValue " + nextCardValue);
+                    console.log("activeCardValue " + activeCardValue);
+                    title.innerHTML = "CORRECT!"
+                    // document.querySelector("#high").removeEventListener("click", makeUserGuess);
+                    // document.querySelector("#low").removeEventListener("click", makeUserGuess);
+                    userGuess = undefined;
+                    lastCardOut.innerHTML = activeCard;
+                    gameHistory.push(" " + activeCard);
+                    deck.splice(activeCardRandomizer, 1);
+                    deckOutput.innerHTML = gameHistory;
+                    guessListenersAdded = false;
+                    score++;
+                    setTimeout(cardChoice, 2000);
+                    break;
+                } else {
+                    console.log("case 1 false")
+                    console.log("nextCardValue " + nextCardValue);
+                    console.log("activeCardValue " + activeCardValue);
+                    title.innerHTML = "GAME OVER!"
+                }
                 break;
-            } else {
-                title.innerHTML = "GAME OVER!"
-            }
-            break;
-        case 2:
-            if (activeCardValue >= nextCardValue) {
-                title.innerHTML = "CORRECT!"
-                document.querySelector("#high").removeEventListener("click", makeUserGuess);
-                document.querySelector("#low").removeEventListener("click", makeUserGuess);
-                userGuess = undefined;
-                lastCardOut.innerHTML = activeCard;
-                gameHistory.push(" "+activeCard);
-                deck.splice(activeCardRandomizer, 1);
-                deckOutput.innerHTML = gameHistory;
-                guessListenersAdded = false;
-                setTimeout(cardChoice, 2000);
+            case 2:
+                if (activeCardValue >= nextCardValue) {
+                    console.log("case 2 true");
+                    console.log("nextCardValue " + nextCardValue);
+                    console.log("activeCardValue " + activeCardValue);
+                    title.innerHTML = "CORRECT!"
+                    // document.querySelector("#high").removeEventListener("click", makeUserGuess);
+                    // document.querySelector("#low").removeEventListener("click", makeUserGuess);
+                    userGuess = undefined;
+                    lastCardOut.innerHTML = activeCard;
+                    gameHistory.push(" " + activeCard);
+                    deck.splice(activeCardRandomizer, 1);
+                    deckOutput.innerHTML = gameHistory;
+                    guessListenersAdded = false;
+                    score++;
+                    setTimeout(cardChoice, 2000);
+                    break;
+                } else {
+                    console.log("case 2 false");
+                    console.log("nextCardValue " + nextCardValue);
+                    console.log("activeCardValue " + activeCardValue);
+                    gameOver();
+                }
                 break;
-            } else {
-                gameOver()
-            }
-            break;
+        }
     }
 }
 
 function gameOver() {
-    title.innerHTML = (" GAME OVER !")
-    document.querySelector("#high").removeEventListener("click", makeUserGuess);
-    document.querySelector("#low").removeEventListener("click", makeUserGuess);
+    title.innerHTML = (" GAME OVER ! The next card was " + nextCard + " Your score was: " + score)
+    // document.querySelector("#high").removeEventListener("click", makeUserGuess);
+    // document.querySelector("#low").removeEventListener("click", makeUserGuess);
 }
 
-makeUserGuess();
+//makeUserGuess();
