@@ -88,7 +88,6 @@ function cardChoice() {
     function nextSequenceCard() {
         nextCardRandomizer = Math.floor((Math.random() * deck.length));
         nextCard = deck[nextCardRandomizer];
-        console.log("The next card will be: " + nextCard);
         createCardObject()
     }
 }
@@ -98,17 +97,14 @@ function createCardObject() {
     activeCardValue = parseInt(activeCardValue.splice(0, 1));
     nextCardValue = nextCard.split(" ");
     nextCardValue = parseInt(nextCardValue.splice(0, 1));
-    // checkUserGuess();
-    // do nothing
     buttonDisable = false;
-    console.log("paused");
+    // do nothing
 }
 
 function higher() {
     if (buttonDisable == true) {
         // do nothing
     } else {
-        console.log("higher button was pressed");
         userGuess = 1;
         buttonDisable = true;
         checkUserGuess()
@@ -119,7 +115,6 @@ function lower() {
     if (buttonDisable == true) {
         // do nothing
     } else {
-        console.log("lower button was pressed");
         userGuess = 2;
         buttonDisable = true;
         checkUserGuess()
@@ -131,24 +126,18 @@ function cheatTurn() {
         cheatLivesRemaining.innerHTML = nextCard;
         cheatLives--
     } else {
-        chetTurn.innerHTML = "ALL OUTTA LIVES!";
+        cheatLivesRemaining.innerHTML = "ALL OUTTA LIVES!";
     }
 }
 
 function checkUserGuess() {
     if (userGuess == false) {
         // do nothing
-        console.log("paused");
     } else {
         switch (userGuess) {
             case 1:
                 if (nextCardValue >= activeCardValue) {
-                    console.log("case 1 true");
-                    console.log("nextCardValue " + nextCardValue);
-                    console.log("activeCardValue " + activeCardValue);
                     title.innerHTML = "CORRECT!"
-                    // document.querySelector("#high").removeEventListener("click", makeUserGuess);
-                    // document.querySelector("#low").removeEventListener("click", makeUserGuess);
                     userGuess = undefined;
                     lastCardOut.innerHTML = activeCard;
                     gameHistory.push(" " + activeCard);
@@ -162,20 +151,12 @@ function checkUserGuess() {
                     setTimeout(cardChoice, 2000);
                     break;
                 } else {
-                    console.log("case 1 false")
-                    console.log("nextCardValue " + nextCardValue);
-                    console.log("activeCardValue " + activeCardValue);
                     title.innerHTML = "GAME OVER!"
                 }
                 break;
             case 2:
                 if (activeCardValue >= nextCardValue) {
-                    console.log("case 2 true");
-                    console.log("nextCardValue " + nextCardValue);
-                    console.log("activeCardValue " + activeCardValue);
                     title.innerHTML = "CORRECT!"
-                    // document.querySelector("#high").removeEventListener("click", makeUserGuess);
-                    // document.querySelector("#low").removeEventListener("click", makeUserGuess);
                     userGuess = undefined;
                     lastCardOut.innerHTML = activeCard;
                     gameHistory.push(" " + activeCard);
@@ -189,9 +170,6 @@ function checkUserGuess() {
                     setTimeout(cardChoice, 2000);
                     break;
                 } else {
-                    console.log("case 2 false");
-                    console.log("nextCardValue " + nextCardValue);
-                    console.log("activeCardValue " + activeCardValue);
                     gameOver();
                 }
                 break;
