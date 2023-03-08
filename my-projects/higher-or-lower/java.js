@@ -9,8 +9,9 @@ var activeCard;
 var nextCard;
 var previousCard;
 var guessListenersAdded = false;
-var score = '-1';
+var score = '0';
 var buttonDisable = false;
+var cheatLives = 3;
 
 var activeCardRandomizer = 0;
 var nextCardRandomizer = 0;
@@ -25,6 +26,12 @@ const title = document.querySelector(".title");
 const historyP = document.querySelector(".history-p");
 const deckOutput = document.querySelector("#deck");
 const lastCardOut = document.querySelector("#last-card");
+const scoreHTML = document.querySelector("#score");
+const cheatLivesRemaining = document.querySelector("#livesRemaining");
+const deckCounter = document.querySelector("#deck-count");
+const scoreBoard = document.querySelector("#scoreboard");
+cheatLivesRemaining.innerHTML = (cheatLives);
+scoreHTML.innerHTML = score;
 
 
 buildDeck();
@@ -36,7 +43,7 @@ function gameStart() {
 }
 
 function buildDeck() {
-    if (score == '-1') {
+    if (score === '0' ?? deck.length == 0) {
         gameStart();
     } else {
 
@@ -53,8 +60,9 @@ function buildDeck() {
             suitSpade.push(i + " Spade");
         }
         deck = suitClubs.concat(suitDiamonds, suitHearts, suitSpade);
+        deckCounter.innerHTML = deck.length;
         cardChoice();
-    } deckOutput.innerHTML = gameHistory;
+    } deckOutput.innerHTML = "Previous cards will appear here!";
 };
 
 function cardChoice() {
@@ -86,14 +94,14 @@ function cardChoice() {
 }
 
 function createCardObject() {
-        activeCardValue = activeCard.split(" ");
-        activeCardValue = parseInt(activeCardValue.splice(0, 1));
-        nextCardValue = nextCard.split(" ");
-        nextCardValue = parseInt(nextCardValue.splice(0, 1));
-        // checkUserGuess();
-        // do nothing
-        buttonDisable = false;
-        console.log("paused");
+    activeCardValue = activeCard.split(" ");
+    activeCardValue = parseInt(activeCardValue.splice(0, 1));
+    nextCardValue = nextCard.split(" ");
+    nextCardValue = parseInt(nextCardValue.splice(0, 1));
+    // checkUserGuess();
+    // do nothing
+    buttonDisable = false;
+    console.log("paused");
 }
 
 function higher() {
@@ -118,6 +126,15 @@ function lower() {
     }
 }
 
+function cheatTurn() {
+    if (cheatLives > 0) {
+        cheatLivesRemaining.innerHTML = nextCard;
+        cheatLives--
+    } else {
+        chetTurn.innerHTML = "ALL OUTTA LIVES!";
+    }
+}
+
 function checkUserGuess() {
     if (userGuess == false) {
         // do nothing
@@ -139,6 +156,9 @@ function checkUserGuess() {
                     deckOutput.innerHTML = gameHistory;
                     guessListenersAdded = false;
                     score++;
+                    scoreHTML.innerHTML = score;
+                    deckCounter.innerHTML = deck.length;
+                    cheatLivesRemaining.innerHTML = (cheatLives);
                     setTimeout(cardChoice, 2000);
                     break;
                 } else {
@@ -163,6 +183,9 @@ function checkUserGuess() {
                     deckOutput.innerHTML = gameHistory;
                     guessListenersAdded = false;
                     score++;
+                    scoreHTML.innerHTML = score;
+                    deckCounter.innerHTML = deck.length;
+                    cheatLivesRemaining.innerHTML = (cheatLives);
                     setTimeout(cardChoice, 2000);
                     break;
                 } else {
@@ -177,7 +200,8 @@ function checkUserGuess() {
 }
 
 function gameOver() {
-    title.innerHTML = (" GAME OVER ! The next card was " + nextCard + " Your score was: " + score)
+    title.innerHTML = (" GAME OVER !");
+    card.innerHTML = ("The next card was:<br>" + nextCard + "<br>Your score was: " + score);
     // document.querySelector("#high").removeEventListener("click", makeUserGuess);
     // document.querySelector("#low").removeEventListener("click", makeUserGuess);
 }
