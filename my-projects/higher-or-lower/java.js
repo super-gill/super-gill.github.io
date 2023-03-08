@@ -96,22 +96,6 @@ function createCardObject() {
         console.log("paused");
 }
 
-// function makeUserGuess() {
-//     if (!guessListenersAdded) {
-//         document.querySelector("#high").addEventListener("click", function () {
-//             userGuess = parseInt(this.value);
-//             createCardObject();
-//         });
-
-//         document.querySelector("#low").addEventListener("click", function () {
-//             userGuess = parseInt(this.value);
-//             createCardObject();
-//         });
-//         guessListenersAdded = true;
-//     }
-
-// }
-
 function higher() {
     if (buttonDisable == true) {
         // do nothing
