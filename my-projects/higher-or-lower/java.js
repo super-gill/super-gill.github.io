@@ -12,14 +12,10 @@ var guessListenersAdded = false;
 var score = '0';
 var buttonDisable = false;
 var cheatLives = 3;
-
-var activeCardRandomizer = 0;
-var nextCardRandomizer = 0;
-
+var activeCardRandomizer;
+var nextCardRandomizer;
 var activeCardValue;
 var nextCardValue = 'default';
-
-var gameCycle = 0;
 
 const card = document.querySelector(".card");
 const title = document.querySelector(".title");
@@ -66,7 +62,6 @@ function buildDeck() {
 };
 
 function cardChoice() {
-    gameCycle = gameCycle + 1;
     title.innerHTML = "Make your guess: Higher or Lower!"
     userGuess = undefined;
     activeSequenceCard();
