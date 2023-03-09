@@ -46,7 +46,7 @@ function buildDeck() {
     if (score === '0' ?? deck.length == 0) {
         gameStart();
     } else {
-
+        let i;
         for (i = 1; i <= 13; i++) {
             suitDiamonds.push(i + " Diamond");
         }
@@ -108,6 +108,7 @@ function higher() {
         userGuess = 1;
         buttonDisable = true;
         checkUserGuess()
+        deckCounter.innerHTML = deck.length;
     }
 }
 
@@ -118,6 +119,7 @@ function lower() {
         userGuess = 2;
         buttonDisable = true;
         checkUserGuess()
+        deckCounter.innerHTML = deck.length;
     }
 }
 
@@ -146,12 +148,11 @@ function checkUserGuess() {
                     guessListenersAdded = false;
                     score++;
                     scoreHTML.innerHTML = score;
-                    deckCounter.innerHTML = deck.length;
                     cheatLivesRemaining.innerHTML = (cheatLives);
                     setTimeout(cardChoice, 2000);
                     break;
                 } else {
-                    title.innerHTML = "GAME OVER!"
+                    gameOver();
                 }
                 break;
             case 2:
@@ -165,7 +166,6 @@ function checkUserGuess() {
                     guessListenersAdded = false;
                     score++;
                     scoreHTML.innerHTML = score;
-                    deckCounter.innerHTML = deck.length;
                     cheatLivesRemaining.innerHTML = (cheatLives);
                     setTimeout(cardChoice, 2000);
                     break;
@@ -180,8 +180,4 @@ function checkUserGuess() {
 function gameOver() {
     title.innerHTML = (" GAME OVER !");
     card.innerHTML = ("The next card was:<br>" + nextCard + "<br>Your score was: " + score);
-    // document.querySelector("#high").removeEventListener("click", makeUserGuess);
-    // document.querySelector("#low").removeEventListener("click", makeUserGuess);
 }
-
-//makeUserGuess();

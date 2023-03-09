@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Higher or Lower Game</title>
+    <style>
+      /* CSS styles for the game */
+      .card {
+        font-size: 24px;
+        text-align: center;
+        padding: 20px;
+        background-color: #f0f0f0;
+        margin-bottom: 20px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      .button {
+        background-color: #4CAF50;
+        color: white;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 10px;
+        cursor: pointer;
+      }
+
+      .button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+
+      #scoreboard {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      #scoreboard h2 {
+        margin: 0;
+      }
+
+      #scoreboard p {
+        margin: 5px 0;
+      }
+
+      #deck-count {
+        font-size: 18px;
+        font-weight: bold;
+      }
+
+      #livesRemaining {
+        font-size: 18px;
+        font-weight: bold;
+        color: red;
+      }
+
+      #last-card {
+        margin-bottom: 10px;
+      }
+
+      #history {
+        max-height: 200px;
+        overflow-y: auto;
+        background-color: #f0f0f0;
+        padding: 10px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game">
+      <h1 class="title">Welcome to Higher or Lower!</h1>
+      <div class="card"></div>
+      <div>
+        <button class="button" onclick="higher()" id="higherButton" disabled>Higher</button>
+        <button class="button" onclick="lower()" id="lowerButton" disabled>Lower</button>
+        <button class="button" onclick="cheatTurn()">Cheat</button>
+      </div>
+      <div id="scoreboard">
+        <h2>Score:</h2>
+        <p id="score"></p>
+        <h2>Cheat Lives:</h2>
+        <p id="livesRemaining"></p>
+        <h2>Deck Count:</h2>
+        <p id="deck-count"></p>
+        <h2>Last Card:</h2>
+        <p id="last-card"></p>
+      </div>
+      <div id="history">
+        <p>Previous cards will appear here!</p>
+      </div>
+    </div>
+
+    <script src="path/to/your/javascript/file.js"></script>
+  </body>
+</html>
