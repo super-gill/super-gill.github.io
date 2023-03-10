@@ -9,7 +9,7 @@ var activeCard;
 var nextCard;
 var previousCard;
 var guessListenersAdded = false;
-var score = '0';
+var score = "0";
 var buttonDisable = false;
 var cheatLives = 0;
 var activeCardRandomizer;
@@ -40,13 +40,7 @@ buildDeck();
 function gameStart() {
     resetGame();
     titleLoc.innerHTML = "Building the deck!";
-    score = 0;
     setTimeout(buildDeck, 2000);
-}
-
-function updateStats() {
-    // points
-    // deck count
 }
 
 function checkDeckCounterAmount() {
@@ -56,7 +50,6 @@ function checkDeckCounterAmount() {
         deckCountLoc.innerHTML = "There are 52 cards left in the deck."
     } else {
         deckCountLoc.innerHTML = "There are " + deck.length + " cards left in the deck."
-
     }
 }
 
@@ -64,27 +57,27 @@ function updatePoints() {
     if (score != 0 && score - 1 % 5 == 0) {
         scoreLoc.innerHTML = "Get another one right and ill give you another cheat life!"
     }
-    if (score > 0 && score < 5) {
+    if (score >= 0 && score <= 5) {
         scoreLoc.innerHTML = "Wow, you got a score of " + score + ", and they say monkeys can't use computers."
-    } else if (score > 6 && score < 10) {
+    } else if (score >= 6 && score <= 10) {
         scoreLoc.innerHTML = "A score of " + score + "? Maybe you should try tic-tac-toe instead."
-    } else if (score > 11 && score < 15) {
+    } else if (score >= 11 && score <= 15) {
         scoreLoc.innerHTML = "I mean, a score of " + score + " is impressive... for a baby."
-    } else if (score > 16 && score < 20) {
+    } else if (score >= 16 && score <= 20) {
         scoreLoc.innerHTML = "Well done! Your score of " + score + " is enough to impress your cat."
-    } else if (score > 21 && score < 25) {
+    } else if (score >= 21 && score <= 25) {
         scoreLoc.innerHTML = "Your score of " + score + " is more impressive than your dancing skills."
-    } else if (score > 26 && score < 30) {
+    } else if (score >= 26 && score <= 30) {
         scoreLoc.innerHTML = "You scored " + score + "? You must have a lucky rabbit's foot."
-    } else if (score > 31 && score < 35) {
+    } else if (score >= 31 && score <= 35) {
         scoreLoc.innerHTML = "Your score of " + score + " is almost as impressive as my mom's lasagna recipe."
-    } else if (score > 36 && score < 40) {
+    } else if (score >= 36 && score <= 40) {
         scoreLoc.innerHTML = "I can't believe it! A score of " + score + " and you didn't even cheat."
-    } else if (score > 41 && score < 45) {
+    } else if (score >= 41 && score <= 45) {
         scoreLoc.innerHTML = "A score of " + score + " is just one step away from world domination."
-    } else if (score > 46 && score < 50) {
+    } else if (score >= 46 && score <= 50) {
         scoreLoc.innerHTML = "Your score of " + score + " is impressive, but can you do it with your eyes closed?"
-    } else if (score > 51) {
+    } else if (score >= 51) {
         scoreLoc.innerHTML = "HOLY CRAP ARE YOU SOME KIND OF GOD!? " + score
     }
 }
@@ -98,10 +91,7 @@ function updateHistory(selection) {
             imgContainerLoc.appendChild(img);
             break;
         case "remove":
-            // Select the div
             imgContainerLoc.querySelector("#image-container");
-
-            // Remove all the child elements of the div
             while (imgContainerLoc.firstChild) {
                 imgContainerLoc.removeChild(imgContainerLoc.firstChild);
             }
@@ -166,13 +156,11 @@ function createCardObject() {
     nextCardValue = parseInt(nextCardValue.splice(0, 1));
     buttonDisable = false;
     cheat.disabled = false;
-    // do nothing
 }
 
 function higher() {
     cheat.disabled = true;
     if (buttonDisable == true) {
-        // do nothing
     } else {
         userGuess = 1;
         buttonDisable = true;
@@ -184,7 +172,6 @@ function higher() {
 function lower() {
     cheat.disabled = true;
     if (buttonDisable == true) {
-        // do nothing
     } else {
         userGuess = 2;
         buttonDisable = true;
@@ -207,7 +194,6 @@ function cheatTurn() {
 
 function checkUserGuess() {
     if (userGuess == false) {
-        // do nothing
     } else {
         switch (userGuess) {
             case 1:
@@ -238,7 +224,6 @@ function guessCorrect() {
     gameHistory.push(" " + activeCard);
     deck.splice(activeCardRandomizer, 1);
     updateHistory("add");
-    //playHistoryLoc.innerHTML = gameHistory;
     cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
     if (score - 1 % 5 == 0) {
         cheatLives++;
@@ -252,8 +237,7 @@ function guessCorrect() {
 function gameOver() {
     titleLoc.innerHTML = (" GAME OVER !");
     activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + nextCard);
-    // cardLoc.innerHTML = ("The next card was:<br>" + nextCard + "<br>Your score was: " + score);
-    setTimeout(gameStart, 5000)
+    setTimeout(gameStart, 5000);
 }
 
 function resetGame() {
@@ -270,7 +254,7 @@ function resetGame() {
     nextCard;
     previousCard;
     guessListenersAdded = false;
-    score = '0';
+    score = 0;
     buttonDisable = false;
     cheatLives = 3;
     activeCardRandomizer;
