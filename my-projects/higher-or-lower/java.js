@@ -31,8 +31,8 @@ cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
 cheat.disabled = true;
 playHistoryLoc.innerHTML = "Previous cards will appear here!";
 
-activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/title_card.png");
-nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/title_card.png");
+activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
+nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
 
 buildDeck();
 
@@ -225,20 +225,20 @@ function guessCorrect() {
     if (score % 5 == 0) {
         cheatLives++;
     }
-    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/title_card.png");
+    activeCardIMGLoc.setAttribute("src", "");
     setTimeout(cardChoice, 2000);
 }
 
 function gameOver() {
     titleLoc.innerHTML = (" GAME OVER !");
-    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/title_card.png");
+    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + nextCard);
     // cardLoc.innerHTML = ("The next card was:<br>" + nextCard + "<br>Your score was: " + score);
     setTimeout(gameStart, 5000)
 }
 
 function resetGame() {
-    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/title_card.png");
-    nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/title_card.png");
+    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
+    nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
     suitClubs = [];
     suitDiamonds = [];
     suitHearts = [];
