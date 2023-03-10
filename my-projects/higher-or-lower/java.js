@@ -25,11 +25,12 @@ const lastCardLoc = document.querySelector("#last-card");
 const scoreLoc = document.querySelector("#score");
 const cheatButtonLoc = document.querySelector("#cheat");
 const deckCountLoc = document.querySelector("#deck-count");
+const imgContainerLoc = document.getElementById('img-container');
 
 titleLoc.innerHTML = "Higher or Lower!"
 cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
 cheat.disabled = true;
-playHistoryLoc.innerHTML = "Previous cards will appear here!";
+//playHistoryLoc.innerHTML = "Previous cards will appear here!";
 
 activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
 nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
@@ -60,34 +61,52 @@ function checkDeckCounterAmount() {
 }
 
 function updatePoints() {
-    if (score != 0 && score % 5 == 0) {
+    if (score != 0 && score - 1 % 5 == 0) {
         scoreLoc.innerHTML = "Get another one right and ill give you another cheat life!"
     }
     if (score > 0 && score < 5) {
-        scoreLoc.innerHTML = "Your pittyful score is " + score + " do better :/";
+        scoreLoc.innerHTML = "Wow, you got a score of " + score + ", and they say monkeys can't use computers."
     } else if (score > 6 && score < 10) {
-        scoreLoc.innerHTML = "Eh, getting better, " + score + " but unimpressive";
+        scoreLoc.innerHTML = "A score of " + score + "? Maybe you should try tic-tac-toe instead."
     } else if (score > 11 && score < 15) {
-        scoreLoc.innerHTML = "Is " + score + "all you got?"
+        scoreLoc.innerHTML = "I mean, a score of " + score + " is impressive... for a baby."
     } else if (score > 16 && score < 20) {
-        scoreLoc.innerHTML = "Now were talking, " + score + " points!"
+        scoreLoc.innerHTML = "Well done! Your score of " + score + " is enough to impress your cat."
     } else if (score > 21 && score < 25) {
-        scoreLoc.innerHTML = "Wait, have you played this before? " + score + "is mildly impressive"
+        scoreLoc.innerHTML = "Your score of " + score + " is more impressive than your dancing skills."
     } else if (score > 26 && score < 30) {
-        scoreLoc.innerHTML = "Another sarcastic message " + score + "about your score"
+        scoreLoc.innerHTML = "You scored " + score + "? You must have a lucky rabbit's foot."
     } else if (score > 31 && score < 35) {
-        scoreLoc.innerHTML = "Another sarcastic message " + score + "about your score"
+        scoreLoc.innerHTML = "Your score of " + score + " is almost as impressive as my mom's lasagna recipe."
     } else if (score > 36 && score < 40) {
-        scoreLoc.innerHTML = "Another sarcastic message " + score + "about your score"
+        scoreLoc.innerHTML = "I can't believe it! A score of " + score + " and you didn't even cheat."
     } else if (score > 41 && score < 45) {
-        scoreLoc.innerHTML = "Another sarcastic message " + score + "about your score"
+        scoreLoc.innerHTML = "A score of " + score + " is just one step away from world domination."
     } else if (score > 46 && score < 50) {
-        scoreLoc.innerHTML = "Another sarcastic message " + score + "about your score"
+        scoreLoc.innerHTML = "Your score of " + score + " is impressive, but can you do it with your eyes closed?"
     } else if (score > 51) {
         scoreLoc.innerHTML = "HOLY CRAP ARE YOU SOME KIND OF GOD!? " + score
     }
 }
 
+function updateHistory(selection) {
+    switch (selection) {
+        case "add":
+            const img = document.createElement('img');
+            img.src = "Assets/PNG-cards-1.3/" + activeCard;
+            img.style.width = "8%";
+            imgContainerLoc.appendChild(img);
+            break;
+        case "remove":
+            // Select the div
+            imgContainerLoc.querySelector("#image-container");
+
+            // Remove all the child elements of the div
+            while (imgContainerLoc.firstChild) {
+                imgContainerLoc.removeChild(imgContainerLoc.firstChild);
+            }
+    }
+}
 
 function buildDeck() {
     checkDeckCounterAmount();
@@ -116,6 +135,7 @@ function buildDeck() {
 function cardChoice() {
     titleLoc.innerHTML = "Make your guess: Higher or Lower!"
     userGuess = undefined;
+    updatePoints()
     activeSequenceCard();
 
     function activeSequenceCard() {
@@ -217,14 +237,14 @@ function guessCorrect() {
     nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + activeCard);
     gameHistory.push(" " + activeCard);
     deck.splice(activeCardRandomizer, 1);
-    playHistoryLoc.innerHTML = gameHistory;
-    guessListenersAdded = false;
-    score++;
-    updatePoints();
+    updateHistory("add");
+    //playHistoryLoc.innerHTML = gameHistory;
     cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
-    if (score % 5 == 0) {
+    if (score - 1 % 5 == 0) {
         cheatLives++;
     }
+    score++;
+    updatePoints();
     activeCardIMGLoc.setAttribute("src", "");
     setTimeout(cardChoice, 2000);
 }
@@ -257,7 +277,7 @@ function resetGame() {
     nextCardRandomizer;
     activeCardValue;
     nextCardValue = 'default';
-
+    updateHistory("remove");
     cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
     updatePoints();
     //cardLoc.innerHTML = "No card drawn yet!";
