@@ -30,8 +30,6 @@ const imgContainerLoc = document.getElementById('img-container');
 titleLoc.innerHTML = "Higher or Lower!"
 cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
 cheat.disabled = true;
-//playHistoryLoc.innerHTML = "Previous cards will appear here!";
-
 activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
 nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
 
@@ -41,7 +39,7 @@ function gameStart() {
     resetGame();
     titleLoc.innerHTML = "Building the deck!";
     scoreBoard("closescoreboard");
-    setTimeout(buildDeck, 2000);
+    setTimeout(() => buildDeck(), 2000);
 }
 
 function checkDeckCounterAmount() {
@@ -136,7 +134,6 @@ function cardChoice() {
             activeCard = deck[activeCardRandomizer];
         } else {
             activeCard = nextCard;
-            //nextSequenceCard();
         }
 
         activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + activeCard);
@@ -146,9 +143,9 @@ function cardChoice() {
     function nextSequenceCard() {
         nextCardRandomizer = Math.floor((Math.random() * deck.length));
         nextCard = deck[nextCardRandomizer];
-        console.log("nextCard is " + nextCard)
         createCardObject()
     }
+    console.log("Next card is: " + nextCard)
 }
 
 function createCardObject() {
@@ -218,12 +215,9 @@ function checkUserGuess() {
 }
 
 function updateLives() {
-    console.log("updateLives() ran")
     if (score % 3 == 0) {
         cheatLives++;
-
-        console.log("updateLives() if found that " + score + " is a multiple of 3 and added 1")
-    }console.log("updateLives() found that " + score + " was not a multiple of 3")
+    }
 }
 
 function guessCorrect() {
@@ -238,55 +232,54 @@ function guessCorrect() {
     cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
     updatePoints();
     activeCardIMGLoc.setAttribute("src", "");
-    setTimeout(cardChoice, 2000);
+    setTimeout(() => cardChoice(), 2000);
 }
 
 function gameOver() {
     titleLoc.innerHTML = (" GAME OVER !");
     activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + nextCard);
-    scoreBoard("openscoreboard");
+    setTimeout(() => scoreBoard("openscoreboard"), 3000)
 }
 
 function scoreBoard(input) {
-    switch(input){
+    switch (input) {
         case "openscoreboard":
-        document.querySelector("#play-area").classList.add("hidden");
-        document.querySelector("#game-over").classList.remove("hidden");
-        break;
+            document.querySelector("#play-area").classList.add("hidden");
+            document.querySelector("#game-over").classList.remove("hidden");
+            break;
         case "closeclosescoreboard":
-        document.querySelector("#play-area").classList.remove("hidden");
-        document.querySelector("#game-over").classList.add("hidden");
-        setTimeout(gameStart, 5000);
-        break;
+            document.querySelector("#play-area").classList.remove("hidden");
+            document.querySelector("#game-over").classList.add("hidden");
+            break;
     }
 }
 
-    function resetGame() {
-        document.querySelector("#play-area").classList.remove("hidden");
-        document.querySelector("#game-over").classList.add("hidden");
-        activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
-        nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
-        suitClubs = [];
-        suitDiamonds = [];
-        suitHearts = [];
-        suitSpade = [];
-        deck = [];
-        gameHistory = [];
-        userGuess = undefined;
-        activeCard;
-        nextCard;
-        previousCard;
-        guessListenersAdded = false;
-        score = 0;
-        buttonDisable = false;
-        cheatLives = 3;
-        activeCardRandomizer;
-        nextCardRandomizer;
-        activeCardValue;
-        nextCardValue = 'default';
-        updateHistory("remove");
-        cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
-        updatePoints();
-        //cardLoc.innerHTML = "No card drawn yet!";
-        checkDeckCounterAmount();
-    }
+function resetGame() {
+    document.querySelector("#play-area").classList.remove("hidden");
+    document.querySelector("#game-over").classList.add("hidden");
+    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
+    nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
+    suitClubs = [];
+    suitDiamonds = [];
+    suitHearts = [];
+    suitSpade = [];
+    deck = [];
+    gameHistory = [];
+    userGuess = undefined;
+    activeCard;
+    nextCard;
+    previousCard;
+    guessListenersAdded = false;
+    score = 0;
+    buttonDisable = false;
+    cheatLives = 3;
+    activeCardRandomizer;
+    nextCardRandomizer;
+    activeCardValue;
+    nextCardValue = 'default';
+    updateHistory("remove");
+    cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
+    updatePoints();
+    //cardLoc.innerHTML = "No card drawn yet!";
+    checkDeckCounterAmount();
+}
