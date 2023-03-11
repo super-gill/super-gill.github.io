@@ -40,7 +40,6 @@
         height: 400px;
         justify-content: space-around;
         background-color: #67687D;
-        justify-content: flex-start;
         margin: 10px;
     }
 
@@ -49,13 +48,10 @@
     }
 
     .container {
-        border-radius: 1rem;
-        padding: 1rem;
-        width: 600px;
-        height: 400px;
+        padding: 0.1rem;
+        width: 100%;
         justify-content: space-around;
         background-color: #67687D;
-        margin-right: 10px;
     }
 
     .stats {
@@ -177,46 +173,46 @@
 <body class="flex-col">
     <H1 id="title">Higher or Lower!</H1>
     <div class="arena flex-row">
-        <div class="container flex-row">
+        
+        <div class="card-big flex-row" id="play-area">
             <div class="left-pane flex-col">
                 <div class="guess-buttons flex-row">
                     <button class="game-button" id="high" onclick="higher()" value="1">HIGHER!</button>
                     <button class="game-button" id="low" onclick="lower()" value="2">LOWER!</button>
                 </div>
                 <button class="cheat-button" id="cheat" onclick="cheatTurn()"></button>
-                
+
                 <div class="last-card flex-col">
                     <p>Last Card:</p>
                     <img id="nextCardIMG" src="">
                 </div>
-                
+
                 <!-- <div class="last-card flex-col">
                     <p class="flex-col">LAST CARD: <br><span id="last-card">No last card yet!</span></p>
                 </div> -->
 
             </div>
             <div class="right-pane flex-row">
-                <!-- <div class="card flex-col" id="card"> -->
-                    <img id="activeCardIMG" src="Assets/PNG-cards-1.3/title_card.png">
-                    <!-- <p id="next-card">No card drawn yet!</p>
-                </div> -->
+                <img id="activeCardIMG" src="Assets/PNG-cards-1.3/title_card.png">
             </div>
         </div>
-        <div class="card-big flex-col">
-            <p id="score">Score will be here!</p>
-            <p id="deck-count">Deck count will be here!</p>
-            <div id="img-container">
 
+
+        <div class="card-big flex-col hidden" id="game-over">
+            
+            <div class="container">
+                <p id="score">Score will be here!</p>
             </div>
-            <!-- <p class="flex-col" id="play-history">Historic cards will be here</p> -->
+            <div class="container">
+                <p id="deck-count">Deck count will be here!</p>
+            </div>
+            <div id="img-container">
+            </div>
+            <div class="container">
+                <button onclick="gameStart()">Try again!</button>
+                <!-- <p class="flex-col" id="play-history">Historic cards will be here</p> -->
+            </div>
         </div>
-    </div>
-    <div class="card-big flex-col hidden">
-        <h1>High Scores</h1>
-        <p><span>Placeholder Name</span>............<span>###</span></p>
-        <p><span>Placeholder Name</span>............<span>###</span></p>
-        <p><span>Placeholder Name</span>............<span>###</span></p>
-        <p><span>Placeholder Name</span>............<span>###</span></p>
     </div>
     <script src="java.js"></script>
 </body>

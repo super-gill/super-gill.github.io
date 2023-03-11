@@ -11,7 +11,7 @@ var previousCard;
 var guessListenersAdded = false;
 var score = "0";
 var buttonDisable = false;
-var cheatLives = 0;
+var cheatLives;
 var activeCardRandomizer;
 var nextCardRandomizer;
 var activeCardValue;
@@ -40,6 +40,7 @@ buildDeck();
 function gameStart() {
     resetGame();
     titleLoc.innerHTML = "Building the deck!";
+    scoreBoard("closescoreboard");
     setTimeout(buildDeck, 2000);
 }
 
@@ -135,7 +136,7 @@ function cardChoice() {
             activeCard = deck[activeCardRandomizer];
         } else {
             activeCard = nextCard;
-            nextSequenceCard();
+            //nextSequenceCard();
         }
 
         activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + activeCard);
@@ -145,6 +146,7 @@ function cardChoice() {
     function nextSequenceCard() {
         nextCardRandomizer = Math.floor((Math.random() * deck.length));
         nextCard = deck[nextCardRandomizer];
+        console.log("nextCard is " + nextCard)
         createCardObject()
     }
 }
@@ -179,8 +181,6 @@ function lower() {
         checkDeckCounterAmount();
     }
 }
-
-
 
 function cheatTurn() {
     if (cheatLives > 0) {
@@ -217,6 +217,15 @@ function checkUserGuess() {
     }
 }
 
+function updateLives() {
+    console.log("updateLives() ran")
+    if (score % 3 == 0) {
+        cheatLives++;
+
+        console.log("updateLives() if found that " + score + " is a multiple of 3 and added 1")
+    }console.log("updateLives() found that " + score + " was not a multiple of 3")
+}
+
 function guessCorrect() {
     titleLoc.innerHTML = "CORRECT!"
     userGuess = undefined;
@@ -224,11 +233,9 @@ function guessCorrect() {
     gameHistory.push(" " + activeCard);
     deck.splice(activeCardRandomizer, 1);
     updateHistory("add");
-    cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
-    if (score - 1 % 5 == 0) {
-        cheatLives++;
-    }
     score++;
+    updateLives();
+    cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
     updatePoints();
     activeCardIMGLoc.setAttribute("src", "");
     setTimeout(cardChoice, 2000);
@@ -237,33 +244,49 @@ function guessCorrect() {
 function gameOver() {
     titleLoc.innerHTML = (" GAME OVER !");
     activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + nextCard);
-    setTimeout(gameStart, 5000);
+    scoreBoard("openscoreboard");
 }
 
-function resetGame() {
-    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
-    nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
-    suitClubs = [];
-    suitDiamonds = [];
-    suitHearts = [];
-    suitSpade = [];
-    deck = [];
-    gameHistory = [];
-    userGuess = undefined;
-    activeCard;
-    nextCard;
-    previousCard;
-    guessListenersAdded = false;
-    score = 0;
-    buttonDisable = false;
-    cheatLives = 3;
-    activeCardRandomizer;
-    nextCardRandomizer;
-    activeCardValue;
-    nextCardValue = 'default';
-    updateHistory("remove");
-    cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
-    updatePoints();
-    //cardLoc.innerHTML = "No card drawn yet!";
-    checkDeckCounterAmount();
+function scoreBoard(input) {
+    switch(input){
+        case "openscoreboard":
+        document.querySelector("#play-area").classList.add("hidden");
+        document.querySelector("#game-over").classList.remove("hidden");
+        break;
+        case "closeclosescoreboard":
+        document.querySelector("#play-area").classList.remove("hidden");
+        document.querySelector("#game-over").classList.add("hidden");
+        setTimeout(gameStart, 5000);
+        break;
+    }
 }
+
+    function resetGame() {
+        document.querySelector("#play-area").classList.remove("hidden");
+        document.querySelector("#game-over").classList.add("hidden");
+        activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
+        nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
+        suitClubs = [];
+        suitDiamonds = [];
+        suitHearts = [];
+        suitSpade = [];
+        deck = [];
+        gameHistory = [];
+        userGuess = undefined;
+        activeCard;
+        nextCard;
+        previousCard;
+        guessListenersAdded = false;
+        score = 0;
+        buttonDisable = false;
+        cheatLives = 3;
+        activeCardRandomizer;
+        nextCardRandomizer;
+        activeCardValue;
+        nextCardValue = 'default';
+        updateHistory("remove");
+        cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
+        updatePoints();
+        //cardLoc.innerHTML = "No card drawn yet!";
+        checkDeckCounterAmount();
+    }
