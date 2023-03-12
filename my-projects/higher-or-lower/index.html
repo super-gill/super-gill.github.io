@@ -117,6 +117,17 @@
         width: 73%;
     }
 
+    .cheat-button:disabled {
+        color: black;
+        /* change the text color to a lighter shade */
+        background-color: #eee;
+        /* change the background color to a lighter shade */
+        border-color: #ddd;
+        /* change the border color to a lighter shade */
+        cursor: not-allowed;
+        /* change the cursor to indicate that the button is disabled */
+    }
+
     button:hover {
         background-color: lightgray;
         font-weight: bold;
@@ -173,7 +184,7 @@
 <body class="flex-col">
     <H1 id="title">Higher or Lower!</H1>
     <div class="arena flex-row">
-        
+
         <div class="card-big flex-row" id="play-area">
             <div class="left-pane flex-col">
                 <div class="guess-buttons flex-row">
@@ -199,7 +210,7 @@
 
 
         <div class="card-big flex-col hidden" id="game-over">
-            
+
             <div class="container">
                 <p id="score">Score will be here!</p>
             </div>

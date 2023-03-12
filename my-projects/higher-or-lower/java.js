@@ -181,13 +181,20 @@ function lower() {
 
 function cheatTurn() {
     if (cheatLives > 0) {
-        cheat.disabled = true;
-        cheat.innerHTML = nextCard;
+        cheat.disabled = true;        
+        if (activeCardValue >= nextCardValue) {
+            cheat.innerHTML = "LOWER!"
+        } else {
+            cheat.innerHTML = "HIGHER!"
+        }        
         cheatLives--;
     } else {
         cheat.innerHTML = "ALL OUTTA LIVES!";
     }
 }
+
+
+
 
 function checkUserGuess() {
     if (userGuess == false) {
