@@ -109,23 +109,9 @@
         border-radius: 5px;
         border: none;
         margin: 10px;
-        height: 50px;
+        height: 25px;
         width: 100px;
-    }
-
-    .cheat-button {
-        width: 73%;
-    }
-
-    .cheat-button:disabled {
-        color: black;
-        /* change the text color to a lighter shade */
-        background-color: #eee;
-        /* change the background color to a lighter shade */
-        border-color: #ddd;
-        /* change the border color to a lighter shade */
-        cursor: not-allowed;
-        /* change the cursor to indicate that the button is disabled */
+        font-weight: normal;
     }
 
     button:hover {
@@ -138,8 +124,20 @@
         background-color: grey;
     }
 
+    .cheat-button, .auto-pilot {
+        width: 73%;
+    }
+
+    button:disabled {
+        color: black;
+        background-color: #eee;
+        border-color: #ddd;
+        cursor: not-allowed;
+    }
+
     .last-card {
         width: 100%;
+        padding: 0;
     }
 
     .right-pane {
@@ -187,21 +185,24 @@
 
         <div class="card-big flex-row" id="play-area">
             <div class="left-pane flex-col">
+
+                <div class="play-buttons">
+                
+                <button class="auto-pilot" id="auto-pilot" onclick="autoPilot()">Auto Pilot</button>
+                
                 <div class="guess-buttons flex-row">
                     <button class="game-button" id="high" onclick="higher()" value="1">HIGHER!</button>
                     <button class="game-button" id="low" onclick="lower()" value="2">LOWER!</button>
                 </div>
+                
                 <button class="cheat-button" id="cheat" onclick="cheatTurn()"></button>
+
+                </div>
 
                 <div class="last-card flex-col">
                     <p>Last Card:</p>
                     <img id="nextCardIMG" src="">
                 </div>
-
-                <!-- <div class="last-card flex-col">
-                    <p class="flex-col">LAST CARD: <br><span id="last-card">No last card yet!</span></p>
-                </div> -->
-
             </div>
             <div class="right-pane flex-row">
                 <img id="activeCardIMG" src="Assets/PNG-cards-1.3/title_card.png">
@@ -227,6 +228,8 @@
     </div>
     <script src="java.js"></script>
 </body>
-<footer></footer>
+<footer> <a href="">
+        << Home </a>
+</footer>
 
 </html>
