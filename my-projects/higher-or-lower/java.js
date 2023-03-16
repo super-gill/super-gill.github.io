@@ -1,4 +1,4 @@
-// General Variables
+// General Variables ##
 var deck = [],
     playHistoryArray = [],
     userGuess,
@@ -405,7 +405,7 @@ function daniel(level) {
     // relative value: I can use the relative value of the card to help me predict the value 
     // of the next card by considering what cards are remaining in the deck and adjusting for emergent patterns.
 
-    
+
 
 
     // emergent pattern #2: gamblers fallacy (multiple guesses of the same type suggest change)
