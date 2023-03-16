@@ -49,8 +49,8 @@ const activeCardIMGLoc = document.querySelector("#activeCardIMG"),
 titleLoc.innerHTML = "Higher or Lower!";
 cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left";
 cheat.disabled = true;
-activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
-nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
+activeCardIMGLoc.setAttribute("src", "./Assets/PNG-cards-1.3/red_joker.png");
+nextCardIMGLoc.setAttribute("src", "./Assets/PNG-cards-1.3/red_joker.png");
 
 // Start
 gameStart();
@@ -71,8 +71,8 @@ function resetGame() {
 
     document.querySelector("#play-area").classList.remove("hidden");
     document.querySelector("#game-over").classList.add("hidden");
-    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
-    nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
+    activeCardIMGLoc.setAttribute("src", "./Assets/PNG-cards-1.3/red_joker.png");
+    nextCardIMGLoc.setAttribute("src", "./Assets/PNG-cards-1.3/red_joker.png");
     suitClubs = [];
     suitDiamonds = [];
     suitHearts = [];
@@ -100,10 +100,10 @@ function resetGame() {
 // build a deck of 52 cards
 function buildDeck() {
     const suits = {
-        diamonds: "Diamonds",
-        hearts: "Hearts",
-        clubs: "Clubs",
-        spades: "Spades"
+        diamonds: "diamonds",
+        hearts: "hearts",
+        clubs: "clubs",
+        spades: "spades"
     };
 
     const cards = [];
@@ -150,7 +150,7 @@ function cardChoice() {
             activeCard = nextCard;
         }
 
-        activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + activeCard);
+        activeCardIMGLoc.setAttribute("src", "./Assets/PNG-cards-1.3/" + activeCard);
         nextSequenceCard();
     }
 
@@ -237,7 +237,7 @@ function guessCorrect() {
 
     //initialize the correct guess game state
     titleLoc.innerHTML = "CORRECT!"
-    nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + activeCard);
+    nextCardIMGLoc.setAttribute("src", "./Assets/PNG-cards-1.3/" + activeCard);
     gameHistory.push(" " + activeCard);
     initialDeckLength = deck.length;
 
@@ -254,7 +254,7 @@ function guessCorrect() {
     updateLives();
     cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
     updatePoints();
-    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + nextCard);
+    activeCardIMGLoc.setAttribute("src", "./Assets/PNG-cards-1.3/" + nextCard);
     console.log("Next card is: " + nextCard);
 
     //update the game cycle
@@ -272,7 +272,7 @@ function gameOver() {
         button.disabled = true;
     })
     titleLoc.innerHTML = (" GAME OVER !");
-    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/" + nextCard);
+    activeCardIMGLoc.setAttribute("src", "./Assets/PNG-cards-1.3/" + nextCard);
     setTimeout(() => scoreBoard("openscoreboard"), 3000)
 }
 
@@ -289,7 +289,7 @@ function updateHistory(selection) {
     switch (selection) {
         case "add":
             const img = document.createElement('img');
-            img.src = "Assets/PNG-cards-1.3/" + activeCard;
+            img.src = "./Assets/PNG-cards-1.3/" + activeCard;
             img.style.width = "8%";
             imgContainerLoc.appendChild(img);
             break;
