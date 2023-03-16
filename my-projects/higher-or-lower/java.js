@@ -43,7 +43,7 @@ nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
 // Start
 gameStart();
 
-// Reset the game state, build the deck and start the primary game cycle
+// Handle the steps to default the game state
 function gameStart() {
     resetGame();
     titleLoc.innerHTML = "Building the deck!";
@@ -53,7 +53,6 @@ function gameStart() {
 
 // Reset the game state to default
 function resetGame() {
-    // console.log("resetGame() ran");
     allButtonsLoc.forEach((button) => {
         button.disabled = false;
     })
@@ -326,10 +325,16 @@ function scoreBoard(input) {
     // console.log("scoreBoard() ran with the input: " + input);
     switch (input) {
         case "openscoreboard":
+            allButtonsLoc.forEach((button) => {
+                button.disabled = false;
+            })
             document.querySelector("#play-area").classList.add("hidden");
             document.querySelector("#game-over").classList.remove("hidden");
             break;
         case "closeclosescoreboard":
+            allButtonsLoc.forEach((button) => {
+                button.disabled = false;
+            })
             document.querySelector("#play-area").classList.remove("hidden");
             document.querySelector("#game-over").classList.add("hidden");
             break;
