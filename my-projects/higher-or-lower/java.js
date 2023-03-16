@@ -1,3 +1,4 @@
+//General Variables
 var deck = [];
 var playHistoryArray = [];
 var userGuess = undefined;
@@ -10,15 +11,21 @@ var buttonDisable = false;
 var cheatLives;
 var activeCardRandomizer;
 var nextCardRandomizer;
-var activeCardValue;
 var nextCardValue = 'default';
 var autoPilotEnable = "false";
 var gameCycle = 0;
 var initialDeckLength;
 var deckLengthCheck;
 
+// AI Memory
+var cardValueHistory
+var lastCardValue
+var activeCardValue;
+
+
 var level
 
+// HTML object locations
 const activeCardIMGLoc = document.querySelector("#activeCardIMG");
 const nextCardIMGLoc = document.querySelector("#nextCardIMG");
 const titleLoc = document.querySelector("#title");
@@ -32,37 +39,52 @@ const allButtonsLoc = document.querySelectorAll("button");
 const higherButtonLoc = document.querySelector("#high")
 const lowerButtonLoc = document.querySelector("#low")
 
+// Location defaults
 titleLoc.innerHTML = "Higher or Lower!"
 cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
 cheat.disabled = true;
 activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
 nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
 
+// Start
 buildDeck();
 
+// Test AI player that plays perfectly
 function autoPilot() {
-    // for testing, play a perfect game without any "guessing"
-    // console.log("autoPilot() ran");
     autoPilotEnable = true;
     allButtonsLoc.forEach((button) => {
         button.disabled = true;
-    })
+    });
+
     const intervalId = setInterval(() => {
         if (nextCardValue >= activeCardValue) {
+            higherButtonLoc.style.border = "solid";
             clearInterval(intervalId);
-            higher();
+            setTimeout(() => {
+                higherButtonLoc.style.border = "none";
+                higher();
+            }, 1000);
         } else if (activeCardValue >= nextCardValue) {
+            lowerButtonLoc.style.border = "solid";
             clearInterval(intervalId);
-            lower();
+            setTimeout(() => {
+                lowerButtonLoc.style.border = "none";
+                lower();
+            }, 1000);
         }
     }, 1000);
 }
 
+// a proper AI that playes the game by guessing (will replace the autopilot when ready)
 function daniel(level) {
     var dansGuess;
     var debugDecision = [];
 
-    // if the card is an Ace or a king, always choose higher or lower correspondingly
+    const lowCards = [1,2,3,4];
+    const midCards = [5,6,7,8,9];
+    const highCards = [10,11,12,13,14];
+
+    // fundamental value: the card can not be lower than an ace or higher than a king
     if (activeCardValue == 1) {
         makeAIGuess(1);
         debugDecision.push("stage 1: higher");
@@ -71,8 +93,11 @@ function daniel(level) {
         debugDecision.push("stage 1: lower");
     }
 
+    // absolute value: the cards value is a fixed constant in the entire set
 
-    //if the previous card was an ace and the current card is not a king choose higher
+    // relative value: the cards value is relative to the remaining cards in the deck
+
+    // pattern value #1: an emergent patter informs the value of the next card (ie the last 10 were high do there are less high cards left in the set)
 
 
     function makeAIGuess(dansGuess) {
@@ -88,16 +113,18 @@ function daniel(level) {
 
 }
 
+
+// Reset the game state, build the deck and start the primary game cycle
 function gameStart() {
-    // console.log("gameStart() ran");
     resetGame();
     titleLoc.innerHTML = "Building the deck!";
     scoreBoard("closescoreboard");
     setTimeout(() => buildDeck(), 1000);
 }
 
+// Update the deck counter
+// this needs to be updated because it isnt compatible with the popup game end window :(
 function checkDeckCounterAmount() {
-    // console.log("checkDeckCounterAmount() ran");
     if (deck.length == 1) {
         deckCountLoc.innerHTML = "Last card!"
     } else if (deck.length == 0) {
@@ -107,8 +134,9 @@ function checkDeckCounterAmount() {
     }
 }
 
+// Update the points in screen with a witty message for the game end popup
+// I need to research a better way of doing this maybe?
 function updatePoints() {
-    // console.log("updatePoints() ran");
     if (score != 0 && score - 1 % 5 == 0) {
         scoreLoc.innerHTML = "Get another one right and ill give you another cheat life!"
     }
@@ -137,8 +165,8 @@ function updatePoints() {
     }
 }
 
+// update the card history with a picture of each card played
 function updateHistory(selection) {
-    // console.log("checkDeckCounterAmount() ran with the input: " + selection);
     switch (selection) {
         case "add":
             const img = document.createElement('img');
@@ -154,6 +182,7 @@ function updateHistory(selection) {
     }
 }
 
+// build a deck of 52 cards
 function buildDeck() {
     const suits = {
         diamonds: "Diamonds",
@@ -170,8 +199,8 @@ function buildDeck() {
         }
     }
     deck = cards;
-    checkDeckCounterAmount(); // make sure this function is defined
-    cardChoice(); // make sure this function is defined
+    checkDeckCounterAmount();
+    cardChoice();
     if (score === '0') {
         gameStart();
     } else if (deck.length === 0 && score !== 0) {
@@ -179,8 +208,8 @@ function buildDeck() {
     }
 }
 
+// Select a random card for the user to guess the relative value of
 function cardChoice() {
-    // console.log("cardChoice() ran");
     titleLoc.innerHTML = "Make your guess: Higher or Lower!"
     userGuess = undefined;
     updatePoints()
@@ -199,15 +228,14 @@ function cardChoice() {
     }
 
     function nextSequenceCard() {
-        // console.log("nextSequenceCard() ran");
         nextCardRandomizer = Math.floor((Math.random() * deck.length));
         nextCard = deck[nextCardRandomizer];
         createCardObject()
     }
 }
 
+// convert the png name to a numeric value for mathing with
 function createCardObject() {
-    // console.log("createCardObject() ran");
     activeCardValue = activeCard.split(" ");
     activeCardValue = parseInt(activeCardValue.splice(0, 1));
     nextCardValue = nextCard.split(" ");
@@ -215,11 +243,11 @@ function createCardObject() {
     buttonDisable = false;
     cheat.disabled = false;
     if (autoPilotEnable == true) {
-        //setTimeout(() => autoPilot(), 1000)
         autoPilot()
     } return;
 }
 
+// Trigger the higher guess
 function higher() {
     userGuess = 1;
     buttonDisable = true;
@@ -227,7 +255,7 @@ function higher() {
     checkDeckCounterAmount();
 }
 
-
+// Trigger the lower guess
 function lower() {
     userGuess = 2;
     buttonDisable = true;
@@ -235,6 +263,7 @@ function lower() {
     checkDeckCounterAmount();
 }
 
+// Trigger the cheat option
 function cheatTurn() {
     // console.log("cheatTurn() ran");
     if (cheatLives > 0) {
@@ -250,11 +279,8 @@ function cheatTurn() {
     }
 }
 
-
-
-
+// Compare the users guess to the actual state
 function checkUserGuess() {
-    // console.log("checkUserGuess() ran");
     if (userGuess == false) {
     } else {
         switch (userGuess) {
@@ -279,15 +305,16 @@ function checkUserGuess() {
     }
 }
 
+// Add a life to cheat lives based on [something]
+// This could be combined in to something else maybe? pass an option through?
 function updateLives() {
-    // console.log("updateLives() ran");
     if (score % 3 == 0) {
         cheatLives++;
     }
 }
 
+// triggered if the users guess was correct, update the game state
 function guessCorrect() {
-    // console.log("guessCorrect() ran");
 
     //initialize the correct guess game state
     titleLoc.innerHTML = "CORRECT!"
@@ -319,6 +346,7 @@ function guessCorrect() {
     setTimeout(() => cardChoice(), 1000);
 }
 
+// triggered if the guess was wrong, update the game state
 function gameOver() {
     // console.log("gameOver() ran");
     allButtonsLoc.forEach((button) => {
@@ -329,6 +357,7 @@ function gameOver() {
     setTimeout(() => scoreBoard("openscoreboard"), 3000)
 }
 
+// Open or close the score board at the end of the game
 function scoreBoard(input) {
     // console.log("scoreBoard() ran with the input: " + input);
     switch (input) {
@@ -343,6 +372,7 @@ function scoreBoard(input) {
     }
 }
 
+// Reset the game state to default
 function resetGame() {
     // console.log("resetGame() ran");
     allButtonsLoc.forEach((button) => {
@@ -374,6 +404,5 @@ function resetGame() {
     updateHistory("remove");
     cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
     updatePoints();
-    //cardLoc.innerHTML = "No card drawn yet!";
     checkDeckCounterAmount();
 }
