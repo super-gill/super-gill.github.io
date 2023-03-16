@@ -1,118 +1,47 @@
-//General Variables
-var deck = [];
-var playHistoryArray = [];
-var userGuess = undefined;
-var activeCard;
-var nextCard;
-var previousCard;
-var guessListenersAdded = false;
-var score = "0";
-var buttonDisable = false;
-var cheatLives;
-var activeCardRandomizer;
-var nextCardRandomizer;
-var nextCardValue = 'default';
-var autoPilotEnable = "false";
-var gameCycle = 0;
-var initialDeckLength;
-var deckLengthCheck;
+// General Variables
+var deck = [],
+    playHistoryArray = [],
+    userGuess,
+    activeCard,
+    nextCard,
+    previousCard,
+    guessListenersAdded = false,
+    score = "0",
+    buttonDisable = false,
+    cheatLives,
+    activeCardRandomizer,
+    nextCardRandomizer, nextCardValue = 'default',
+    autoPilotEnable = "false",
+    gameCycle = 0,
+    initialDeckLength,
+    deckLengthCheck;
 
 // AI Memory
-var cardValueHistory
-var lastCardValue
-var activeCardValue;
-
-
-var level
+var cardValueHistory, lastCardValue, activeCardValue, level;
 
 // HTML object locations
-const activeCardIMGLoc = document.querySelector("#activeCardIMG");
-const nextCardIMGLoc = document.querySelector("#nextCardIMG");
-const titleLoc = document.querySelector("#title");
-const playHistoryLoc = document.querySelector("#play-history");
-const lastCardLoc = document.querySelector("#last-card");
-const scoreLoc = document.querySelector("#score");
-const cheatButtonLoc = document.querySelector("#cheat");
-const deckCountLoc = document.querySelector("#deck-count");
-const imgContainerLoc = document.getElementById('img-container');
-const allButtonsLoc = document.querySelectorAll("button");
-const higherButtonLoc = document.querySelector("#high")
-const lowerButtonLoc = document.querySelector("#low")
+const activeCardIMGLoc = document.querySelector("#activeCardIMG"),
+    nextCardIMGLoc = document.querySelector("#nextCardIMG"),
+    titleLoc = document.querySelector("#title"),
+    playHistoryLoc = document.querySelector("#play-history"),
+    lastCardLoc = document.querySelector("#last-card"),
+    scoreLoc = document.querySelector("#score"),
+    cheatButtonLoc = document.querySelector("#cheat"),
+    deckCountLoc = document.querySelector("#deck-count"),
+    imgContainerLoc = document.getElementById('img-container'),
+    allButtonsLoc = document.querySelectorAll("button"),
+    higherButtonLoc = document.querySelector("#high"),
+    lowerButtonLoc = document.querySelector("#low");
 
 // Location defaults
-titleLoc.innerHTML = "Higher or Lower!"
-cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
+titleLoc.innerHTML = "Higher or Lower!";
+cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left";
 cheat.disabled = true;
 activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
 nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
 
 // Start
-buildDeck();
-
-// Test AI player that plays perfectly
-function autoPilot() {
-    autoPilotEnable = true;
-    allButtonsLoc.forEach((button) => {
-        button.disabled = true;
-    });
-
-    const intervalId = setInterval(() => {
-        if (nextCardValue >= activeCardValue) {
-            higherButtonLoc.style.border = "solid";
-            clearInterval(intervalId);
-            setTimeout(() => {
-                higherButtonLoc.style.border = "none";
-                higher();
-            }, 1000);
-        } else if (activeCardValue >= nextCardValue) {
-            lowerButtonLoc.style.border = "solid";
-            clearInterval(intervalId);
-            setTimeout(() => {
-                lowerButtonLoc.style.border = "none";
-                lower();
-            }, 1000);
-        }
-    }, 1000);
-}
-
-// a proper AI that playes the game by guessing (will replace the autopilot when ready)
-function daniel(level) {
-    var dansGuess;
-    var debugDecision = [];
-
-    const lowCards = [1,2,3,4];
-    const midCards = [5,6,7,8,9];
-    const highCards = [10,11,12,13,14];
-
-    // fundamental value: the card can not be lower than an ace or higher than a king
-    if (activeCardValue == 1) {
-        makeAIGuess(1);
-        debugDecision.push("stage 1: higher");
-    } else if (activeCardValue == 13) {
-        makeAIGuess(0);
-        debugDecision.push("stage 1: lower");
-    }
-
-    // absolute value: the cards value is a fixed constant in the entire set
-
-    // relative value: the cards value is relative to the remaining cards in the deck
-
-    // pattern value #1: an emergent patter informs the value of the next card (ie the last 10 were high do there are less high cards left in the set)
-
-
-    function makeAIGuess(dansGuess) {
-        switch (dansGuess) {
-            case 1:
-                higher();
-                break;
-            case 0:
-                lower();
-                break;
-        } return;
-    } return;
-
-}
-
+gameStart();
 
 // Reset the game state, build the deck and start the primary game cycle
 function gameStart() {
@@ -122,64 +51,39 @@ function gameStart() {
     setTimeout(() => buildDeck(), 1000);
 }
 
-// Update the deck counter
-// this needs to be updated because it isnt compatible with the popup game end window :(
-function checkDeckCounterAmount() {
-    if (deck.length == 1) {
-        deckCountLoc.innerHTML = "Last card!"
-    } else if (deck.length == 0) {
-        deckCountLoc.innerHTML = "There are 52 cards left in the deck."
-    } else {
-        deckCountLoc.innerHTML = "There are " + deck.length + " cards left in the deck."
-    }
-}
+// Reset the game state to default
+function resetGame() {
+    // console.log("resetGame() ran");
+    allButtonsLoc.forEach((button) => {
+        button.disabled = false;
+    })
 
-// Update the points in screen with a witty message for the game end popup
-// I need to research a better way of doing this maybe?
-function updatePoints() {
-    if (score != 0 && score - 1 % 5 == 0) {
-        scoreLoc.innerHTML = "Get another one right and ill give you another cheat life!"
-    }
-    if (score >= 0 && score <= 5) {
-        scoreLoc.innerHTML = "Wow, you got a score of " + score + ", and they say monkeys can't use computers."
-    } else if (score >= 6 && score <= 10) {
-        scoreLoc.innerHTML = "A score of " + score + "? Maybe you should try tic-tac-toe instead."
-    } else if (score >= 11 && score <= 15) {
-        scoreLoc.innerHTML = "I mean, a score of " + score + " is impressive... for a baby."
-    } else if (score >= 16 && score <= 20) {
-        scoreLoc.innerHTML = "Well done! Your score of " + score + " is enough to impress your cat."
-    } else if (score >= 21 && score <= 25) {
-        scoreLoc.innerHTML = "Your score of " + score + " is more impressive than your dancing skills."
-    } else if (score >= 26 && score <= 30) {
-        scoreLoc.innerHTML = "You scored " + score + "? You must have a lucky rabbit's foot."
-    } else if (score >= 31 && score <= 35) {
-        scoreLoc.innerHTML = "Your score of " + score + " is almost as impressive as my mom's lasagna recipe."
-    } else if (score >= 36 && score <= 40) {
-        scoreLoc.innerHTML = "I can't believe it! A score of " + score + " and you didn't even cheat."
-    } else if (score >= 41 && score <= 45) {
-        scoreLoc.innerHTML = "A score of " + score + " is just one step away from world domination."
-    } else if (score >= 46 && score <= 50) {
-        scoreLoc.innerHTML = "Your score of " + score + " is impressive, but can you do it with your eyes closed?"
-    } else if (score >= 51) {
-        scoreLoc.innerHTML = "HOLY CRAP ARE YOU SOME KIND OF GOD!? " + score
-    }
-}
-
-// update the card history with a picture of each card played
-function updateHistory(selection) {
-    switch (selection) {
-        case "add":
-            const img = document.createElement('img');
-            img.src = "Assets/PNG-cards-1.3/" + activeCard;
-            img.style.width = "8%";
-            imgContainerLoc.appendChild(img);
-            break;
-        case "remove":
-            imgContainerLoc.querySelector("#image-container");
-            while (imgContainerLoc.firstChild) {
-                imgContainerLoc.removeChild(imgContainerLoc.firstChild);
-            }
-    }
+    document.querySelector("#play-area").classList.remove("hidden");
+    document.querySelector("#game-over").classList.add("hidden");
+    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
+    nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
+    suitClubs = [];
+    suitDiamonds = [];
+    suitHearts = [];
+    suitSpade = [];
+    deck = [];
+    gameHistory = [];
+    userGuess = undefined;
+    activeCard;
+    nextCard;
+    previousCard;
+    guessListenersAdded = false;
+    score = 0;
+    buttonDisable = false;
+    cheatLives = 3;
+    activeCardRandomizer;
+    nextCardRandomizer;
+    activeCardValue;
+    nextCardValue = 'default';
+    updateHistory("remove");
+    cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
+    updatePoints();
+    checkDeckCounterAmount();
 }
 
 // build a deck of 52 cards
@@ -205,6 +109,18 @@ function buildDeck() {
         gameStart();
     } else if (deck.length === 0 && score !== 0) {
         gameOver();
+    }
+}
+
+// Update the deck counter
+// this needs to be updated because it isnt compatible with the popup game end window :(
+function checkDeckCounterAmount() {
+    if (deck.length == 1) {
+        deckCountLoc.innerHTML = "Last card!"
+    } else if (deck.length == 0) {
+        deckCountLoc.innerHTML = "There are 52 cards left in the deck."
+    } else {
+        deckCountLoc.innerHTML = "There are " + deck.length + " cards left in the deck."
     }
 }
 
@@ -305,14 +221,6 @@ function checkUserGuess() {
     }
 }
 
-// Add a life to cheat lives based on [something]
-// This could be combined in to something else maybe? pass an option through?
-function updateLives() {
-    if (score % 3 == 0) {
-        cheatLives++;
-    }
-}
-
 // triggered if the users guess was correct, update the game state
 function guessCorrect() {
 
@@ -357,6 +265,62 @@ function gameOver() {
     setTimeout(() => scoreBoard("openscoreboard"), 3000)
 }
 
+// Add a life to cheat lives based on [something]
+// This could be combined in to something else maybe? pass an option through?
+function updateLives() {
+    if (score % 3 == 0) {
+        cheatLives++;
+    }
+}
+
+// update the card history with a picture of each card played
+function updateHistory(selection) {
+    switch (selection) {
+        case "add":
+            const img = document.createElement('img');
+            img.src = "Assets/PNG-cards-1.3/" + activeCard;
+            img.style.width = "8%";
+            imgContainerLoc.appendChild(img);
+            break;
+        case "remove":
+            imgContainerLoc.querySelector("#image-container");
+            while (imgContainerLoc.firstChild) {
+                imgContainerLoc.removeChild(imgContainerLoc.firstChild);
+            }
+    }
+}
+
+// Update the points in screen with a witty message for the game end popup
+// I need to research a better way of doing this maybe?
+function updatePoints() {
+    if (score != 0 && score - 1 % 5 == 0) {
+        scoreLoc.innerHTML = "Get another one right and ill give you another cheat life!"
+    }
+    if (score >= 0 && score <= 5) {
+        scoreLoc.innerHTML = "Wow, you got a score of " + score + ", and they say monkeys can't use computers."
+    } else if (score >= 6 && score <= 10) {
+        scoreLoc.innerHTML = "A score of " + score + "? Maybe you should try tic-tac-toe instead."
+    } else if (score >= 11 && score <= 15) {
+        scoreLoc.innerHTML = "I mean, a score of " + score + " is impressive... for a baby."
+    } else if (score >= 16 && score <= 20) {
+        scoreLoc.innerHTML = "Well done! Your score of " + score + " is enough to impress your cat."
+    } else if (score >= 21 && score <= 25) {
+        scoreLoc.innerHTML = "Your score of " + score + " is more impressive than your dancing skills."
+    } else if (score >= 26 && score <= 30) {
+        scoreLoc.innerHTML = "You scored " + score + "? You must have a lucky rabbit's foot."
+    } else if (score >= 31 && score <= 35) {
+        scoreLoc.innerHTML = "Your score of " + score + " is almost as impressive as my mom's lasagna recipe."
+    } else if (score >= 36 && score <= 40) {
+        scoreLoc.innerHTML = "I can't believe it! A score of " + score + " and you didn't even cheat."
+    } else if (score >= 41 && score <= 45) {
+        scoreLoc.innerHTML = "A score of " + score + " is just one step away from world domination."
+    } else if (score >= 46 && score <= 50) {
+        scoreLoc.innerHTML = "Your score of " + score + " is impressive, but can you do it with your eyes closed?"
+    } else if (score >= 51) {
+        scoreLoc.innerHTML = "HOLY CRAP ARE YOU SOME KIND OF GOD!? " + score
+    }
+}
+
 // Open or close the score board at the end of the game
 function scoreBoard(input) {
     // console.log("scoreBoard() ran with the input: " + input);
@@ -372,37 +336,70 @@ function scoreBoard(input) {
     }
 }
 
-// Reset the game state to default
-function resetGame() {
-    // console.log("resetGame() ran");
-    allButtonsLoc.forEach((button) => {
-        button.disabled = false;
-    })
 
-    document.querySelector("#play-area").classList.remove("hidden");
-    document.querySelector("#game-over").classList.add("hidden");
-    activeCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
-    nextCardIMGLoc.setAttribute("src", "Assets/PNG-cards-1.3/red_joker.png");
-    suitClubs = [];
-    suitDiamonds = [];
-    suitHearts = [];
-    suitSpade = [];
-    deck = [];
-    gameHistory = [];
-    userGuess = undefined;
-    activeCard;
-    nextCard;
-    previousCard;
-    guessListenersAdded = false;
-    score = 0;
-    buttonDisable = false;
-    cheatLives = 3;
-    activeCardRandomizer;
-    nextCardRandomizer;
-    activeCardValue;
-    nextCardValue = 'default';
-    updateHistory("remove");
-    cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
-    updatePoints();
-    checkDeckCounterAmount();
+
+// AI Profiles:
+
+// Test AI player that plays perfectly
+function autoPilot() {
+    autoPilotEnable = true;
+    allButtonsLoc.forEach((button) => {
+        button.disabled = true;
+    });
+
+    const intervalId = setInterval(() => {
+        if (nextCardValue >= activeCardValue) {
+            higherButtonLoc.style.border = "solid";
+            clearInterval(intervalId);
+            setTimeout(() => {
+                higherButtonLoc.style.border = "none";
+                higher();
+            }, 1000);
+        } else if (activeCardValue >= nextCardValue) {
+            lowerButtonLoc.style.border = "solid";
+            clearInterval(intervalId);
+            setTimeout(() => {
+                lowerButtonLoc.style.border = "none";
+                lower();
+            }, 1000);
+        }
+    }, 1000);
+}
+
+// a proper AI that playes the game by guessing
+function daniel(level) {
+    var dansGuess;
+    var debugDecision = [];
+
+    const lowCards = [1, 2, 3, 4];
+    const midCards = [5, 6, 7, 8, 9];
+    const highCards = [10, 11, 12, 13, 14];
+
+    // fundamental value: the card can not be lower than an ace or higher than a king
+    if (activeCardValue == 1) {
+        makeAIGuess(1);
+        debugDecision.push("stage 1: higher");
+    } else if (activeCardValue == 13) {
+        makeAIGuess(0);
+        debugDecision.push("stage 1: lower");
+    }
+
+    // absolute value: the cards value is a fixed constant in the entire set
+
+    // relative value: the cards value is relative to the remaining cards in the deck
+
+    // pattern value #1: an emergent patter informs the value of the next card (ie the last 10 were high do there are less high cards left in the set)
+
+
+    function makeAIGuess(dansGuess) {
+        switch (dansGuess) {
+            case 1:
+                higher();
+                break;
+            case 0:
+                lower();
+                break;
+        } return;
+    } return;
+
 }
