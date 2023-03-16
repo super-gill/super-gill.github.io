@@ -17,7 +17,19 @@ var deck = [],
     deckLengthCheck;
 
 // AI Memory
-var cardValueHistory, lastCardValue, activeCardValue, level;
+var cardValueHistory,
+    lastCardValue,
+    activeCardValue,
+    level,
+    dansGuess,
+    myGuessHistory = [],
+    debugDecision = [],
+    medianRemaining;
+
+const lowCards = [1, 2, 3, 4],
+    midCards = [5, 6, 7, 8, 9],
+    highCards = [10, 11, 12, 13, 14],
+    median52 = 26.5;
 
 // HTML object locations
 const activeCardIMGLoc = document.querySelector("#activeCardIMG"),
@@ -341,8 +353,6 @@ function scoreBoard(input) {
     }
 }
 
-
-
 // AI Profiles:
 
 // Test AI player that plays perfectly
@@ -373,12 +383,6 @@ function autoPilot() {
 
 // a proper AI that playes the game by guessing
 function daniel(level) {
-    var dansGuess;
-    var debugDecision = [];
-
-    const lowCards = [1, 2, 3, 4];
-    const midCards = [5, 6, 7, 8, 9];
-    const highCards = [10, 11, 12, 13, 14];
 
     // fundamental value: the card can not be lower than an ace or higher than a king
     if (activeCardValue == 1) {
@@ -389,11 +393,29 @@ function daniel(level) {
         debugDecision.push("stage 1: lower");
     }
 
-    // absolute value: the cards value is a fixed constant in the entire set
+    // absolute value: I can use the absolute value of the card to help me predict the value 
+    // of the next card without considering what cards are remaining in the deck, useful at the start
 
-    // relative value: the cards value is relative to the remaining cards in the deck
+    if (activeCardValue <= 6) {
+        makeAIGuess(1);
+    } else {
+        makeAIGuess(0);
+    }
 
-    // pattern value #1: an emergent patter informs the value of the next card (ie the last 10 were high do there are less high cards left in the set)
+    // relative value: I can use the relative value of the card to help me predict the value 
+    // of the next card by considering what cards are remaining in the deck and adjusting for emergent patterns.
+
+    
+
+
+    // emergent pattern #2: gamblers fallacy (multiple guesses of the same type suggest change)
+    // there are many guesses of the same type, should i consider the fallacy?
+
+    // risk management: Despite my strategy i am still unable to confidently predict the next card, should
+    // i use a cheat life or adjust my data?
+
+    // Random value: when all else fails, flip a coin
+    makeAIGuess(Math.round(Math.random()));
 
 
     function makeAIGuess(dansGuess) {
