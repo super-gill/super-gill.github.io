@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html class="flex-col" lang="en">
-
+<!--vv-->
 <style>
     * {
         box-sizing: border-box;
@@ -195,9 +195,9 @@
 
 <body class="flex-col">
     <H1 id="title">Higher or Lower!</H1>
-    <div class="arena flex-row">
+    
 
-        <div class="card-big flex-row" id="play-area">
+        <div class="card-big flex-row hidden" id="play-area">
             <div class="left-pane flex-col">
 
                 <div class="play-buttons">
@@ -224,15 +224,16 @@
         </div>
 
 
-        <div class="card-big flex-col hidden" id="game-over">
+        <div class="game-over flex-col " id="game-over">
 
-            <div class="container">
+            <div class="">
                 <p id="score">Score will be here!</p>
             </div>
-            <div class="container">
+            <div class="">
                 <p id="deck-count">Deck count will be here!</p>
             </div>
-            <div id="img-container">
+            <div id="img-container flex-row">
+
                 <!-- card history images -->
             </div>
             <div class="container">
@@ -240,9 +241,10 @@
             </div>
         </div>
     </div>
-    <script src="java.js"></script>
+    
 </body>
-<footer> <a href=""><< Home</a>
+<footer> <a href="">
+        << Home </a>
 </footer>
 
 </html>
