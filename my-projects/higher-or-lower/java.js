@@ -57,6 +57,7 @@ gameStart();
 
 // Handle the steps to default the game state
 function gameStart() {
+    console.log("gameStart() Ran");
     resetGame();
     titleLoc.innerHTML = "Building the deck!";
     scoreBoard("closescoreboard");
@@ -65,6 +66,7 @@ function gameStart() {
 
 // Reset the game state to default
 function resetGame() {
+    console.log("resetGame() Ran");
     allButtonsLoc.forEach((button) => {
         button.disabled = false;
     })
@@ -99,6 +101,7 @@ function resetGame() {
 
 // build a deck of 52 cards
 function buildDeck() {
+    console.log("buildDeck() Ran");
     const suits = {
         diamonds: "diamonds",
         hearts: "hearts",
@@ -126,6 +129,7 @@ function buildDeck() {
 // Update the deck counter
 // this needs to be updated because it isnt compatible with the popup game end window :(
 function checkDeckCounterAmount() {
+    console.log("checkDeckCounterAmount() Ran");
     if (deck.length == 1) {
         deckCountLoc.innerHTML = "Last card!"
     } else if (deck.length == 0) {
@@ -135,17 +139,18 @@ function checkDeckCounterAmount() {
     }
 }
 
-// Select a random card for the user to guess the relative value of
+// Select a random card for the user to guess
 function cardChoice() {
+    console.log("cardChoice() Ran");
     titleLoc.innerHTML = "Make your guess: Higher or Lower!"
     userGuess = undefined;
     updatePoints()
     activeSequenceCard();
 
     function activeSequenceCard() {
+        console.log("activeSequenceCard Ran");
         if (nextCardValue == 'default') {
             activeCard = deck.splice(Math.floor(Math.random() * deck.length), 1)[0];
-            console.log("activeCard is: " + activeCard + " and there are " + deck.length + " cards left in the deck")
         } else {
             activeCard = nextCard;
         }
@@ -155,14 +160,20 @@ function cardChoice() {
     }
 
     function nextSequenceCard() {
+        console.log("nextSequenceCard Ran");
         nextCardRandomizer = Math.floor((Math.random() * deck.length));
         nextCard = deck[nextCardRandomizer];
         createCardObject()
     }
+
+    allButtonsLoc.forEach((button) => {
+        button.disabled = false;
+    })
 }
 
 // convert the png name to a numeric value for mathing with
 function createCardObject() {
+    console.log("createCardObject() Ran");
     activeCardValue = activeCard.split(" ");
     activeCardValue = parseInt(activeCardValue.splice(0, 1));
     nextCardValue = nextCard.split(" ");
@@ -176,6 +187,7 @@ function createCardObject() {
 
 // Trigger the higher guess
 function higher() {
+    console.log("higher() Ran");
     userGuess = 1;
     buttonDisable = true;
     checkUserGuess()
@@ -184,6 +196,7 @@ function higher() {
 
 // Trigger the lower guess
 function lower() {
+    console.log("lower() Ran");
     userGuess = 2;
     buttonDisable = true;
     checkUserGuess()
@@ -192,7 +205,7 @@ function lower() {
 
 // Trigger the cheat option
 function cheatTurn() {
-    // console.log("cheatTurn() ran");
+    console.log("cheatTurn() Ran");
     if (cheatLives > 0) {
         cheat.disabled = true;
         if (activeCardValue >= nextCardValue) {
@@ -208,6 +221,7 @@ function cheatTurn() {
 
 // Compare the users guess to the actual state
 function checkUserGuess() {
+    console.log("checkUserGuess() Ran");
     if (userGuess == false) {
     } else {
         switch (userGuess) {
@@ -234,6 +248,10 @@ function checkUserGuess() {
 
 // triggered if the users guess was correct, update the game state
 function guessCorrect() {
+    console.log("guessCorrect() Ran");
+    allButtonsLoc.forEach((button) => {
+        button.disabled = true;
+    })
 
     //initialize the correct guess game state
     titleLoc.innerHTML = "CORRECT!"
@@ -255,11 +273,9 @@ function guessCorrect() {
     cheatButtonLoc.innerHTML = "Cheat! (" + cheatLives + ") lives left"
     updatePoints();
     activeCardIMGLoc.setAttribute("src", "./Assets/PNG-cards-1.3/" + nextCard);
-    console.log("Next card is: " + nextCard);
 
     //update the game cycle
     gameCycle++
-    console.log("Game cycle: " + gameCycle + " <-----------------")
 
     //end the correct guess game state and continue the game
     setTimeout(() => cardChoice(), 1000);
@@ -267,7 +283,7 @@ function guessCorrect() {
 
 // triggered if the guess was wrong, update the game state
 function gameOver() {
-    // console.log("gameOver() ran");
+    console.log("gameOver() Ran");
     allButtonsLoc.forEach((button) => {
         button.disabled = true;
     })
@@ -279,6 +295,7 @@ function gameOver() {
 // Add a life to cheat lives based on [something]
 // This could be combined in to something else maybe? pass an option through?
 function updateLives() {
+    console.log("updateLives() Ran");
     if (score % 3 == 0) {
         cheatLives++;
     }
@@ -286,6 +303,7 @@ function updateLives() {
 
 // update the card history with a picture of each card played
 function updateHistory(selection) {
+    console.log("updateHistory() Ran");
     switch (selection) {
         case "add":
             const img = document.createElement('img');
@@ -304,25 +322,26 @@ function updateHistory(selection) {
 // Update the points in screen with a witty message for the game end popup
 // I need to research a better way of doing this maybe?
 function updatePoints() {
+    console.log("updatePoints() Ran");
     if (score != 0 && score - 1 % 5 == 0) {
         scoreLoc.innerHTML = "Get another one right and ill give you another cheat life!"
     }
     if (score >= 0 && score <= 5) {
-        scoreLoc.innerHTML = "Wow, you got a score of " + score + ", and they say monkeys can't use computers."
+        scoreLoc.innerHTML = "Ehhh... " + score + ", did you missclick?"
     } else if (score >= 6 && score <= 10) {
-        scoreLoc.innerHTML = "A score of " + score + "? Maybe you should try tic-tac-toe instead."
+        scoreLoc.innerHTML = "You got " + score + ". Better than nothing i guess."
     } else if (score >= 11 && score <= 15) {
-        scoreLoc.innerHTML = "I mean, a score of " + score + " is impressive... for a baby."
+        scoreLoc.innerHTML = "You got " + score + " points, not bad!"
     } else if (score >= 16 && score <= 20) {
-        scoreLoc.innerHTML = "Well done! Your score of " + score + " is enough to impress your cat."
+        scoreLoc.innerHTML = "You got " + score + " points! Solid score!"
     } else if (score >= 21 && score <= 25) {
-        scoreLoc.innerHTML = "Your score of " + score + " is more impressive than your dancing skills."
+        scoreLoc.innerHTML = "Your score of " + score + " puts you firmly in the middleground, well averaged."
     } else if (score >= 26 && score <= 30) {
-        scoreLoc.innerHTML = "You scored " + score + "? You must have a lucky rabbit's foot."
+        scoreLoc.innerHTML = "You scored " + score + ", did you cheat?"
     } else if (score >= 31 && score <= 35) {
-        scoreLoc.innerHTML = "Your score of " + score + " is almost as impressive as my mom's lasagna recipe."
+        scoreLoc.innerHTML = score + " TASTY!"
     } else if (score >= 36 && score <= 40) {
-        scoreLoc.innerHTML = "I can't believe it! A score of " + score + " and you didn't even cheat."
+        scoreLoc.innerHTML = "I can't believe it! A score of " + score
     } else if (score >= 41 && score <= 45) {
         scoreLoc.innerHTML = "A score of " + score + " is just one step away from world domination."
     } else if (score >= 46 && score <= 50) {
@@ -334,7 +353,7 @@ function updatePoints() {
 
 // Open or close the score board at the end of the game
 function scoreBoard(input) {
-    // console.log("scoreBoard() ran with the input: " + input);
+    console.log("scoreBoard() Ran");
     switch (input) {
         case "openscoreboard":
             allButtonsLoc.forEach((button) => {
@@ -357,6 +376,7 @@ function scoreBoard(input) {
 
 // Test AI player that plays perfectly
 function autoPilot() {
+    console.log("autoPilot() Ran");
     autoPilotEnable = true;
     allButtonsLoc.forEach((button) => {
         button.disabled = true;
