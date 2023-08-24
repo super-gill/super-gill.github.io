@@ -171,7 +171,7 @@ function cardChoice() {
     })
 }
 
-// convert the png name to a numeric value for mathing with
+// convert the png name to a numeric value for mathing with and wait for the player to guess
 function createCardObject() {
     console.log("createCardObject() Ran");
     activeCardValue = activeCard.split(" ");
