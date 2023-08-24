@@ -12,6 +12,8 @@ Connect-MsolService
 
 
 Write-Host "Finding Azure Active Directory Accounts..."
+Connect-ExchangeOnline
+Connect-MsolService
 $Users = Get-MsolUser -All | where {$_.isLicensed -eq $true} | ? { $_.UserType -ne "Guest" } #where {$_.isLicensed -eq $true} | 
 $Report = [System.Collections.Generic.List[Object]]::new()
 Write-Host "Processing" $Users.Count "accounts..." 
