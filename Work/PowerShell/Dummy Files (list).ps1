@@ -1,6 +1,4 @@
-﻿#############
-############# Dummy Files #############
-# https://www.windows-commandline.com/how-to-create-large-dummy-file/
+﻿# https://www.windows-commandline.com/how-to-create-large-dummy-file/
 
 # FSUTIL
 fsutil file createnew [filename] [length]
