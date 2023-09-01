@@ -14,13 +14,13 @@ Connect-MsolService
 Write-Host "Finding Azure Active Directory Accounts..."
 Connect-ExchangeOnline
 Connect-MsolService
-$Users = Get-MsolUser -All | where {$_.isLicensed -eq $true} | ? { $_.UserType -ne "Guest" } #where {$_.isLicensed -eq $true} | 
+$Users = Get-MsolUser -All | Where-Object {$_.isLicensed -eq $true} | Where-Object { $_.UserType -ne "Guest" } #where-object {$_.isLicensed -eq $true} | 
 $Report = [System.Collections.Generic.List[Object]]::new()
 Write-Host "Processing" $Users.Count "accounts..." 
 ForEach ($User in $Users) {
     $MFAEnforced = $User.StrongAuthenticationRequirements.State
     $MFAPhone = $User.StrongAuthenticationUserDetails.PhoneNumber
-    $DefaultMFAMethod = ($User.StrongAuthenticationMethods | ? { $_.IsDefault -eq "True" }).MethodType
+    $DefaultMFAMethod = ($User.StrongAuthenticationMethods | Where-Object { $_.IsDefault -eq "True" }).MethodType
     If (($MFAEnforced -eq "Enforced") -or ($MFAEnforced -eq "Enabled")) {
         Switch ($DefaultMFAMethod) {
             "OneWaySMS" { $MethodUsed = "One-way SMS" }
@@ -46,5 +46,5 @@ ForEach ($User in $Users) {
 }
 
 Write-Host "Report is in c:\temp\MFAUsers.CSV"
-$Report | Select User, Name, MFAUsed, MFAMethod, PhoneNumber | Sort Name | Out-GridView
-$Report | Sort Name | Export-CSV -NoTypeInformation -Encoding UTF8 c:\temp\MFAUsers.csv
+$Report | Select-Object User, Name, MFAUsed, MFAMethod, PhoneNumber | Sort-Object Name | Out-GridView
+$Report | Sort-Object Name | Export-CSV -NoTypeInformation -Encoding UTF8 c:\temp\MFAUsers.csv

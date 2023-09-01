@@ -4,13 +4,13 @@
 # There are hardware requirements that must be met for this to work
 
 #Enable Nested Virtualization
-Set-VMProcessor -VMName <VMName> -ExposeVirtualizationExtensions $true
+Set-VMProcessor -VMName [VMName] -ExposeVirtualizationExtensions $true
 
 #Disable Nested Virtualization
-Set-VMProcessor -VMName <VMName> -ExposeVirtualizationExtensions $false
+Set-VMProcessor -VMName [VMName] -ExposeVirtualizationExtensions $false
 
 #Enable MAC Spoofing (preferred and performed on the first level of the switch)
-Get-VMNetworkAdapter -VMName <VMName> | Set-VMNetworkAdapter -MacAddressSpoofing On
+Get-VMNetworkAdapter -VMName [VMName] | Set-VMNetworkAdapter -MacAddressSpoofing On
 
 #Enable NAT (if MAC spoofing isnt available and is performed on the host VM regardless of level)
 New-VMSwitch -Name VmNAT -SwitchType Internal
