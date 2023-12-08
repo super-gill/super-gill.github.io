@@ -1,4 +1,4 @@
 foreach ($user in Get-Mailbox -RecipientTypeDetails UserMailbox) {
     $cal = $user.PrimarySmtpAddress.ToString() + ":\Calendar"
-    Set-MailboxFolderPermission -Identity $cal -User Default -AccessRights LimitedDetails
+    Set-MailboxFolderPermission -Identity $cal -User Default -AccessRights editor  
 }
