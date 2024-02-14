@@ -1,6 +1,6 @@
 Import-Module AzureAd
  
-$UserID = "jsmallman@frg.org.uk"
+$UserID = "sgallagher@reachactive.com"
 $CSVFile = "C:\Temp\GroupMemberships.csv"
  
 Try {
