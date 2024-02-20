@@ -157,35 +157,35 @@ function getStats(passMonth, passDay) {
         console.log("Total tickets: " + totalTickets.tickets.length)
     })
 
-    let priorities = [1, 2, 3, 4];
-    for (let i of priorities) {
-        halo.getTickets({
-            startdate: startDate.toISOString(),
-            enddate: endDate.toISOString(),
-            datesearch: 'dateoccurred',
-            count: 999999,
-            team: [1],
-            priority: i
-        }).then((ticketsResponse) => {
-            console.log("P" + (i) + " tickets: " + ticketsResponse.tickets.length);
-        });
-    }
+    // let priorities = [1, 2, 3, 4];
+    // for (let i of priorities) {
+    //     halo.getTickets({
+    //         startdate: startDate.toISOString(),
+    //         enddate: endDate.toISOString(),
+    //         datesearch: 'dateoccurred',
+    //         count: 999999,
+    //         team: [1],
+    //         priority: i
+    //     }).then((ticketsResponse) => {
+    //         console.log("P" + (i) + " tickets: " + ticketsResponse.tickets.length);
+    //     });
+    // }
 
-    let types = [1, 3]
+    // let types = [1, 3]
 
-    for (let i of types) {
-        halo.getTickets({
-            startdate: startDate.toISOString(),
-            enddate: endDate.toISOString(),
-            count: 999999,
-            datesearch: 'dateoccurred',
-            team: [i],
-            requesttype_id: 1
-        }).then((ticketsResponse) => {
-            console.log("Number of " + (i === 1 ? "Incident: " : "Service Request: ") + ticketsResponse.tickets.length);
-        });
+    // for (let i of types) {
+    //     halo.getTickets({
+    //         startdate: startDate.toISOString(),
+    //         enddate: endDate.toISOString(),
+    //         count: 999999,
+    //         datesearch: 'dateoccurred',
+    //         team: [i],
+    //         requesttype_id: 1
+    //     }).then((ticketsResponse) => {
+    //         console.log("Number of " + (i === 1 ? "Incident: " : "Service Request: ") + ticketsResponse.tickets.length);
+    //     });
 
-    }
+    // }
 
 }
 
