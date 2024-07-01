@@ -8,7 +8,7 @@ param(
 )
  
 if ( $adminURL -eq $null ) {
-    Write-Host "you must provide the following details`n-adminURL`n-userUPN`n-whatIf`n-adminUPN`nI.E.: .\deleteCoveLicenses.ps1 -adminURL https://pecan-admin.sharepoint.com/ -userUPN user@pecan.org.uk -whitIf $false -adminUPN admin@pecan.org.uk"
+    Write-Host "You must provide the following details`n-adminURL`n-userUPN`n-whatIf`n-adminUPN`nI.E.: .\deleteCoveLicenses.ps1 -adminURL https://pecan-admin.sharepoint.com/ -userUPN user@pecan.org.uk -whitIf $false -adminUPN admin@pecan.org.uk"
     Write-Host "`n CTRL-C to exit"
     Start-Sleep -seconds 30
 }
