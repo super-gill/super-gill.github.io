@@ -1,3 +1,6 @@
+# Use this to remove special permissions in SharePoint so it no longer appears in Cove, it will also remove any share links
+# Jason Mcdill for updates
+# 1
 
 param(
     $teamsUserUPN,

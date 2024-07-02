@@ -1,4 +1,6 @@
-# fuck off cove u prick
+# Use this to remove target user from all Teams teams so it no longer appears in Cove.
+# Jason Mcdill for updates
+# 1
  
 param(
     $adminURL,
