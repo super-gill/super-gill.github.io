@@ -7,7 +7,10 @@ param(
     $whatIf = $true
 )
 
-# Connect-MicrosoftTeams
+$version = 1
+Write-Host "Version "$version
+
+Connect-MicrosoftTeams
 
 $teamResult = @()
 

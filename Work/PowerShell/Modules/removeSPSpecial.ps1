@@ -8,6 +8,9 @@ param(
     $whatIf = $true,
     $adminUPN
 )
+
+$version = 1
+Write-Host "Version "$version
  
 if ( $adminURL -eq $null ) {
     Write-Host "You must provide the following details`n-adminURL`n-userUPN`n-whatIf`n-adminUPN`nI.E.: .\deleteCoveLicenses.ps1 -adminURL https://pecan-admin.sharepoint.com/ -userUPN user@pecan.org.uk -whitIf $false -adminUPN admin@pecan.org.uk"
