@@ -1,4 +1,4 @@
-# Use this to remove special permissions in SharePoint so it no longer appears in Cove, it will also remove any share links
+# Use this to remove target user from all Teams teams so it no longer appears in Cove.
 # Jason Mcdill for updates
 # 1
 

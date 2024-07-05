@@ -10,5 +10,5 @@ Try {
     $Memberships | Select DisplayName, Mail, ObjectId | Export-Csv -LiteralPath $CSVFile -NoTypeInformation
 }
 Catch {
-    write-host -f Red "`tError:" $_.Exception.Message
+    write-host -f Red "Error:" $_.Exception.Message
 }

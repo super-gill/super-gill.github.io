@@ -1,15 +1,11 @@
-﻿param(
-    $user,
-    $whatIf = $true
+﻿#delete a user then also remove it from the recyclebin
+
+param(
+    $user
 )
 
 Connect-MsolService
 
-if ($user) {}
-
-if ($whatIf -eq $false) {
     Remove-MsolUser -UserPrincipalName $user
     Remove-MsolUser -UserPrincipalName $user -RemoveFromRecycleBin
     Get-Msoluser -ReturnDeletedUsers
-}
-else {}
