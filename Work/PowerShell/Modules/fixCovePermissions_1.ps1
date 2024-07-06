@@ -67,7 +67,8 @@ function validateURL {
 
     if ($adminURL -match $urlPattern) {
         return $true
-    } else {
+    }
+    else {
         return $false
     }
 }
@@ -115,6 +116,7 @@ function TaskStatus {
     else {
         Write-Host "> This is a live run, changes will be applied!" -ForegroundColor Red
     }
+
     Write-Host ""
     if ($changeSP -eq $false -or $whatIf) {
         Write-Host "> We won't edit SharePoint" -ForegroundColor Green
@@ -122,18 +124,113 @@ function TaskStatus {
     elseif ($changeSP) {
         Write-Host "> We will make changes to SharePoint" -ForegroundColor Red
     }
+    
     if ($changeTeams -eq $false -or $whatIf) {
         Write-Host "> We won't edit Teams" -ForegroundColor Green
     }
     else {
         Write-Host "> We will make changes to Teams" -ForegroundColor Red
     }
+    
     Write-Host ""
     Write-Host "SharePoint permissions editor" -ForegroundColor Green
     Write-Host ""
 }
 
+function askWhatIf {
+    try {
+        $whatIf = Read-Host -Prompt "Do you want to test run before making changes? (recommended!) (Yes or No)" 
+        $whatIf = ConvertAnswer -answer $whatIf
+        Write-Host $whatIf
+        if ($whatIf -eq $null) {
+            Write-Host $kashdjks -ForegroundColor Yellow
+            Start-Sleep -Seconds 4
+            askWhatIf  # Retry the function call
+        }    
+    }
+    catch {
+        Write-Host "ERROR in askWhatIf(): $_" -ForegroundColor Red
+        Write-Host $kashdjks -ForegroundColor Yellow
+        Start-Sleep -Seconds 3
+        askWhatIf  # Restart options selection
+    } #return $whatIf
+}
+
+function askChangeSP {
+    try {
+        $changeSP = Read-Host -Prompt "Do you want to remove the user from SharePoint? (Yes or No)" 
+        $changeSP = ConvertAnswer -answer $changeSP
+        Write-Host $changeSP
+        if ($changeSP -eq $null) {
+            Write-Host $kashdjks -ForegroundColor Yellow
+            Start-Sleep -Seconds 4
+            askChangeSP  # Retry the function call
+        }    
+    }
+    catch {
+        Write-Host "ERROR in askChangeSP(): $_" -ForegroundColor Red
+        Write-Host $kashdjks -ForegroundColor Yellow
+        Start-Sleep -Seconds 3
+        askChangeSP  # Restart options selection
+    } #return $changeSP
+
+}
+
+function askChangeTeams {
+    try {
+        $changeTeams = Read-Host -Prompt "Do you want to remove the user from Teams? (Yes or No)" 
+        $changeTeams = ConvertAnswer -answer $changeTeams
+        Write-Host $changeTeams
+        if ($changeTeams -eq $null) {
+            Write-Host $kashdjks -ForegroundColor Yellow
+            Start-Sleep -Seconds 4
+            askChangeTeams  # Retry the function call
+        }    
+    }
+    catch {
+        Write-Host "ERROR in askChangeTeams(): $_" -ForegroundColor Red
+        Write-Host $kashdjks -ForegroundColor Yellow
+        Start-Sleep -Seconds 3
+        askChangeTeams  # Restart options selection
+    } #return $ChangeTeams
+
+}
+
+function askUserUPN {
+    try {
+        $userUPN = Read-Host -Prompt "Please provide the target user's email address"
+        if (-not (validateEmail -emailAddress $userUPN)) {
+            Write-Host """$userUPN""" " Does not look like a valid email address" -ForegroundColor Red
+            Start-Sleep -seconds 3
+            askUserUPN
+        }    
+    } 
+    catch {
+        Write-Host "ERROR in askUserUPN(): $_" -ForegroundColor Red
+        Write-Host $kashdjks -ForegroundColor Yellow
+        Start-Sleep -Seconds 3
+        askUserUPN  # Restart options selection
+    } 
+    Write-Host $UserUPN
+    #return $UserUPN
+
+}
+
+Write-Host $askWhatIfAns = askWhatIf
+Write-Host $askChangeSPAns = askChangeSP
+Write-Host $askChangeTeamsAns = askChangeTeams
+Write-Host $askUserUPNAns = askUserUPN
+                
+if ($changeSP) {
+    DoSharePoint
+}
+if ($changeTeams) {
+    DoTeams
+}
+
+
 # Prompt user for options
+
 function GetOptions {
     ShowHeader
     
@@ -141,56 +238,23 @@ function GetOptions {
     Write-Host "Please follow the prompts below to proceed." -ForegroundColor Green
     Write-Host ""
 
-    try {
+    $askWhatIfAns = askWhatIf
+    # Write-Host "Test Run: $askWhatIfAns"
 
-        $whatIf = Read-Host -Prompt "Do you want to test run before making changes? (recommended!) (Yes or No)" 
-        $whatIf = ConvertAnswer -answer $whatIf
-        if ($whatIf -eq $null) {
-            Write-Host $kashdjks -ForegroundColor Yellow
-            Start-Sleep -Seconds 4
-            GetOptions  # Retry the function call
-            return
-        }
+    $askChangeSPAns = askChangeSP
+    # Write-Host "Change SharePoint: $askChangeSPAns"
 
-        $changeSP = Read-Host -Prompt "Do you want to remove the user from SharePoint? (Yes or No)" 
-        $changeSP = ConvertAnswer -answer $changeSP
-        if ($changeSP -eq $null) {
-            Write-Host $kashdjks -ForegroundColor Yellow
-            Start-Sleep -Seconds 4
-            GetOptions  # Retry the function call
-            return
-        }
+    $askChangeTeamsAns = askChangeTeams
+    # Write-Host "Change Teams: $askChangeTeamsAns"
 
-        $changeTeams = Read-Host -Prompt "Do you want to remove the user from Teams? (Yes or No)" 
-        $changeTeams = ConvertAnswer -answer $changeTeams
-        if ($changeTeams -eq $null) {
-            Write-Host $kashdjks -ForegroundColor Yellow
-            Start-Sleep -Seconds 4
-            GetOptions  # Retry the function call
-            return
-        }
-
-        $userUPN = Read-Host -Prompt "Please provide the target user's email address"
-        #Validate email entry
-        if (-not (validateEmail -emailAddress $userUPN)) {
-            Write-Host """$userUPN""" " Does not look like a valid email address" -ForegroundColor Red
-            Start-Sleep -seconds 3
-            GetOptions
-            return
-        }
+    $askUserUPNAns = askUserUPN
+    # Write-Host "User UPN: $askUserUPNAns"
                 
-        if ($changeSP) {
-            DoSharePoint
-        }
-        if ($changeTeams) {
-            DoTeams
-        }
+    if ($ChangeSP) {
+        DoSharePoint
     }
-    catch {
-        Write-Host "ERROR in GetOptions(): $_" -ForegroundColor Red
-        Write-Host $kashdjks -ForegroundColor Yellow
-        Start-Sleep -Seconds 3
-        GetOptions  # Restart options selection
+    if ($ChangeTeams) {
+        DoTeams
     }
 }
 
@@ -308,33 +372,33 @@ function DoTeams {
 
         $teamResult = @()
 
-            $teams = (get-team)
-            foreach ($team in $teams) { 
-                try {
-                    if ( Get-TeamUser -GroupId $team.GroupId | where-object user -Like $teamsUserUPN ) {
-                        if ( $WhatIf -eq $false ) {
-                            [void](Remove-TeamUser -GroupId $team.GroupId -User $teamsUserUPN)
-                            $teamResult += ($team.DisplayName)
-                            Write-Host $teamsUserUPN" was removed from "$team.DisplayName
-                        }
-                        else {
-                            Write-Host ">> Would remove $teamsUserUPN from " $team.displayName 
-                            $teamResult += ($team.DisplayName)
-                        }
+        $teams = (get-team)
+        foreach ($team in $teams) { 
+            try {
+                if ( Get-TeamUser -GroupId $team.GroupId | where-object user -Like $teamsUserUPN ) {
+                    if ( $WhatIf -eq $false ) {
+                        [void](Remove-TeamUser -GroupId $team.GroupId -User $teamsUserUPN)
+                        $teamResult += ($team.DisplayName)
+                        Write-Host $teamsUserUPN" was removed from "$team.DisplayName
                     }
-                    else { Write-Host $teamsUserUPN " not found in "$team.DisplayName }
+                    else {
+                        Write-Host ">> Would remove $teamsUserUPN from " $team.displayName 
+                        $teamResult += ($team.DisplayName)
+                    }
                 }
-                catch { Write-Host "ERROR in DoTeams(): $_" }
-                Write-Host "_______________________`n"
+                else { Write-Host $teamsUserUPN " not found in "$team.DisplayName }
             }
-
+            catch { Write-Host "ERROR in DoTeams(): $_" }
+            Write-Host "_______________________`n"
         }
 
-        if ( $whatIf -eq $false ) {
-            Write-Host "The following Teams were edited:`n" $teamResult "`n`n"
-        }
-        else { Write-Host "The following Teams would have been edited:`n" $teamResult "`n`n" }
     }
+
+    if ( $whatIf -eq $false ) {
+        Write-Host "The following Teams were edited:`n" $teamResult "`n`n"
+    }
+    else { Write-Host "The following Teams would have been edited:`n" $teamResult "`n`n" }
+}
 
 
 # Start the script
