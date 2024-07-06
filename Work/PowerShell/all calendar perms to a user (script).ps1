@@ -3,12 +3,12 @@
 # Import-PSSession $Session
 
 $userToAdd = "susanne.j@womanstrust.org.uk"
-$users = Get-Mailbox | Select -ExpandProperty PrimarySmtpAddress
-Foreach ($u in $users)
+$users = Get-Mailbox | Select-object -ExpandProperty PrimarySmtpAddress
+Foreach ($user in $users)
 {
 $ExistingPermission = Get-MailboxFolderPermission -Identity $u":\calendar" -User $userToAdd -EA SilentlyContinue
 if ($ExistingPermission) {Remove-MailboxFolderPermission -Identity $u":\calendar" -User $userToAdd -Confirm:$False}
-if ($u -ne $userToAdd) {Add-MailboxFolderPermission $u":\Calendar" -user $userToAdd -accessrights Editor}
+if ($user -ne $userToAdd) {Add-MailboxFolderPermission $u":\Calendar" -user $userToAdd -accessrights Editor}
 }
 
 # Remove-PSSession $Session

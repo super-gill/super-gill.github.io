@@ -1,8 +1,0 @@
-#set the default calendar object to editor for every user
-
-Connect-ExchangeOnline
-
-foreach ($user in Get-Mailbox -RecipientTypeDetails UserMailbox) {
-    $cal = $user.PrimarySmtpAddress.ToString() + ":\Calendar"
-    Set-MailboxFolderPermission -Identity $cal -User Default -AccessRights editor  
-}
