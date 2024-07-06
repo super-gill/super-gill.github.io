@@ -3,15 +3,12 @@
 $appVersion = 1
 
 # Global variables
-[bool]$whatIf = $true,
-[string]$userUPN,
-[string]$adminURL,
+[bool]$whatIf = $true
+[string]$userUPN
+[string]$adminURL
 [string]$adminUPN
-
-
-
-# Other variables
-$kashdjks = "What part of 'YES OR NO' was unclear? Don't sass me."
+[string]$sassMe = "Invalid answer"
+[bool]$firstRun = $true
 
 # Convert to boolean 
 function convertAnswer {
@@ -72,7 +69,19 @@ function showHeader {
     Write-Host "#   " -ForegroundColor Cyan -NoNewline; Write-Host "Version $appVersion" -ForegroundColor Yellow -NoNewline; Write-Host  "                                                #" -ForegroundColor Cyan
     Write-Host "#                                                            #" -ForegroundColor Cyan
     Write-Host "##############################################################" -ForegroundColor Cyan
+
+    if ($env:USERNAME.ToLower() -eq "daniel.whitford") {
+        Write-Host ""
+        Write-Host "WARNING: A DANIEL IS DETECTED" -ForegroundColor Red
+        Write-Host ""
+    }
+    elseif ($env:USERNAME.ToLower() -eq "neels.steyn") {
+        Write-Host ""
+        Write-Host "WARNING: FILTHY SOUTH-AFRICAN MODE ENABLED" -ForegroundColor Red
+        Write-Host ""
+    }
 }
+
 
 function showInstructions {
     showHeader
@@ -92,7 +101,7 @@ function showInstructions {
     Write-Host "*It is strongly recommended to use the test run first*" -ForegroundColor Green
     Write-Host ""
     Write-Host -NoNewLine 'Press any key to continue...'
-    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') # listen for a keypress
     getOptions
 }
 
@@ -100,6 +109,8 @@ function showInstructions {
 function taskStatus {
     showHeader
     Write-Host ""
+
+    # Remind the user the status of WhatIf
     if ($whatIf) {
         Write-Host "> This is a test run" -ForegroundColor Green
     }
@@ -107,6 +118,7 @@ function taskStatus {
         Write-Host "> This is a live run, changes will be applied!" -ForegroundColor Red
     }
 
+    # Remind the user the status of SP and Teams changes
     Write-Host ""
     if ($changeSP -eq $false -or $whatIf) {
         Write-Host "> We won't edit SharePoint" -ForegroundColor Green
@@ -128,12 +140,13 @@ function taskStatus {
     Write-Host ""
 }
 
+# Ask if we are enabling WhatIf
 function askWhatIf {
     try {
         $whatIf = Read-Host -Prompt "Do you want to test run before making changes? (recommended!) (Yes or No)" 
         $whatIf = convertAnswer -answer $whatIf
         if ($null -eq $whatIf) {
-            Write-Host $kashdjks -ForegroundColor Yellow
+            Write-Host $sassMe -ForegroundColor Yellow
             $whatIf = $true
             Start-Sleep -Seconds 4
             askWhatIf  # Retry
@@ -142,18 +155,19 @@ function askWhatIf {
     }
     catch {
         Write-Host "ERROR in askWhatIf(): $_" -ForegroundColor Red
-        Write-Host $kashdjks -ForegroundColor Yellow
+        Write-Host $sassMe -ForegroundColor Yellow
         Start-Sleep -Seconds 3
         askWhatIf  # Retry
     }
 }
 
+# Ask if we are making changes to SharePoint
 function askChangeSP {
     try {
         $changeSP = Read-Host -Prompt "Do you want to remove the user from SharePoint? (Yes or No)" 
         $changeSP = convertAnswer -answer $changeSP
         if ($null -eq $changeSP) {
-            Write-Host $kashdjks -ForegroundColor Yellow
+            Write-Host $sassMe -ForegroundColor Yellow
             $changeSP = $null
             Start-Sleep -Seconds 4
             askChangeSP  # Retry
@@ -162,18 +176,19 @@ function askChangeSP {
     }
     catch {
         Write-Host "ERROR in askChangeSP(): $_" -ForegroundColor Red
-        Write-Host $kashdjks -ForegroundColor Yellow
+        Write-Host $sassMe -ForegroundColor Yellow
         Start-Sleep -Seconds 3
         askChangeSP  # Retry
     }
 }
 
+# Ask if we are making changes to Teams
 function askChangeTeams {
     try {
         $changeTeams = Read-Host -Prompt "Do you want to remove the user from Teams? (Yes or No)" 
         $changeTeams = convertAnswer -answer $changeTeams
         if ($null -eq $changeTeams) {
-            Write-Host $kashdjks -ForegroundColor Yellow
+            Write-Host $sassMe -ForegroundColor Yellow
             $changeTeams = $null
             Start-Sleep -Seconds 4
             askChangeTeams  # Retry
@@ -182,12 +197,13 @@ function askChangeTeams {
     }
     catch {
         Write-Host "ERROR in askChangeTeams(): $_" -ForegroundColor Red
-        Write-Host $kashdjks -ForegroundColor Yellow
+        Write-Host $sassMe -ForegroundColor Yellow
         Start-Sleep -Seconds 3
         askChangeTeams  # Retry
     }
 }
 
+# Ask for the target users UPN
 function askUserUPN {
     try {
         $userUPN = Read-Host -Prompt "Please provide the target user's email address"
@@ -201,26 +217,14 @@ function askUserUPN {
     }
     catch {
         Write-Host "ERROR in askUserUPN(): $_" -ForegroundColor Red
-        Write-Host $kashdjks -ForegroundColor Yellow
+        Write-Host $sassMe -ForegroundColor Yellow
         Start-Sleep -Seconds 3
         askUserUPN  # Retry
     }
 }
 
-# Prompt user for options
-function getOptions {
-    showHeader
-    
-    Write-Host ""
-    Write-Host "Please follow the prompts below to proceed." -ForegroundColor Green
-    Write-Host ""
-
-    $whatIf = askWhatIf
-    $changeSP = askChangeSP
-    $changeTeams = askChangeTeams
-    $userUPN = askUserUPN
-
-
+function runPermissionChanges {
+    # Run the selected permission change functions
     if ($changeSP) {
         Write-Host "doSharePoint selected "$changeSP
         prepSharePoint
@@ -231,7 +235,34 @@ function getOptions {
     }
 }
 
-# Gather SharePoint details
+# Run the question functions to gather inputs and options
+function getOptions {
+    showHeader
+
+    # Check if this is the first run
+    if ($firstRun -eq $false -and $whatIf) {
+        Write-Host ""
+        $runLive = Read-Host -Prompt "Do you want to perform a live run? (Yes or No)"
+        convertAnswer -answer $runLive
+        if ($runLive) {
+            runPermissionChanges
+        }
+    }
+    else {
+        Write-Host ""
+        Write-Host "Please follow the prompts below to proceed." -ForegroundColor Green
+        Write-Host ""
+    
+        $whatIf = askWhatIf
+        $changeSP = askChangeSP
+        $changeTeams = askChangeTeams
+        $userUPN = askUserUPN
+        
+        runPermissionChanges
+    }
+}
+
+# Gather additional SharePoint details
 function prepSharePoint {
     taskStatus
     Write-Host "The portal address must include all slashes and the scheme or it will be rejected" -ForegroundColor Yellow
@@ -259,6 +290,7 @@ function prepSharePoint {
         return
     }
 
+    # Run the WhatIf failsafe
     if ($whatIf -ne $true) {
         whatIfFalse
     }
@@ -267,7 +299,7 @@ function prepSharePoint {
     }
 }
 
-# WhatIf failsafe
+# Get the user to confirm they dont want to run a WhatIf first
 function whatIfFalse {
     taskStatus
     Write-Host "This is a LIVE run. Please confirm the details are correct before continuing." -ForegroundColor Green
@@ -387,6 +419,10 @@ function doTeams {
             Write-Host "The following Teams would have been edited:`n" -ForegroundColor Yellow
             $teamResult | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
         }
+    }
+    if ($whatIf) {
+        $firstRun = $false
+        getOptions
     }
     else {
         return

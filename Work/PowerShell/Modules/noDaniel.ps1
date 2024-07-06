@@ -1,0 +1,1 @@
+if ($env:USERNAME.ToLower() = "daniel.whitford") {exit}
