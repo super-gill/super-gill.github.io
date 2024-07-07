@@ -7,12 +7,6 @@ param(
     $whatIf = $true
 )
 
-if ($env:USERNAME.ToLower() = "daniel.whitford") {
-    Write-Host ""
-    Write-Host "WARNING: A DANIEL IS DETECTED" -ForegroundColor Red
-    Write-Host ""
-}
-
 $version = 1
 Write-Host "Version "$version
 

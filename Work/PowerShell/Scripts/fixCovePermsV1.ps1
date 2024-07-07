@@ -98,7 +98,7 @@ function showInstructions {
         Write-Host ""
         Write-Host "WARNING: WHITFORD DETECTED" -ForegroundColor Red
     }
-    elseif ($env:USERNAME.ToLower() -eq "jason.mcdill") {
+    elseif ($env:USERNAME.ToLower() -eq "neels.steyn") {
         Write-Host ""
         Write-Host "WARNING: SOUTHAFRICAN DETECTED" -ForegroundColor Red
     }
