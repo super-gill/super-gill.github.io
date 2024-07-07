@@ -1,30 +1,38 @@
 # Used to remove special permissions in SharePoint including share links and remove the target user from Teams
 # Written by Jason Mcdill
 
-# Changes
-# Added parameter for showHelp and comment based help option (although there is no way to know its here from CLI)
-# Moved the key global variables to param so they can be addressed from the cli
-# Removed the hard fail if the session is elevated - this is for logging but i never implemented the logging (replaced with annoying 5 second wait)
+# Changes:
+# Added parameter for showHelp and comment based help option
+# Moved the key global variables to params so they can be addressed from the cli (in future)
+# Removed the hard fail if the session is elevated - this was for logging but i never implemented the logging
+# Removed hilarious but not very professional messages
+# Updated comments and added more inline comments on complex logic
+# Seperated the SP specific questions to their own functions so they can be handled independently
+# Changed the name of whatIfFalse() to userConfirm and made it mandatory regardless of $whatIf value
+
+# Issues:
+# There is no way for me to currently implement no UI without re-writing changeSP() and doTeams() (disabled the feature if its attempted)
+# userConfirm does not recieve $adminURL and $adminUPN through the parameters on the function call
+# The script throws if the spo and teams modules are not installed, catching this and providing feedback would be better
 
 param (
     [bool]$showHelp = $false,
     [bool]$whatIf = $true,
+    [bool]$isadmin,
     [string]$userUPN,
     [string]$adminURL,
     [string]$adminUPN
 )
 
-# Global variables
-
+# Global variables (not addressible in the CLI)
 [string]$sassMe = "Invalid answer"
-[int]$appVersion = 3
+[int]$version = 3
+[string]$scriptName = [system.io.path]::GetFileName($PSCommandPath)
+[string]$author = "Jason Mcdill"
 
+# My version of comment help, less good looking and more lines of code.
 if ($showHelp) {
-
-    [string]$author = "Jason Mcdill"
-    [int]$version = $appVersion
-    [string]$scriptName = [system.io.path]::GetFileName($PSCommandPath)
-
+    
     Clear-Host
     Write-Host "Showing help" -ForegroundColor Yellow
     
@@ -45,19 +53,29 @@ if ($showHelp) {
 
     Write-Host ""
 
-    Write-Host ""
     Write-Host "Elevation: " -ForegroundColor Yellow
-    Write-Host "This script does not required elevation and will not run in an elevated session."
+    Write-Host "This script does not required elevation."
 
     Write-Host ""
 
     Write-Host "Example 1:  " -ForegroundColor Yellow
-    Write-Host ".\fixCovePermsV3.ps1"
+    Write-Host "Run with the UI (recommended)"
+    Write-Host "$($scriptName)"
     
     Write-Host ""
+
+    Write-Host "Example 1:  " -ForegroundColor Yellow
+    Write-Host "Run without a UI (experimental)"
+    Write-Host "$($scriptName) -userUPN username@contoso.com" 
+    Write-Host "   -adminURL https://contoso-admin.sharepoint.com/" 
+    Write-Host "   -adminUPN admin@contoso.com" 
+    Write-Host "   -whatIf"$"true"
     
+    Write-Host ""
+
     Write-Host "Example 2:  " -ForegroundColor Yellow
-    Write-Host ".\fixCovePermsV3.ps1 -showHelp $true"
+    Write-Host "Run the comment help"
+    Write-Host "$($scriptName) -showHelp"$"true"
 
     Write-Host ""
 
@@ -68,7 +86,7 @@ if ($showHelp) {
     exit
 }
 
-# Convert to boolean 
+# General function to convert a yes/no value to boolean 
 function convertAnswer {
     param (
         [string]$answer
@@ -85,7 +103,7 @@ function convertAnswer {
     }
 }
 
-# Validate email addresses
+# General function to validate email addresses
 function validateEmail {
     param (
         [string]$emailAddress
@@ -122,7 +140,7 @@ function checkAdminSession {
     }
 }
 
-# Validate the URL
+# General function to validate the URL
 function validateURL {
     param (
         [string]$url
@@ -138,29 +156,22 @@ function validateURL {
     }
 }
 
-# Display header
+# Display the header
 function showHeader {
     Clear-Host
+    if ($isadmin) { Write-Host "[Running as administrator]" }
     Write-Host "##############################################################" -ForegroundColor Cyan
     Write-Host "#                                                            #" -ForegroundColor Cyan
     Write-Host "#   " -ForegroundColor Cyan -NoNewline; Write-Host "Remove target users from SharePoint and Teams for Cove" -ForegroundColor Yellow -NoNewline; Write-Host "   #" -ForegroundColor Cyan
     Write-Host "#   " -ForegroundColor Cyan -NoNewline; Write-host "Written by Jason Prime" -ForegroundColor Yellow -NoNewline; Write-host "                                   #" -ForegroundColor Cyan
-    Write-Host "#   " -ForegroundColor Cyan -NoNewline; Write-Host "Version $appVersion" -ForegroundColor Yellow -NoNewline; Write-Host  "                                                #" -ForegroundColor Cyan
+    Write-Host "#   " -ForegroundColor Cyan -NoNewline; Write-Host "Version $version" -ForegroundColor Yellow -NoNewline; Write-Host  "                                                #" -ForegroundColor Cyan
     Write-Host "#                                                            #" -ForegroundColor Cyan
     Write-Host "##############################################################" -ForegroundColor Cyan
 }
 
-
+# Display the instructions splash
 function showInstructions {
     showHeader
-    if ($env:USERNAME.ToLower() -eq "daniel.whitford") {
-        Write-Host ""
-        Write-Host "WARNING: WHITFORD DETECTED" -ForegroundColor Red
-    }
-    elseif ($env:USERNAME.ToLower() -eq "neels.steyn") {
-        Write-Host ""
-        Write-Host "WARNING: SOUTHAFRICAN DETECTED" -ForegroundColor Red
-    }
     Write-Host "" -ForegroundColor Green
     Write-Host "You will need the following to complete this successfully:"  -ForegroundColor Green
     Write-Host ""
@@ -179,12 +190,14 @@ function showInstructions {
     Write-Host "Both the Teams and SP PowerShell modules are required and" -ForegroundColor Yellow
     Write-Host "can be installed from the Digital Origin Company Portal app" -ForegroundColor Yellow
     Write-Host ""
+    Write-Host "Run "" .\$($scriptName) -getHelp"$"true "" for more info" -ForegroundColor Yellow
+    Write-Host ""
     Write-Host -NoNewLine 'Press any key to continue...'
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') # listen for a keypress
     getOptions
 }
 
-# Display task status
+# Present the current configuration of the script to the user
 function taskStatus {
     showHeader
     Write-Host ""
@@ -213,7 +226,6 @@ function taskStatus {
         Write-Host "> We will make changes to Teams" -ForegroundColor Red
     }
     
-    ShowHeader
     Write-Host ""
     Write-Host "SharePoint permissions editor" -ForegroundColor Green
     Write-Host ""
@@ -222,6 +234,8 @@ function taskStatus {
 # Ask if we are enabling WhatIf
 function askWhatIf {
     try {
+        showHeader
+        Write-Host ""
         $whatIf = Read-Host -Prompt "Do you want to test run before making changes? (recommended!) (Yes or No)" 
         $whatIf = convertAnswer -answer $whatIf
         if ($null -eq $whatIf) {
@@ -230,6 +244,7 @@ function askWhatIf {
             Start-Sleep -Seconds 4
             askWhatIf  # Retry
         }
+
         return $whatIf
     }
     catch {
@@ -243,6 +258,7 @@ function askWhatIf {
 # Ask if we are making changes to SharePoint
 function askChangeSP {
     try {
+        showHeader
         Write-Host ""
         $changeSP = Read-Host -Prompt "Do you want to remove the user from SharePoint? (Yes or No)" 
         $changeSP = convertAnswer -answer $changeSP
@@ -264,8 +280,9 @@ function askChangeSP {
 
 # Ask if we are making changes to Teams
 function askChangeTeams {
-    Write-Host ""
     try {
+        showHeader
+        Write-Host ""
         $changeTeams = Read-Host -Prompt "Do you want to remove the user from Teams? (Yes or No)" 
         $changeTeams = convertAnswer -answer $changeTeams
         if ($null -eq $changeTeams) {
@@ -286,8 +303,9 @@ function askChangeTeams {
 
 # Ask for the target users UPN
 function askUserUPN {
-    Write-Host ""
     try {
+        showHeader
+        Write-Host ""
         $userUPN = Read-Host -Prompt "Please provide the target user's email address"
         if (-not (validateEmail -emailAddress $userUPN)) {
             Write-Host """$userUPN""" " Does not look like a valid email address" -ForegroundColor Red
@@ -333,51 +351,47 @@ function getOptions {
     runPermissionChanges
 }
 
-
-# Gather additional SharePoint details
-function prepSharePoint {
+# Ask for and validate the SPO portal URL
+function askAdminURL {
     taskStatus
     Write-Host "The portal address must include all slashes and the scheme or it will be rejected" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "I.E. https://contoso-admin.sharepoint.com/" -ForegroundColor Yellow
     Write-Host ""
-    
-    # Validate URL
-    function askAdminURL {
+    $adminURL = Read-Host -Prompt "Please provide the SharePoint admin URL"
+    if (-not (validateURL -url $adminURL)) {
+        Write-Host """$adminURL""" " does not look like a valid SharePoint portal URL" -ForegroundColor Red
+        $adminURL = $null
+        Start-Sleep -seconds 3
+        askAdminURL
         
-        $adminURL = Read-Host -Prompt "Please provide the SharePoint admin URL"
-        if (-not (validateURL -url $adminURL)) {
-            Write-Host """$adminURL""" " does not look like a valid SharePoint portal URL" -ForegroundColor Red
-            $adminURL = $null
-            Start-Sleep -seconds 3
-            askAdminURL
-            return
-        }
-    }
-    
-    # Validate email entry
-    function askAdminUPN {
-        Write-Host ""
-        $adminUPN = Read-Host -Prompt "Please provide an Exchange Administrator email address"
-        if (-not (validateURL -emailAddress $adminUPN)) {
-            Write-Host """$adminUPN""" " does not look like a valid email address" -ForegroundColor Red
-            $adminUPN = $null
-            Start-Sleep -seconds 3
-            askAdminUPN
-            return
-        }
-    }
+    } return
+}
+
+# Ask for and validate the SP admin UPN
+function askAdminUPN {
+    taskStatus
+    Write-Host "The portal address must include all slashes and the scheme or it will be rejected" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "I.E. https://contoso-admin.sharepoint.com/" -ForegroundColor Yellow
+    Write-Host ""
+    $adminUPN = Read-Host -Prompt "Please provide an Exchange Administrator email address"
+    if (-not (validateEmail -emailAddress $adminUPN)) {
+        Write-Host """$adminUPN""" " does not look like a valid email address" -ForegroundColor Red
+        $adminUPN = $null
+        Start-Sleep -seconds 3
+        askAdminUPN
+    } return
+}
+
+# Gather additional SharePoint details
+function prepSharePoint {
 
     $adminURL = askAdminURL
     $adminUPN = askadminUPN
 
-    # Run the WhatIf failsafe
-    if ($whatIf -ne $true) {
-        whatIfFalse -userUPN $userUPN -adminURL $adminURL -adminUPN $adminUPN
-    }
-    else {
-        doSharePoint
-    }
+    # Let the user check and confirm their inputs
+    userConfirm -userUPN $userUPN -adminURL $adminURL -adminUPN $adminUPN
 }
 
 # Perform SharePoint actions
@@ -388,14 +402,38 @@ function doSharePoint {
         Write-Host ""
         Write-Host "Editing SharePoint, please log in and wait..." -ForegroundColor Yellow
 
-        $null = Connect-SPOService -Url $adminURL
-        $siteUrls = (Get-SPOSite | Where-Object url -notlike "*-my.sharepoint.com*").url
+        function connectSPO {
+
+            param (
+                [string]$adminURL
+            )
+
+            try {
+                $null = Connect-SPOService -Url $adminURL 
+            } 
+            catch {
+                Write-Host ""
+                Write-Host "Connecting to SharePoint Online failed: " -ForegroundColor Red 
+                Write-Host "Ensure the module is installed" -ForegroundColor Red 
+                Write-Host "Check the details you entered are correct" -ForegroundColor Red 
+                Write-Host ""
+                Write-Host "Restarting the SharePoint editor"
+                Write-Host ""
+                $adminUPN = $null
+                Start-Sleep -seconds 5
+                askAdminUPN
+            }
+        }
+
+        connectSPO -adminURL $adminURL
+
+        $siteUrls = (Get-SPOSite | Where-Object url -notlike "*-my.sharepoint.com*").url # Create an array of the site names and exclude the OneDrive site
 
         foreach ($site in $siteUrls) {
             # Check or add the site collection admin
             try {
                 Write-Host $site
-                $user = Get-SPOUser -Site $site -LoginName $adminUPN -ErrorAction Stop > $null
+                $user = Get-SPOUser -Site $site -LoginName $adminUPN -ErrorAction Stop > $null # check if adminURL is already a site collection admin
                 if ($user.IsSiteCollectionAdmin) {
                     Write-Host "$adminUPN already an admin"
                 }
@@ -410,9 +448,9 @@ function doSharePoint {
 
             # Try to delete the user
             try {
-                $user = Get-SPOUser -Site $site -LoginName $userUPN -ErrorAction Stop > $null
+                $user = Get-SPOUser -Site $site -LoginName $userUPN -ErrorAction Stop > $null # Check if the user is present in the site
                 if ($whatIf -eq $false) {
-                    Remove-SPOUser -Site $site -LoginName $userUPN -ErrorAction Stop > $null
+                    Remove-SPOUser -Site $site -LoginName $userUPN -ErrorAction Stop > $null # Remove the user if whatIf is false
                     if ($?) {
                         Write-Host "Removed user" -ForegroundColor Green
                     }
@@ -427,18 +465,19 @@ function doSharePoint {
             catch {
                 Write-Host $_ -ForegroundColor Red
             }
-            Set-SPOUser -Site $site -LoginName $adminUPN -IsSiteCollectionAdmin $true > $null
+            Set-SPOUser -Site $site -LoginName $adminUPN -IsSiteCollectionAdmin $true > $null # Remove adminUPN from site collection admin
             Write-Host "$adminUPN removed"
             Write-Host "_______________________________`n"
         }
+        # if whatIf is true and we arent running Teams changes, ask the user if we should re-run the script live with the current settings
         if ($whatIf -and ($changeTeams -eq $false)) {
-            $runLive = Read-Host -Prompt "Do you want to run this live with the current settings?"
+            $runLive = Read-Host -Prompt "Do you want to run this live with the current settings? (Yes or No)"
             convertAnswer -answer $runLive
             if ($runLive) {
                 $whatIf = $false
-                Write-Host "Called what if false with: userUPN: $($userUPN) adminURL: $($adminURL) adminUPN: $($adminUPN)"
+                Write-Host "Called what if false with: userUPN: $($userUPN) adminURL: $($adminURL) adminUPN: $($adminUPN)" # This is for debug and needs removed
                 Start-Sleep -Seconds 5
-                whatIfFalse -userUPN $userUPN -adminURL $adminURL -adminUPN $adminUPN
+                userConfirm -userUPN $userUPN -adminURL $adminURL -adminUPN $adminUPN
             }
         }
     }
@@ -452,13 +491,29 @@ function doTeams {
     if ($changeTeams) {
         Write-Host ""
         Write-Host "Editing Teams, please log in and wait..." -ForegroundColor Yellow
-        Connect-MicrosoftTeams
+        
+        try {
+            Connect-MicrosoftTeams > $null
+        }
+        catch {
+            Write-Host ""
+            Write-Host "Connecting to Teams Online failed, is the module installed?" -ForegroundColor Red
+            Write-Host "Ensure the module is installed" -ForegroundColor Red 
+            Write-Host "Check the details you entered are correct" -ForegroundColor Red 
+            Write-Host ""
+            Write-Host "Restarting the Teams editor..."
+            Write-Host ""
+            $adminUPN = $null
+            Start-Sleep -Seconds 5
+            askAdminUPN
+        }
 
         $teamResult = @()
-        $teams = Get-Team
+        $teams = Get-Team # Comprenhensive  array of Teams teams
 
         foreach ($team in $teams) {
             try {
+                # If a user that matches the value of $userUPN is found as a member or owner of the team
                 if (Get-TeamUser -GroupId $team.GroupId | Where-Object user -Like $userUPN) {
                     if ($whatIf -eq $false) {
                         Remove-TeamUser -GroupId $team.GroupId -User $userUPN
@@ -467,7 +522,7 @@ function doTeams {
                     }
                     else {
                         Write-Host "Would remove $userUPN from $team" -ForegroundColor Yellow
-                        $teamResult += $team.DisplayName
+                        $teamResult += $team.DisplayName # Add the Teams displayname to the results array, unlike SP the inital array contains all Team info
                     }
                 }
                 else {
@@ -481,14 +536,16 @@ function doTeams {
         }
         
         function reRunLive {
+            # If $whatIf is true and $changeSP is true offer to re-run the changes live
             if ($whatIf -and $changeSP) {
                 $runLive = Read-Host -Prompt "Do you want to run this live with the current settings?"
                 convertAnswer -answer $runLive
                 if ($runLive) {
                     $whatIf = $false
-                    whatIfFalse -userUPN $userUPN -adminURL $adminURL -adminUPN $adminUPN
+                    userConfirm -userUPN $userUPN -adminURL $adminURL -adminUPN $adminUPN
                 }
             }
+            # If $whatIf is true and $changeSP is false offer to re-run the changes live
             if ($whatIf -and -not $changeSP) {
                 $runLive = Read-Host -Prompt "Do you want to run this live with the current settings?"
                 convertAnswer -answer $runLive
@@ -518,7 +575,10 @@ function doTeams {
 }
 
 # Get the user to confirm they dont want to run a WhatIf first
-function whatIfFalse {
+function userConfirm {
+
+    # This function call requires parameters to complete correctly
+    # userConfirm -userUPN $userUPN -adminURL $adminURL -adminUPN $adminUPN
 
     param (
         [string]$userUPN,
@@ -527,11 +587,14 @@ function whatIfFalse {
     )
 
     taskStatus
-    Write-Host "This is a LIVE run. Please confirm the details are correct before continuing." -ForegroundColor Green
+    if ($whatIf) {
+        Write-Host "This is a TEST run. Please confirm the details are correct before continuing." -ForegroundColor Green
+    }
+    else { Write-Host "This is a LIVE run. Please confirm the details are correct before continuing." -ForegroundColor Yellow }
     Write-Host ""
-    Write-Host "The account being removed is: $($userUPN)" -ForegroundColor Green
-    Write-Host "The SharePoint tenant being accessed is: $($adminURL)" -ForegroundColor Green
-    Write-Host "The administrator account being used to make changes is: $($adminUPN)" -ForegroundColor Green
+    Write-Host "The account being removed is: $($userUPN)" -ForegroundColor Yellow
+    Write-Host "The SharePoint tenant being accessed is: $($adminURL)" -ForegroundColor Yellow
+    Write-Host "The administrator account being used to make changes is: $($adminUPN)" -ForegroundColor Yellow
     Write-Host ""
     
     $confirmPrompt = Read-Host -Prompt "Are these details correct?"
@@ -549,4 +612,12 @@ function whatIfFalse {
 
 
 # Start the script
+
+if ($userUPN -ne "") {
+    Write-Host ""
+    Write-Host "Running the script without the UI has been disabled, restarting in UI mode..." -ForegroundColor Red
+    Write-Host ""
+    Start-Sleep -seconds 3
+    checkAdminSession
+}
 checkAdminSession
