@@ -12,7 +12,7 @@ Connect-MsolService
 
 
 Write-Host "Finding Azure Active Directory Accounts..."
-Connect-ExchangeOnline
+# Connect-ExchangeOnline
 Connect-MsolService
 $Users = Get-MsolUser -All | Where-Object {$_.isLicensed -eq $true} | Where-Object { $_.UserType -ne "Guest" } #where-object {$_.isLicensed -eq $true} | 
 $Report = [System.Collections.Generic.List[Object]]::new()
