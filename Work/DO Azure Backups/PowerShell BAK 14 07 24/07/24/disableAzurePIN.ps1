@@ -1,10 +1,11 @@
-﻿#Remove and disable Azure PIN login when not using intune
+﻿# Remove and disable Azure PIN login when not using intune
+
 $path = "HKLM:\SOFTWARE\Policies\Microsoft"
 $key = "PassportForWork"
 $name = "Enabled"
 $value = "0"
  
-#Delete existing pins
+# Delete existing pins
 $passportFolder = "C:\Windows\ServiceProfiles\LocalService\AppData\Local\Microsoft\Ngc"
 if(Test-Path -Path $passportFolder)
 {

@@ -1,4 +1,6 @@
-﻿$reportsFolderPath = "C:\Usage Report"
+﻿# Bespoke script that checks usage of a directory at a specified level
+
+$reportsFolderPath = "C:\Usage Report"
 
 # Check if the reports folder already exists and create one if not
 if (-not (Test-Path -path $reportsFolderPath -PathType Container)) {

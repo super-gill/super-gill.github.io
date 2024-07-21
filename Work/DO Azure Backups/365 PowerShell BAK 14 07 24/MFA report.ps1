@@ -1,4 +1,8 @@
 ﻿<#
+Return a report of all legacy MFA configurations
+#>
+
+<#
 
 Set-ExecutionPolicy RemoteSigned
 $UserCredential = Get-Credential
@@ -6,13 +10,12 @@ $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri ht
 Import-PSSession $Session
 Get-Mailbox
 
-Connect-MsolService
-
 #>
 
+Connect-MsolService
 
 Write-Host "Finding Azure Active Directory Accounts..."
-Connect-ExchangeOnline
+# Connect-ExchangeOnline
 Connect-MsolService
 $Users = Get-MsolUser -All | Where-Object {$_.isLicensed -eq $true} | Where-Object { $_.UserType -ne "Guest" } #where-object {$_.isLicensed -eq $true} | 
 $Report = [System.Collections.Generic.List[Object]]::new()

@@ -1,3 +1,5 @@
+# Module that disables hibernate
+
 param (
     [bool]$whatIf = $true
 )

@@ -1,8 +1,8 @@
 ﻿# Bespoke script that checks usage of a directory at a specified level
 
-# Check if the reports folder already exists and create one if not
-
 $reportsFolderPath = "C:\Usage Report"
+
+# Check if the reports folder already exists and create one if not
 
 if (Test-Path -path $reportsFolderPath -PathType Container) {
     # Write-Host "The directory c\Usage Reports alread exists"

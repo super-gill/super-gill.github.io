@@ -1,4 +1,6 @@
-﻿$upnArray = @()
+﻿# Report delegate permissions per UPN
+
+$upnArray = @()
 $mailboxes = Get-Mailbox -ResultSize Unlimited
 foreach ($mailbox in $mailboxes) {
     $upnArray += $mailbox.UserPrincipalName

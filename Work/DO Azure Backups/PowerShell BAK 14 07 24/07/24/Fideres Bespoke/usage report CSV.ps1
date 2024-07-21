@@ -1,4 +1,6 @@
-﻿# Function to recursively find the most recently edited file within a folder
+﻿# Bespoke script to recursively find the most recently edited file within a folder for Fideres
+# This one exports to CSV
+
 function Get-MostRecentlyEditedFile {
     param(
         [Parameter(Mandatory=$true)]

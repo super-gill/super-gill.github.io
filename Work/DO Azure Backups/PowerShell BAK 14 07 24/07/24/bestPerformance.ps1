@@ -1,11 +1,10 @@
-# Function to set visual effects to "Adjust for best performance"
+# Module to set visual effects to "Adjust for best performance"
+# Super experimental WIP!
 
 param (
     [bool]$whatIf = $true,
     [bool]$showHelp = $false
 )
-
-
 
 if ($showHelp) {
 

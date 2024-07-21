@@ -1,3 +1,5 @@
+# Module that disables sleep
+
 param (
     [bool]$whatIf = $true
 )
