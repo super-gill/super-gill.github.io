@@ -18,7 +18,7 @@ try {
             [void]$filteredWords.Add($word)
         }
         $count++
-        [int32]$percent = [math]::Round(($count / $totalWords) * 100, 2)
+        [decimal]$percent = [math]::Round(($count / $totalWords) * 100, 2)
         Write-Host "Processing words: $percent%" -NoNewline -ForegroundColor Green
         Write-Host "`r" -NoNewline
     }
