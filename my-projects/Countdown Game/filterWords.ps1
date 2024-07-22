@@ -11,17 +11,27 @@ Clear-Host
 
 [int32]$totalWords = $words.Count
 
-foreach ($word in $words) {
-    if ($word -notmatch '\d' -and $word.Length -gt 3 -and $word -notlike '*-*' -and $word -notlike '*.' -and $word.Substring(1) -notmatch '[A-Z]') {
-        [void]$filteredWords.Add($word)
-    }
-    $count++
-    [int32]$percent = [math]::Round(($count / $totalWords) * 100, 2)
-    Write-Host "Processing words: $percent%" -NoNewline -ForegroundColor Green
-    Write-Host "`r" -NoNewline
-}
+try {
 
-$filteredWords | Set-Content $outputPath
-Write-Host ""
+    foreach ($word in $words) {
+        if ($word -notmatch '\d' -and $word.Length -gt 3 -and $word -notlike '*-*' -and $word -notlike '*.' -and $word.Substring(1) -notmatch '[A-Z]') {
+            [void]$filteredWords.Add($word)
+        }
+        $count++
+        [int32]$percent = [math]::Round(($count / $totalWords) * 100, 2)
+        Write-Host "Processing words: $percent%" -NoNewline -ForegroundColor Green
+        Write-Host "`r" -NoNewline
+    }
+
+    $filteredWords | Set-Content $outputPath
+    Write-Host ""
+    Write-Host "The output contains $($filteredWords.count) words"
+
+}
+catch {
+    Write-Host "Word filter failed:"
+    Write-Host ""
+    Write-Error $_
+}
 
 # Jason Mcdill
