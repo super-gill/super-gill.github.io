@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Towcester Volleyball Club</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #content {
+            flex: 1;
+            /* This makes sure the content takes up available space */
+        }
+
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 1rem 0;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        nav ul li {
+            display: inline;
+            margin-right: 20px;
+        }
+
+        nav ul li a {
+            color: #fff;
+            text-decoration: none;
+            font-size: 1.2rem;
+        }
+
+        nav ul li a:hover {
+            text-decoration: underline;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 2rem 0;
+        }
+
+        section {
+            margin: 1rem 0;
+            /* Reduced spacing for sections */
+        }
+
+        h2 {
+            margin-bottom: 1rem;
+            font-size: 2rem;
+            color: #333;
+        }
+
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.7rem 1.5rem;
+            background-color: #333;
+            color: #fff;
+            text-decoration: none;
+            font-size: 1.2rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .btn:hover {
+            background-color: #555;
+        }
+
+        .btn.disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+
+        footer {
+            background-color: #333;
+            color: #fff;
+            padding: 1rem 0;
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        footer p {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        /* Hide elements initially */
+        #contact-info {
+            display: none;
+            margin-top: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 8px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+        }
+
+        .captcha-question {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .captcha-input {
+            width: 100%;
+            padding: 8px;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .submit-captcha {
+            padding: 10px 20px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1rem;
+        }
+
+        .submit-captcha:hover {
+            background-color: #555;
+        }
+
+        .error-message {
+            color: red;
+            display: none;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="content">
+        <header>
+            <div class="container">
+                <h1>Towcester Volleyball</h1>
+            </div>
+        </header>
+
+        <section id="home">
+            <div class="container">
+                <h2>Welcome to Towcester Volleyball Club</h2>
+                <p>Join us every Saturday at 12:30 PM for a fun, inclusive volleyball session at Towcester Leisure
+                    Centre!</p>
+            </div>
+        </section>
+
+        <section id="about">
+            <div class="container">
+                <h2>About Us</h2>
+                <p>Whether you're a seasoned player or just starting out, everyone is welcome for some friendly,
+                    non-competitive games.</p>
+            </div>
+        </section>
+
+        <section id="sessions">
+            <div class="container">
+                <h2>Weekly Sessions</h2>
+                <p><strong>When:</strong> Every Saturday at 12:30 PM</p>
+                <p><strong>Where:</strong> Towcester Leisure Centre</p>
+                <p><strong>Indoor Sessions:</strong> Small fee applies</p>
+                <p><strong>Outdoor Sessions:</strong> Free</p>
+                <p><strong>Attire:</strong> Comfortable sportswear, no equipment required</p>
+            </div>
+        </section>
+
+        <!-- Contact Button and Hidden Info -->
+        <section id="contact">
+            <div class="container">
+                <button id="contactBtn" class="btn">Contact Us</button>
+                <button id="godModeBtn" class="btn">God Mode</button>
+
+                <!-- Hidden QR -->
+                <div id="contact-info">
+                    <p>Scan the QR code below to reach us on WhatsApp!</p>
+                    <img src="./output-onlinepngtools.png" alt="WhatsApp QR Code"
+                        style="max-width: 300px; width: 100%; height: auto;">
+                    <p>Or, send us an email at <a
+                            href="mailto:contact@towcestervolleyball.co.uk">contact@towcestervolleyball.co.uk</a>.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAPTCHA Modal for human mode -->
+        <div id="captchaModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Verify You're Human</h2>
+                <p class="captcha-question" id="captchaQuestion">What is 3 + 4?</p>
+                <input type="text" id="captchaInput" class="captcha-input" placeholder="Your Answer">
+                <div class="error-message" id="errorMessage">Incorrect answer. Please try again.</div>
+                <button id="submitCaptcha" class="submit-captcha">Submit</button>
+            </div>
+        </div>
+
+        <!-- CAPTCHA Modal for god mode -->
+        <div id="godModeModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Prove You're a God!</h2>
+                <p class="captcha-question" id="godModeQuestion">What is 17 x 23?</p>
+                <input type="text" id="godModeInput" class="captcha-input" placeholder="Your Answer">
+                <div class="error-message" id="godModeError">Incorrect answer. Please try again.</div>
+                <button id="submitGodMode" class="submit-captcha">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gallery Section -->
+    <section id="gallery">
+        <h2>Photo Gallery</h2>
+        <div class="gallery-container">
+            <button class="prev gallery-btn" onclick="prevImage()">&#10094;</button>
+            <div class="carousel" id="carousel">
+                <!-- Images will be dynamically inserted here -->
+            </div>
+            <button class="next gallery-btn" onclick="nextImage()">&#10095;</button>
+        </div>
+    </section>
+
+    <!-- Fullscreen Modal for Zoom -->
+    <div id="fullscreenModal" onclick="closeFullscreen()">
+        <img id="fullscreenImage" src="" alt="Zoomed Image">
+    </div>
+
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Towcester Volleyball</p>
+        </div>
+    </footer>
+
+    <script>
+        // Image gallery variables
+        const images = [
+            './vbpics/1.jpg',
+            './vbpics/2.jpg',
+            './vbpics/3.jpg',
+            './vbpics/4.jpg',
+            './vbpics/5.jpg',
+            './vbpics/6.jpg',
+            './vbpics/7.jpg',
+            './vbpics/8.jpg',
+            './vbpics/9.jpg',
+            './vbpics/10.jpg',
+            './vbpics/11.jpg',
+            './vbpics/12.jpg',
+            './vbpics/13.jpg',
+            './vbpics/14.jpg',
+        ];
+
+        let currentIndex = 0;
+
+
+        // Insert images into carousel
+        const carousel = document.getElementById('carousel');
+        images.forEach((src, index) => {
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = `Gallery Image ${index + 1}`;
+            img.onclick = () => openFullscreen(src);  // Open fullscreen on click
+            carousel.appendChild(img);
+        });
+
+        // Carousel navigation
+        function prevImage() {
+            if (currentIndex > 0) {
+                currentIndex--;
+            } else {
+                currentIndex = images.length - 1;  // Loop back to the last image
+            }
+            updateCarousel();
+        }
+
+        function nextImage() {
+            if (currentIndex < images.length - 1) {
+                currentIndex++;
+            } else {
+                currentIndex = 0;  // Loop back to the first image
+            }
+            updateCarousel();
+        }
+
+        function updateCarousel() {
+            const carouselWidth = carousel.clientWidth;
+            carousel.style.transform = `translateX(-${currentIndex * carouselWidth}px)`;
+        }
+
+        // Fullscreen zoom functionality
+        function openFullscreen(src) {
+            const modal = document.getElementById('fullscreenModal');
+            const fullscreenImage = document.getElementById('fullscreenImage');
+            fullscreenImage.src = src;
+            modal.style.display = 'flex';
+        }
+
+        function closeFullscreen() {
+            const modal = document.getElementById('fullscreenModal');
+            modal.style.display = 'none';
+        }
+
+        // Ensure carousel adjusts when resizing window
+        window.addEventListener('resize', updateCarousel);
+
+        // Initialize carousel position
+        updateCarousel();
+    </script>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Towcester Volleyball</p>
+        </div>
+    </footer>
+
+    <script>
+        // Get DOM el;ements
+        const contactBtn = document.getElementById('contactBtn');
+        const godModeBtn = document.getElementById('godModeBtn');
+        const modal = document.getElementById('captchaModal');
+        const godModeModal = document.getElementById('godModeModal');
+        const closeBtn = document.querySelectorAll('.close');
+        const submitCaptcha = document.getElementById('submitCaptcha');
+        const submitGodMode = document.getElementById('submitGodMode');
+        const captchaInput = document.getElementById('captchaInput');
+        const godModeInput = document.getElementById('godModeInput');
+        const errorMessage = document.getElementById('errorMessage');
+        const godModeError = document.getElementById('godModeError');
+        const captchaQuestion = document.getElementById('captchaQuestion');
+        const godModeQuestion = document.getElementById('godModeQuestion');
+        const contactInfo = document.getElementById('contact-info');
+
+        // Human mode captcha
+        let captchaAnswer;
+        function generateCaptcha() {
+            const num1 = Math.floor(Math.random() * 10) + 1;
+            const num2 = Math.floor(Math.random() * 10) + 1;
+            captchaQuestion.textContent = `What is ${num1} + ${num2}?`;
+            captchaAnswer = num1 + num2;
+        }
+
+        // God mode captcha
+        let godModeAnswer;
+        function generateGodModeCaptcha() {
+            const num1 = Math.floor(Math.random() * 50) + 10;
+            const num2 = Math.floor(Math.random() * 50) + 10;
+            godModeQuestion.textContent = `What is ${num1} x ${num2}?`;
+            godModeAnswer = num1 * num2;
+        }
+
+        // Open human mode modal
+        contactBtn.onclick = function () {
+            generateCaptcha();
+            modal.style.display = "block";
+            captchaInput.value = '';
+            errorMessage.style.display = 'none';
+        }
+
+        // Open god mode modal
+        godModeBtn.onclick = function () {
+            generateGodModeCaptcha();
+            godModeModal.style.display = "block";
+            godModeInput.value = '';
+            godModeError.style.display = 'none';
+        }
+
+        // Close Modals when 'x' is clicked
+        closeBtn.forEach(btn => {
+            btn.onclick = function () {
+                modal.style.display = "none";
+                godModeModal.style.display = "none";
+            }
+        });
+
+        // Close Modal when clicking outside the modal content
+        window.onclick = function (event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            } else if (event.target == godModeModal) {
+                godModeModal.style.display = "none";
+            }
+        }
+
+        // Handle CAPTCHA Submission for Contact Us
+        submitCaptcha.onclick = function () {
+            const userAnswer = parseInt(captchaInput.value, 10);
+            if (userAnswer === captchaAnswer) {
+                // Correct answer, reveal contact info and disable buttons
+                contactInfo.style.display = 'block';
+                contactBtn.classList.add('disabled');
+                contactBtn.disabled = true;
+                godModeBtn.classList.add('disabled');
+                godModeBtn.disabled = true;
+                modal.style.display = "none";
+            } else {
+                // Incorrect answer, show error
+                errorMessage.style.display = 'block';
+            }
+        }
+
+        // Handle CAPTCHA Submission for God Mode
+        submitGodMode.onclick = function () {
+            const userAnswer = parseInt(godModeInput.value, 10);
+            if (userAnswer === godModeAnswer) {
+                // Correct answer, reveal contact info and disable buttons
+                contactInfo.style.display = 'block';
+                contactBtn.classList.add('disabled');
+                contactBtn.disabled = true;
+                godModeBtn.classList.add('disabled');
+                godModeBtn.disabled = true;
+                godModeModal.style.display = "none";
+            } else {
+                // Incorrect answer, show error
+                godModeError.style.display = 'block';
+            }
+        }
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Towcester Volleyball Club</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #content {
+            flex: 1;
+            /* This makes sure the content takes up available space */
+        }
+
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 1rem 0;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        nav ul li {
+            display: inline;
+            margin-right: 20px;
+        }
+
+        nav ul li a {
+            color: #fff;
+            text-decoration: none;
+            font-size: 1.2rem;
+        }
+
+        nav ul li a:hover {
+            text-decoration: underline;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 2rem 0;
+        }
+
+        section {
+            margin: 1rem 0;
+        }
+
+        h2 {
+            margin-bottom: 1rem;
+            font-size: 2rem;
+            color: #333;
+        }
+
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.7rem 1.5rem;
+            background-color: #333;
+            color: #fff;
+            text-decoration: none;
+            font-size: 1.2rem;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #555;
+        }
+
+        .btn.disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+
+        footer {
+            background-color: #333;
+            color: #fff;
+            padding: 1rem 0;
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        footer p {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        /* Hide elements initially */
+        #contact-info {
+            display: none;
+            margin-top: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* CAPTCHA Modal Styles */
+        #captchaModal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            /* Keep the background overlay */
+        }
+
+        #captchaModal .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            /* Center the modal vertically */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            /* Set max width for smaller box */
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        #captchaModal .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #captchaModal .close:hover,
+        #captchaModal .close:focus {
+            color: black;
+            text-decoration: none;
+        }
+
+        .captcha-question {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .captcha-input {
+            width: 100%;
+            padding: 8px;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .submit-captcha {
+            padding: 10px 20px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1rem;
+        }
+
+        .submit-captcha:hover {
+            background-color: #555;
+        }
+
+        .error-message {
+            color: red;
+            display: none;
+            margin-bottom: 10px;
+        }
+
+        /* Gallery styles */
+        .gallery-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .gallery-thumbnail {
+            width: 150px;
+            height: 100px;
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .gallery-thumbnail:hover {
+            transform: scale(1.1);
+        }
+
+        /* Lightbox Modal */
+        #lightboxModal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 80%;
+            max-height: 80%;
+        }
+
+        #caption {
+            color: #ccc;
+            text-align: center;
+            padding: 10px;
+        }
+
+        #lightboxModal .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #lightboxModal .close:hover,
+        #lightboxModal .close:focus {
+            color: #bbb;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="content">
+        <header>
+            <div class="container">
+                <h1>Towcester Volleyball</h1>
+            </div>
+        </header>
+
+        <section id="home">
+            <div class="container">
+                <h2>Welcome to Towcester Volleyball Club</h2>
+                <p>Join us every Saturday at 12:30 PM for a fun, inclusive volleyball session at Towcester Leisure
+                    Centre!</p>
+            </div>
+        </section>
+
+        <section id="about">
+            <div class="container">
+                <h2>About Us</h2>
+                <p>Whether you're a seasoned player or just starting out, everyone is welcome for some friendly,
+                    non-competitive games.</p>
+            </div>
+        </section>
+
+        <section id="sessions">
+            <div class="container">
+                <h2>Weekly Sessions</h2>
+                <p><strong>When:</strong> Every Saturday at 12:30 PM</p>
+                <p><strong>Where:</strong> Towcester Leisure Centre</p>
+                <p><strong>Indoor Sessions:</strong> Small fee applies</p>
+                <p><strong>Outdoor Sessions:</strong> Free</p>
+                <p><strong>Attire:</strong> Comfortable sportswear, no equipment required</p>
+            </div>
+        </section>
+
+        <section id="contact">
+            <div class="container">
+                <button id="contactBtn" class="btn">Contact Us</button>
+
+                <!-- Hidden QR Code and Mailto link initially -->
+                <div id="contact-info">
+                    <p>Scan the QR code below to reach us on WhatsApp!</p>
+                    <img src="./output-onlinepngtools.png" alt="WhatsApp QR Code"
+                        style="max-width: 300px; width: 100%; height: auto;">
+                    <p>Or, send us an email at <a
+                            href="mailto:contact@towcestervolleyball.co.uk">contact@towcestervolleyball.co.uk</a>.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Photo Gallery Section -->
+        <section id="gallery">
+            <div class="container">
+                <h2>Photo Gallery</h2>
+                <div class="gallery-grid">
+                    <img src="./vbpics/1.jpg" alt="Photo 1" class="gallery-thumbnail">
+                    <img src="./vbpics/2.jpg" alt="Photo 2" class="gallery-thumbnail">
+                    <img src="./vbpics/3.jpg" alt="Photo 3" class="gallery-thumbnail">
+                    <img src="./vbpics/4.jpg" alt="Photo 4" class="gallery-thumbnail">
+                    <img src="./vbpics/5.jpg" alt="Photo 5" class="gallery-thumbnail">
+                    <img src="./vbpics/6.jpg" alt="Photo 6" class="gallery-thumbnail">
+                    <img src="./vbpics/7.jpg" alt="Photo 7" class="gallery-thumbnail">
+                    <img src="./vbpics/8.jpg" alt="Photo 8" class="gallery-thumbnail">
+                    <img src="./vbpics/9.jpg" alt="Photo 9" class="gallery-thumbnail">
+                    <img src="./vbpics/10.jpg" alt="Photo 10" class="gallery-thumbnail">
+                    <img src="./vbpics/11.jpg" alt="Photo 11" class="gallery-thumbnail">
+                    <img src="./vbpics/12.jpg" alt="Photo 12" class="gallery-thumbnail">
+                    <img src="./vbpics/13.jpg" alt="Photo 13" class="gallery-thumbnail">
+                    <img src="./vbpics/14.jpg" alt="Photo 14" class="gallery-thumbnail">
+                </div>
+            </div>
+        </section>
+
+        <!-- CAPTCHA Modal -->
+        <div id="captchaModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Verify You're Human</h2>
+                <p class="captcha-question" id="captchaQuestion">What is 3 + 4?</p>
+                <input type="text" id="captchaInput" class="captcha-input" placeholder="Your Answer">
+                <div class="error-message" id="errorMessage">Incorrect answer. Please try again.</div>
+                <button id="submitCaptcha" class="submit-captcha">Submit</button>
+            </div>
+        </div>
+
+        <!-- Lightbox Modal -->
+        <div id="lightboxModal" class="modal">
+            <span class="close">&times;</span>
+            <img class="modal-content" id="lightboxImg">
+            <div id="caption"></div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Towcester Volleyball</p>
+        </div>
+    </footer>
+
+    <script>
+        // Get Elements
+        const contactBtn = document.getElementById('contactBtn');
+        const modal = document.getElementById('captchaModal');
+        const closeBtn = document.querySelector('.close');
+        const submitCaptcha = document.getElementById('submitCaptcha');
+        const captchaInput = document.getElementById('captchaInput');
+        const errorMessage = document.getElementById('errorMessage');
+        const captchaQuestion = document.getElementById('captchaQuestion');
+        const contactInfo = document.getElementById('contact-info');
+
+        // Simple Math CAPTCHA
+        let captchaAnswer;
+
+        function generateCaptcha() {
+            const num1 = Math.floor(Math.random() * 10) + 1;
+            const num2 = Math.floor(Math.random() * 10) + 1;
+            captchaQuestion.textContent = `What is ${num1} + ${num2}?`;
+            captchaAnswer = num1 + num2;
+        }
+
+        // Open Modal on Contact Button Click
+        contactBtn.onclick = function () {
+            generateCaptcha();
+            modal.style.display = "block";
+            captchaInput.value = '';
+            errorMessage.style.display = 'none';
+        }
+
+        // Close Modal when 'x' is clicked
+        closeBtn.onclick = function () {
+            modal.style.display = "none";
+        }
+
+        // Close Modal when clicking outside the modal content
+        window.onclick = function (event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // Handle CAPTCHA Submission
+        submitCaptcha.onclick = function () {
+            const userAnswer = parseInt(captchaInput.value, 10);
+            if (userAnswer === captchaAnswer) {
+                contactInfo.style.display = 'block';
+                contactBtn.classList.add('disabled');
+                contactBtn.disabled = true;
+                modal.style.display = "none";
+            } else {
+                errorMessage.style.display = 'block';
+            }
+        }
+
+        // Lightbox functionality for gallery
+        const thumbnails = document.querySelectorAll('.gallery-thumbnail');
+        const lightboxModal = document.getElementById('lightboxModal');
+        const lightboxImg = document.getElementById('lightboxImg');
+        const captionText = document.getElementById('caption');
+        const closeLightbox = document.querySelector('#lightboxModal .close');
+
+        thumbnails.forEach(thumbnail => {
+            thumbnail.onclick = function () {
+                lightboxModal.style.display = "block";
+                lightboxImg.src = this.src;
+                captionText.innerHTML = this.alt;
+            }
+        });
+
+        closeLightbox.onclick = function () {
+            lightboxModal.style.display = "none";
+        }
+
+        window.onclick = function (event) {
+            if (event.target == lightboxModal) {
+                lightboxModal.style.display = "none";
+            }
+        }
+    </script>
+
+</body>
+
+</html>
