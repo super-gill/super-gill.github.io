@@ -1,2 +1,0 @@
-couldnt make the input icons
-couldnt add padding to the inputs
