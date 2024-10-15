@@ -83,7 +83,7 @@
             background-color: #555;
         }
 
-        /* CAPTCHA Centering */
+        /* reCAPTCHA Centering */
         .g-recaptcha {
             margin-bottom: 1rem;
             text-align: center;
@@ -92,7 +92,13 @@
     </style>
 
     <!-- Google reCAPTCHA API -->
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script src="https://www.google.com/recaptcha/enterprise.js?render=6LfLUGIqAAAAAGKH1OqDbfB-vvw36eIegQ9i1UnL"></script>
+
+    <script>
+        function onSubmit(token) {
+            document.getElementById("contact-form").submit();
+        }
+    </script>
 </head>
 <body>
     <header>
@@ -104,7 +110,7 @@
     <section id="contact-form">
         <div class="container">
             <h2>Get in Touch</h2>
-            <form action="your-backend-script" method="POST">
+            <form id="contact-form" action="your-backend-script" method="POST">
                 <label for="name">Your Name:</label>
                 <input type="text" id="name" name="name" required>
 
@@ -114,10 +120,11 @@
                 <label for="message">Your Message:</label>
                 <textarea id="message" name="message" rows="5" required></textarea>
 
-                <!-- Google reCAPTCHA -->
-                <div class="g-recaptcha" data-sitekey="your-site-key"></div>
-
-                <input type="submit" class="btn" value="Send Message">
+                <!-- reCAPTCHA Button -->
+                <button class="g-recaptcha btn"
+                        data-sitekey="6LfLUGIqAAAAAGKH1OqDbfB-vvw36eIegQ9i1UnL"
+                        data-callback='onSubmit'
+                        data-action='submit'>Send Message</button>
             </form>
         </div>
     </section>
