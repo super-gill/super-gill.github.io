@@ -5,7 +5,261 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Towcester Volleyball Club</title>
-    <link rel="stylesheet" href=".\styles.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #content {
+            flex: 1;
+        }
+
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 1rem 0;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        nav ul li {
+            display: inline;
+            margin-right: 20px;
+        }
+
+        nav ul li a {
+            color: #fff;
+            text-decoration: none;
+            font-size: 1.2rem;
+        }
+
+        nav ul li a:hover {
+            text-decoration: underline;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 2rem 0;
+        }
+
+        section {
+            margin: 1rem 0;
+        }
+
+        h2 {
+            margin-bottom: 1rem;
+            font-size: 2rem;
+            color: #333;
+        }
+
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.7rem 1.5rem;
+            background-color: #333;
+            color: #fff;
+            text-decoration: none;
+            font-size: 1.2rem;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #555;
+        }
+
+        .btn.disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+
+        footer {
+            background-color: #333;
+            color: #fff;
+            padding: 1rem 0;
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        footer p {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        #copyright {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            text-align: center;
+            white-space: nowrap;
+            background-color: transparent;
+            border-radius: 8px;
+        }
+
+        #copyright:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        #contact-info {
+            display: none;
+            margin-top: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        #captchaModal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        #captchaModal .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        #captchaModal .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #captchaModal .close:hover,
+        #captchaModal .close:focus {
+            color: black;
+        }
+
+        .captcha-question {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .captcha-input {
+            width: 100%;
+            padding: 8px;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .submit-captcha {
+            padding: 10px 20px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1rem;
+        }
+
+        .submit-captcha:hover {
+            background-color: #555;
+        }
+
+        .error-message {
+            color: red;
+            display: none;
+            margin-bottom: 10px;
+        }
+
+        .gallery-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .gallery-thumbnail {
+            width: 150px;
+            height: 100px;
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .gallery-thumbnail:hover {
+            transform: scale(1.1);
+        }
+
+        #lightboxModal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 80%;
+            max-height: 80%;
+        }
+
+        #caption {
+            color: #ccc;
+            text-align: center;
+            padding: 10px;
+        }
+
+        #lightboxModal .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #lightboxModal .close:hover,
+        #lightboxModal .close:focus {
+            color: #bbb;
+        }
+    </style>
 </head>
 
 <body>
@@ -41,78 +295,74 @@
                 <p><strong>Outdoor Sessions:</strong> Free</p>
                 <p><strong>Attire:</strong> Comfortable sportswear, no equipment required</p>
             </div>
-            <div class="container">
-                <iframe src="https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Europe%2FLondon&bgcolor=%23ffffff&title=Volleyball%20Schedule&src=dG93Y2VzdGVyYXJjaGVyeUBnbWFpbC5jb20&color=%23039BE5" style="border-width:0" width="600" height="600" frameborder="0" scrolling="no"></iframe>        </section>
+            <section id="contact">
+                <div class="container">
+                    <button id="contactBtn" class="btn">Contact Us</button>
+                    <div id="contact-info">
+                        <p>Scan the QR code below to reach us on WhatsApp!</p>
+                        <img src="./output-onlinepngtools.png" alt="WhatsApp QR Code"
+                            style="max-width: 300px; width: 100%; height: auto;">
+                        <p>Or, send us an email at <a href="mailto:contact@towcestervolleyball.co.uk">
+                            contact@towcestervolleyball.co.uk</a>.
+                        </p>
+                    </div>
+                </div>
+            </section>
 
-        <section id="contact">
-            <div class="container">
-                <button id="contactBtn" class="btn">Contact Us</button>
+            <section>
+                <div class="container">
+                    <iframe src="https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Europe%2FLondon&bgcolor=%23ffffff&showTabs=0&showPrint=0&title=Volleyball%20Schedule&src=dG93Y2VzdGVydm9sbGV5YmFsbEBnbWFpbC5jb20&color=%23039BE5" 
+                        style="border-width:0" width="600" height="600" frameborder="0" scrolling="no"></iframe>
+                </div>
+            </section>
 
-                <!-- Hidden QR Code and Mailto link initially -->
-                <div id="contact-info">
-                    <p>Scan the QR code below to reach us on WhatsApp!</p>
-                    <img src="./output-onlinepngtools.png" alt="WhatsApp QR Code"
-                        style="max-width: 300px; width: 100%; height: auto;">
-                    <p>Or, send us an email at <a
-                            href="mailto:contact@towcestervolleyball.co.uk">contact@towcestervolleyball.co.uk</a>.</p>
+            <section id="gallery">
+                <div class="container">
+                    <h2>Photo Gallery</h2>
+                    <div class="gallery-grid">
+                        <img src="./VBPics/1.jpg" alt="MVP" class="gallery-thumbnail">
+                        <img src="./VBPics/2.jpg" alt="Photo 2" class="gallery-thumbnail">
+                        <img src="./VBPics/3.jpg" alt="Photo 3" class="gallery-thumbnail">
+                        <img src="./VBPics/4.jpg" alt="Photo 4" class="gallery-thumbnail">
+                        <img src="./VBPics/5.jpg" alt="Photo 5" class="gallery-thumbnail">
+                        <img src="./VBPics/6.jpg" alt="Photo 6" class="gallery-thumbnail">
+                        <img src="./VBPics/7.jpg" alt="Photo 7" class="gallery-thumbnail">
+                        <img src="./VBPics/8.jpg" alt="Photo 8" class="gallery-thumbnail">
+                        <img src="./VBPics/9.jpg" alt="Photo 9" class="gallery-thumbnail">
+                        <img src="./VBPics/10.jpg" alt="Photo 10" class="gallery-thumbnail">
+                        <img src="./VBPics/11.jpg" alt="Photo 11" class="gallery-thumbnail">
+                        <img src="./VBPics/12.jpg" alt="Photo 12" class="gallery-thumbnail">
+                        <img src="./VBPics/13.jpg" alt="Photo 13" class="gallery-thumbnail">
+                        <img src="./VBPics/14.jpg" alt="Photo 14" class="gallery-thumbnail">
+                    </div>
+                </div>
+            </section>
+
+            <div id="captchaModal" class="modal">
+                <div class="modal-content">
+                    <span class="close">&times;</span>
+                    <h2>Verify You're Human</h2>
+                    <p class="captcha-question" id="captchaQuestion">What is 3 + 4?</p>
+                    <input type="text" id="captchaInput" class="captcha-input" placeholder="Your Answer">
+                    <div class="error-message" id="errorMessage">Incorrect answer. Please try again.</div>
+                    <button id="submitCaptcha" class="submit-captcha">Submit</button>
                 </div>
             </div>
-        </section>
 
-        <!-- Photo Gallery Section -->
-        <section id="gallery">
-            <div class="container">
-                <h2>Photo Gallery</h2>
-                <div class="gallery-grid">
-                    <img src="./VBPics/1.jpg" alt="MVP" class="gallery-thumbnail">
-                    <img src="./VBPics/2.jpg" alt="Photo 2" class="gallery-thumbnail">
-                    <img src="./VBPics/3.jpg" alt="Photo 3" class="gallery-thumbnail">
-                    <img src="./VBPics/4.jpg" alt="Photo 4" class="gallery-thumbnail">
-                    <img src="./VBPics/5.jpg" alt="Photo 5" class="gallery-thumbnail">
-                    <img src="./VBPics/6.jpg" alt="Photo 6" class="gallery-thumbnail">
-                    <img src="./VBPics/7.jpg" alt="Photo 7" class="gallery-thumbnail">
-                    <img src="./VBPics/8.jpg" alt="Photo 8" class="gallery-thumbnail">
-                    <img src="./VBPics/9.jpg" alt="Photo 9" class="gallery-thumbnail">
-                    <img src="./VBPics/10.jpg" alt="Photo 10" class="gallery-thumbnail">
-                    <img src="./VBPics/11.jpg" alt="Photo 11" class="gallery-thumbnail">
-                    <img src="./VBPics/12.jpg" alt="Photo 12" class="gallery-thumbnail">
-                    <img src="./VBPics/13.jpg" alt="Photo 13" class="gallery-thumbnail">
-                    <img src="./VBPics/14.jpg" alt="Photo 14" class="gallery-thumbnail">
-
-                </div>
-            </div>
-        </section>
-
-        <!-- CAPTCHA Modal -->
-        <div id="captchaModal" class="modal">
-            <div class="modal-content">
+            <div id="lightboxModal" class="modal">
                 <span class="close">&times;</span>
-                <h2>Verify You're Human</h2>
-                <p class="captcha-question" id="captchaQuestion">What is 3 + 4?</p>
-                <input type="text" id="captchaInput" class="captcha-input" placeholder="Your Answer">
-                <div class="error-message" id="errorMessage">Incorrect answer. Please try again.</div>
-                <button id="submitCaptcha" class="submit-captcha">Submit</button>
+                <img class="modal-content" id="lightboxImg">
+                <div id="caption"></div>
             </div>
-        </div>
-
-        <!-- Lightbox Modal -->
-        <div id="lightboxModal" class="modal">
-            <span class="close">&times;</span>
-            <img class="modal-content" id="lightboxImg">
-            <div id="caption"></div>
-        </div>
     </div>
 
     <footer>
         <div class="container" style="text-align: center;">
-            <!-- Add text-align: center to center the copyright message -->
             <p id="copyright" data-value="Built by Jason McDill">&copy; 2024 Towcester Volleyball</p>
         </div>
     </footer>
 
-
     <script>
-        // Get Elements
         const contactBtn = document.getElementById('contactBtn');
         const modal = document.getElementById('captchaModal');
         const closeBtn = document.querySelector('.close');
@@ -122,7 +372,6 @@
         const captchaQuestion = document.getElementById('captchaQuestion');
         const contactInfo = document.getElementById('contact-info');
 
-        // Simple Math CAPTCHA
         let captchaAnswer;
 
         function generateCaptcha() {
@@ -132,7 +381,6 @@
             captchaAnswer = num1 + num2;
         }
 
-        // Open Modal on Contact Button Click
         contactBtn.onclick = function () {
             generateCaptcha();
             modal.style.display = "block";
@@ -140,19 +388,16 @@
             errorMessage.style.display = 'none';
         }
 
-        // Close Modal when 'x' is clicked
         closeBtn.onclick = function () {
             modal.style.display = "none";
         }
 
-        // Close Modal when clicking outside the modal content
         window.onclick = function (event) {
             if (event.target == modal) {
                 modal.style.display = "none";
             }
         }
 
-        // Handle CAPTCHA Submission
         submitCaptcha.onclick = function () {
             const userAnswer = parseInt(captchaInput.value, 10);
             if (userAnswer === captchaAnswer) {
@@ -165,11 +410,9 @@
             }
         }
 
-        // Lightbox functionality for gallery
         const thumbnails = document.querySelectorAll('.gallery-thumbnail');
         const lightboxModal = document.getElementById('lightboxModal');
         const lightboxImg = document.getElementById('lightboxImg');
-        // const captionText = document.getElementById('caption');
         const closeLightbox = document.querySelector('#lightboxModal .close');
 
         thumbnails.forEach(thumbnail => {
@@ -192,7 +435,7 @@
 
         const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         let interval = null;
-        const originalText = document.getElementById("copyright").innerText; // Save the original copyright text
+        const originalText = document.getElementById("copyright").innerText;
 
         document.getElementById("copyright").onmouseover = event => {
             let iteration = 0;
@@ -203,12 +446,12 @@
                     .split("")
                     .map((letter, index) => {
                         if (index < iteration) {
-                            return event.target.dataset.value[index] || ''; // Ensures no extra characters
+                            return event.target.dataset.value[index] || '';
                         }
                         return letters[Math.floor(Math.random() * 26)];
                     })
                     .join("")
-                    .substring(0, event.target.dataset.value.length); // Trim to correct length
+                    .substring(0, event.target.dataset.value.length);
 
                 if (iteration >= event.target.dataset.value.length) {
                     clearInterval(interval);
@@ -219,12 +462,10 @@
         };
 
         document.getElementById("copyright").onmouseout = event => {
-            // When the mouse leaves, reset the text back to the original copyright message
             clearInterval(interval);
             event.target.innerText = originalText;
         };
     </script>
-
 </body>
 
 </html>
