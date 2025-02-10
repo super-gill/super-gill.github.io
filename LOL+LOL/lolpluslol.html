@@ -11,11 +11,11 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #f3f4f6;
             font-family: Arial, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
         }
         .card {
-            background: white;
+            background: #f9f9f9;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
@@ -42,16 +42,34 @@
             cursor: pointer;
         }
         .button:disabled {
-            background-color: #ccc;
+            background-color: #555;
         }
         .score {
             margin-top: 15px;
+        }
+        .dark-mode {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .dark-mode .card {
+            background: #2d2d2d;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.5);
+        }
+        .dark-mode .input {
+            background-color: #3a3a3a;
+            color: #ffffff;
+            border: 1px solid #555;
         }
     </style>
 </head>
 <body>
     <div id="root"></div>
+    <button onclick="toggleDarkMode()" style="position: fixed; top: 10px; right: 10px; padding: 5px 10px;">🌙</button>
     <script>
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+        }
+
         function generateArcheryNumber() {
             const weightedNumbers = [7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, "X", "X", "M", "M"];
             return weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
