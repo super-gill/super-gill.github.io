@@ -4,7 +4,7 @@
     <link rel="icon" type="image/png" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Archery_Target_icon.svg/1024px-Archery_Target_icon.svg.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math Quiz</title>
+    <title>Archery Score Trainer</title>
     <style>
         body {
             display: flex;
@@ -52,18 +52,6 @@
 <body>
     <div id="root"></div>
     <script>
-        function askForUsername() {
-            let username = prompt("Enter your name:");
-            if (!username) {
-                return askForUsername();
-            }
-            return username;
-        }
-
-        let username = askForUsername();
-        let userData = JSON.parse(localStorage.getItem(username)) || { correct: 0, incorrect: 0 };
-        localStorage.setItem(username, JSON.stringify(userData));
-
         function generateArcheryNumber() {
             const weightedNumbers = [7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, "X", "X", "M", "M"];
             return weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
@@ -103,13 +91,12 @@
             let questionText = questionType === "archery" ? `${num1} + ${num2} + ${num3} = ?` : `${num1} + ${num2} = ?`;
             document.getElementById('root').innerHTML = `
                 <div class="card">
-                    <h1>Math Quiz</h1>
-                    <p>Player: ${username}</p>
+                    <h1>Archery Score Trainer</h1>
                     <p>Solve: ${questionText}</p>
                     <input type="number" id="answer" class="input" />
                     <button class="button" onclick="checkAnswer()">Check Answer</button>
                     <p id="result"></p>
-                    <p class="score">Score: ✅ ${userData.correct} | ❌ ${userData.incorrect}</p>
+                    <p class="score">Score: ✅ <span id="correct">0</span> | ❌ <span id="incorrect">0</span></p>
                 </div>
             `;
         }
@@ -118,12 +105,6 @@
             const userAnswer = parseInt(document.getElementById('answer').value);
             let correctAnswer = questionType === "archery" ? getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3) : num1 + num2;
             
-            if (userAnswer === correctAnswer) {
-                userData.correct++;
-            } else {
-                userData.incorrect++;
-            }
-            localStorage.setItem(username, JSON.stringify(userData));
             document.getElementById('result').innerHTML = `Correct Answer: ${correctAnswer}`;
             
             setTimeout(() => {
