@@ -1,13 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
+    <link rel="icon" type="image/png" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Archery_Target_icon.svg/1024px-Archery_Target_icon.svg.png">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Score Adder Helperer</title>
+    <title>Math Quiz</title>
     <style>
         body {
             display: flex;
@@ -17,7 +14,6 @@
             background-color: #f3f4f6;
             font-family: Arial, sans-serif;
         }
-
         .card {
             background: white;
             padding: 20px;
@@ -26,7 +22,6 @@
             text-align: center;
             width: 300px;
         }
-
         .input {
             width: calc(100% - 20px);
             padding: 10px;
@@ -36,7 +31,6 @@
             text-align: center;
             box-sizing: border-box;
         }
-
         .button {
             width: 100%;
             padding: 10px;
@@ -47,28 +41,37 @@
             border-radius: 5px;
             cursor: pointer;
         }
-
         .button:disabled {
             background-color: #ccc;
         }
-
         .score {
             margin-top: 15px;
         }
     </style>
 </head>
-
 <body>
     <div id="root"></div>
     <script>
+        function askForUsername() {
+            let username = prompt("Enter your name:");
+            if (!username) {
+                return askForUsername();
+            }
+            return username;
+        }
+
+        let username = askForUsername();
+        let userData = JSON.parse(localStorage.getItem(username)) || { correct: 0, incorrect: 0 };
+        localStorage.setItem(username, JSON.stringify(userData));
+
         function generateArcheryNumber() {
             const weightedNumbers = [7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, "X", "X", "M", "M"];
             return weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
         }
 
         function generateLargeNumber() {
-            const weightedNumbers = Array(20).fill().map(() => Math.floor(Math.random() * 31) + 30) // Heavily weighted above 30
-                .concat(Array(10).fill().map(() => Math.floor(Math.random() * 31))); // Some numbers below 30
+            const weightedNumbers = Array(20).fill().map(() => Math.floor(Math.random() * 31) + 30)
+                .concat(Array(10).fill().map(() => Math.floor(Math.random() * 31)));
             let num1 = weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
             let num2;
             do {
@@ -83,7 +86,6 @@
             return value;
         }
 
-        let correct = 0, incorrect = 0;
         let isArcheryQuestion = Math.random() < 0.7;
         let num1, num2, num3, questionType;
 
@@ -98,41 +100,32 @@
         }
 
         function render() {
-            let questionText;
-            if (questionType === "archery") {
-                questionText = `${num1} + ${num2} + ${num3} = ?`;
-            } else {
-                questionText = `${num1} + ${num2} = ?`;
-            }
-
+            let questionText = questionType === "archery" ? `${num1} + ${num2} + ${num3} = ?` : `${num1} + ${num2} = ?`;
             document.getElementById('root').innerHTML = `
                 <div class="card">
-                    <h1>Score Adder Helperer</h1>
+                    <h1>Math Quiz</h1>
+                    <p>Player: ${username}</p>
                     <p>Solve: ${questionText}</p>
                     <input type="number" id="answer" class="input" />
                     <button class="button" onclick="checkAnswer()">Check Answer</button>
                     <p id="result"></p>
-                    <p class="score">Score: ✅ ${correct} | ❌ ${incorrect}</p>
+                    <p class="score">Score: ✅ ${userData.correct} | ❌ ${userData.incorrect}</p>
                 </div>
             `;
         }
 
         function checkAnswer() {
             const userAnswer = parseInt(document.getElementById('answer').value);
-            let correctAnswer;
-
-            if (questionType === "archery") {
-                correctAnswer = getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3);
-            } else {
-                correctAnswer = num1 + num2;
-            }
-
+            let correctAnswer = questionType === "archery" ? getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3) : num1 + num2;
+            
             if (userAnswer === correctAnswer) {
-                correct++;
+                userData.correct++;
             } else {
-                incorrect++;
+                userData.incorrect++;
             }
+            localStorage.setItem(username, JSON.stringify(userData));
             document.getElementById('result').innerHTML = `Correct Answer: ${correctAnswer}`;
+            
             setTimeout(() => {
                 isArcheryQuestion = Math.random() < 0.7;
                 if (isArcheryQuestion) {
@@ -151,5 +144,4 @@
         render();
     </script>
 </body>
-
 </html>
