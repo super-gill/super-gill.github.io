@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Quiz</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f3f4f6;
+            font-family: Arial, sans-serif;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 300px;
+        }
+        .input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button:disabled {
+            background-color: #ccc;
+        }
+        .score {
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        function generateArcheryNumber() {
+            const weightedNumbers = [7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, "X", "X", "M", "M"];
+            return weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
+        }
+
+        function generateLargeNumber() {
+            const weightedNumbers = Array(20).fill().map(() => Math.floor(Math.random() * 31) + 30) // Heavily weighted above 30
+                .concat(Array(10).fill().map(() => Math.floor(Math.random() * 31))); // Some numbers below 30
+            let num1 = weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
+            let num2;
+            do {
+                num2 = weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
+            } while (num1 === num2);
+            return [num1, num2];
+        }
+
+        function getNumericValue(value) {
+            if (value === "X") return 10;
+            if (value === "M") return 0;
+            return value;
+        }
+
+        let correct = 0, incorrect = 0;
+        let isArcheryQuestion = Math.random() < 0.7;
+        let num1, num2, num3, questionType;
+
+        if (isArcheryQuestion) {
+            num1 = generateArcheryNumber();
+            num2 = generateArcheryNumber();
+            num3 = generateArcheryNumber();
+            questionType = "archery";
+        } else {
+            [num1, num2] = generateLargeNumber();
+            questionType = "largeNumbers";
+        }
+
+        function render() {
+            let questionText;
+            if (questionType === "archery") {
+                questionText = `${num1} + ${num2} + ${num3} = ?`;
+            } else {
+                questionText = `${num1} + ${num2} = ?`;
+            }
+
+            document.getElementById('root').innerHTML = `
+                <div class="card">
+                    <h1>Math Quiz</h1>
+                    <p>Solve: ${questionText}</p>
+                    <input type="number" id="answer" class="input" />
+                    <button class="button" onclick="checkAnswer()">Check Answer</button>
+                    <p id="result"></p>
+                    <p class="score">Score: ✅ ${correct} | ❌ ${incorrect}</p>
+                </div>
+            `;
+        }
+
+        function checkAnswer() {
+            const userAnswer = parseInt(document.getElementById('answer').value);
+            let correctAnswer;
+
+            if (questionType === "archery") {
+                correctAnswer = getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3);
+            } else {
+                correctAnswer = num1 + num2;
+            }
+
+            if (userAnswer === correctAnswer) {
+                correct++;
+            } else {
+                incorrect++;
+            }
+            document.getElementById('result').innerHTML = `Correct Answer: ${correctAnswer}`;
+            setTimeout(() => {
+                isArcheryQuestion = Math.random() < 0.7;
+                if (isArcheryQuestion) {
+                    num1 = generateArcheryNumber();
+                    num2 = generateArcheryNumber();
+                    num3 = generateArcheryNumber();
+                    questionType = "archery";
+                } else {
+                    [num1, num2] = generateLargeNumber();
+                    questionType = "largeNumbers";
+                }
+                render();
+            }, 3000);
+        }
+
+        render();
+    </script>
+</body>
+</html>

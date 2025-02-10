@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Weekly Calendar (15-Minute Increments)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f4f4f9;
+      overflow-x: hidden;
+    }
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr); /* 7 days + 1 for time labels */
+      border: 1px solid #ccc;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header, .time-label, .day {
+      border: 1px solid #ddd;
+      text-align: center;
+      background: #fff;
+      user-select: none;
+    }
+    .header {
+      font-weight: bold;
+      background: #e0e0e0;
+    }
+    .time-label {
+      background: #f9f9f9;
+    }
+    .day {
+      height: 20px; /* Adjusted for smaller increments */
+      cursor: pointer;
+    }
+    .selected {
+      background: #90caf9;
+    }
+    .day:hover {
+      background: #e3f2fd;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .controls input, .controls button {
+      margin: 0 10px;
+      padding: 5px;
+    }
+    .date-header {
+      font-size: 0.9em;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <button id="prevMonth">Previous Month</button>
+    <span id="currentMonth" style="font-weight: bold;"></span>
+    <button id="nextMonth">Next Month</button>
+    <label for="startTime">Start Time:</label>
+    <input type="time" id="startTime" value="08:00" step="900">
+    <label for="endTime">End Time:</label>
+    <input type="time" id="endTime" value="18:00" step="900">
+    <button id="updateCalendar">Update Calendar</button>
+  </div>
+  <div class="calendar" id="calendar">
+    <!-- Header -->
+    <div class="header time-label"></div>
+    <div class="header">
+      <div>Monday</div>
+      <div class="date-header" id="monday-date"></div>
+    </div>
+    <div class="header">
+      <div>Tuesday</div>
+      <div class="date-header" id="tuesday-date"></div>
+    </div>
+    <div class="header">
+      <div>Wednesday</div>
+      <div class="date-header" id="wednesday-date"></div>
+    </div>
+    <div class="header">
+      <div>Thursday</div>
+      <div class="date-header" id="thursday-date"></div>
+    </div>
+    <div class="header">
+      <div>Friday</div>
+      <div class="date-header" id="friday-date"></div>
+    </div>
+    <div class="header">
+      <div>Saturday</div>
+      <div class="date-header" id="saturday-date"></div>
+    </div>
+    <div class="header">
+      <div>Sunday</div>
+      <div class="date-header" id="sunday-date"></div>
+    </div>
+
+    <!-- Time slots -->
+  </div>
+
+  <script>
+    const calendar = document.getElementById('calendar');
+    const currentMonthLabel = document.getElementById('currentMonth');
+    const startTimeInput = document.getElementById('startTime');
+    const endTimeInput = document.getElementById('endTime');
+    const prevMonthButton = document.getElementById('prevMonth');
+    const nextMonthButton = document.getElementById('nextMonth');
+
+    let currentDate = new Date(2025, 0, 1); // Start with January 2025
+    let isDragging = false;
+    let selectedCells = [];
+    let newlySelected = [];
+
+    function updateMonthLabel() {
+      const options = { month: 'long', year: 'numeric' };
+      currentMonthLabel.textContent = currentDate.toLocaleDateString(undefined, options);
+    }
+
+    function updateDateHeaders() {
+      const firstDayOfWeek = new Date(currentDate);
+      const dayOffset = (firstDayOfWeek.getDay() + 6) % 7; // Monday = 0, ..., Sunday = 6
+      firstDayOfWeek.setDate(firstDayOfWeek.getDate() - dayOffset);
+
+      const dayIds = ['monday-date', 'tuesday-date', 'wednesday-date', 'thursday-date', 'friday-date', 'saturday-date', 'sunday-date'];
+
+      dayIds.forEach((id, index) => {
+        const dayDate = new Date(firstDayOfWeek);
+        dayDate.setDate(firstDayOfWeek.getDate() + index);
+        document.getElementById(id).textContent = dayDate.getDate();
+      });
+    }
+
+    function attachCellEventListeners() {
+      const dayCells = document.querySelectorAll('.day');
+
+      dayCells.forEach(cell => {
+        cell.addEventListener('mousedown', (e) => {
+          isDragging = true;
+          newlySelected = [];
+
+          if (!cell.classList.contains('selected')) {
+            cell.classList.add('selected');
+            newlySelected.push(cell);
+          } else {
+            cell.classList.remove('selected');
+          }
+        });
+
+        cell.addEventListener('mouseover', (e) => {
+          if (isDragging) {
+            if (!cell.classList.contains('selected')) {
+              cell.classList.add('selected');
+              newlySelected.push(cell);
+            }
+          }
+        });
+      });
+
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+        if (newlySelected.length > 0) {
+          const message = prompt("Enter a message for your selected appointment:");
+          if (message) {
+            alert(`You entered: "${message}" for your appointment.`);
+          }
+        }
+      });
+    }
+
+    function generateCalendar() {
+      const startTime = startTimeInput.value;
+      const endTime = endTimeInput.value;
+
+      // Parse start and end times
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+
+      // Generate time slots
+      const increments = [];
+      let currentHour = startHour;
+      let currentMinute = startMinute;
+
+      while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
+        increments.push(`${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`);
+        currentMinute += 15;
+        if (currentMinute >= 60) {
+          currentMinute = 0;
+          currentHour += 1;
+        }
+      }
+
+      // Clear previous slots but keep headers
+      const timeSlots = document.createDocumentFragment();
+
+      increments.forEach(time => {
+        const timeLabel = document.createElement('div');
+        timeLabel.classList.add('time-label');
+        timeLabel.textContent = time;
+        timeSlots.appendChild(timeLabel);
+
+        for (let j = 0; j < 7; j++) {
+          const dayCell = document.createElement('div');
+          dayCell.classList.add('day');
+          dayCell.dataset.time = time;
+          timeSlots.appendChild(dayCell);
+        }
+      });
+
+      const headers = Array.from(calendar.children).slice(0, 8); // Preserve headers
+      calendar.innerHTML = '';
+      headers.forEach(header => calendar.appendChild(header));
+      calendar.appendChild(timeSlots);
+
+      attachCellEventListeners();
+    }
+
+    prevMonthButton.addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      updateMonthLabel();
+      updateDateHeaders();
+      generateCalendar();
+    });
+
+    nextMonthButton.addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      updateMonthLabel();
+      updateDateHeaders();
+      generateCalendar();
+    });
+
+    document.getElementById('updateCalendar').addEventListener('click', generateCalendar);
+
+    // Initialize calendar
+    updateMonthLabel();
+    updateDateHeaders();
+    generateCalendar();
+  </script>
+</body>
+</html>
