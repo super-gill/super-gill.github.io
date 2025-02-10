@@ -3,7 +3,7 @@
 <head>
     <link rel="icon" type="image/png" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Archery_Target_icon.svg/1024px-Archery_Target_icon.svg.png">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Archery Score Trainer</title>
     <style>
         body {
@@ -92,6 +92,7 @@
             return value;
         }
 
+        let correct = 0, incorrect = 0;
         let isArcheryQuestion = Math.random() < 0.7;
         let num1, num2, num3, questionType;
 
@@ -111,10 +112,10 @@
                 <div class="card">
                     <h1>Archery Score Trainer</h1>
                     <p>Solve: ${questionText}</p>
-                    <input type="number" id="answer" class="input" />
+                    <input type="number" id="answer" class="input" inputmode="numeric" pattern="[0-9]*" />
                     <button class="button" onclick="checkAnswer()">Check Answer</button>
                     <p id="result"></p>
-                    <p class="score">Score: ✅ <span id="correct">0</span> | ❌ <span id="incorrect">0</span></p>
+                    <p class="score">Score: ✅ <span id="correct">${correct}</span> | ❌ <span id="incorrect">${incorrect}</span></p>
                 </div>
             `;
         }
@@ -123,6 +124,11 @@
             const userAnswer = parseInt(document.getElementById('answer').value);
             let correctAnswer = questionType === "archery" ? getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3) : num1 + num2;
             
+            if (userAnswer === correctAnswer) {
+                correct++;
+            } else {
+                incorrect++;
+            }
             document.getElementById('result').innerHTML = `Correct Answer: ${correctAnswer}`;
             
             setTimeout(() => {
