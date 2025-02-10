@@ -63,7 +63,8 @@
     </style>
 </head>
 <body class="dark-mode">
-    <div id="root"></div>
+    <div id="root">
+    </div>
     <button onclick="toggleDarkMode()" style="position: fixed; top: 10px; right: 10px; padding: 5px 10px;">🌙</button>
     <script>
         function toggleDarkMode() {
@@ -76,8 +77,10 @@
         }
 
         function generateLargeNumber() {
-            const weightedNumbers = Array(20).fill().map(() => Math.floor(Math.random() * 31) + 30)
-                .concat(Array(10).fill().map(() => Math.floor(Math.random() * 31)));
+            const weightedNumbers = Array(20).fill().map(() => {
+                let num = Math.floor(Math.random() * 31) + 30;
+                return num % 2 === 0 ? num : num + 1;
+            });
             let num1 = weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
             let num2;
             do {
@@ -93,20 +96,20 @@
         }
 
         let correct = 0, incorrect = 0;
-        let isArcheryQuestion = Math.random() < 0.7;
-        let num1, num2, num3, questionType;
-
-        if (isArcheryQuestion) {
-            num1 = generateArcheryNumber();
-            num2 = generateArcheryNumber();
-            num3 = generateArcheryNumber();
-            questionType = "archery";
-        } else {
-            [num1, num2] = generateLargeNumber();
-            questionType = "largeNumbers";
-        }
-
         function render() {
+            let isArcheryQuestion = Math.random() < 0.7;
+            let num1, num2, num3, questionType;
+
+            if (isArcheryQuestion) {
+                num1 = generateArcheryNumber();
+                num2 = generateArcheryNumber();
+                num3 = generateArcheryNumber();
+                questionType = "archery";
+            } else {
+                [num1, num2] = generateLargeNumber();
+                questionType = "largeNumbers";
+            }
+
             let questionText = questionType === "archery" ? `${num1} + ${num2} + ${num3} = ?` : `${num1} + ${num2} = ?`;
             document.getElementById('root').innerHTML = `
                 <div class="card">
@@ -123,7 +126,8 @@
         function checkAnswer() {
             document.getElementById('checkButton').disabled = true;
             const userAnswer = parseInt(document.getElementById('answer').value);
-            let correctAnswer = questionType === "archery" ? getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3) : num1 + num2;
+            let correctAnswer = document.getElementById('root').querySelector('p').innerText.includes('+ + +') ? 
+                getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3) : num1 + num2;
             
             if (userAnswer === correctAnswer) {
                 correct++;
@@ -134,16 +138,6 @@
             
             setTimeout(() => {
                 document.getElementById('checkButton').disabled = false;
-                isArcheryQuestion = Math.random() < 0.7;
-                if (isArcheryQuestion) {
-                    num1 = generateArcheryNumber();
-                    num2 = generateArcheryNumber();
-                    num3 = generateArcheryNumber();
-                    questionType = "archery";
-                } else {
-                    [num1, num2] = generateLargeNumber();
-                    questionType = "largeNumbers";
-                }
                 render();
             }, 3000);
         }
