@@ -113,7 +113,7 @@
                     <h1>Archery Score Trainer</h1>
                     <p>Solve: ${questionText}</p>
                     <input type="number" id="answer" class="input" inputmode="numeric" pattern="[0-9]*" />
-                    <button class="button" onclick="checkAnswer()">Check Answer</button>
+                    <button class="button" id="checkButton" onclick="checkAnswer()" disabled>Check Answer</button>
                     <p id="result"></p>
                     <p class="score">Score: ✅ <span id="correct">${correct}</span> | ❌ <span id="incorrect">${incorrect}</span></p>
                 </div>
@@ -121,6 +121,7 @@
         }
 
         function checkAnswer() {
+            document.getElementById('checkButton').disabled = true;
             const userAnswer = parseInt(document.getElementById('answer').value);
             let correctAnswer = questionType === "archery" ? getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3) : num1 + num2;
             
@@ -132,6 +133,7 @@
             document.getElementById('result').innerHTML = `Correct Answer: ${correctAnswer}`;
             
             setTimeout(() => {
+                document.getElementById('checkButton').disabled = false;
                 isArcheryQuestion = Math.random() < 0.7;
                 if (isArcheryQuestion) {
                     num1 = generateArcheryNumber();
