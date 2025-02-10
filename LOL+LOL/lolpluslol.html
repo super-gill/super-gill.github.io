@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math Quiz</title>
+    <title>Score Adder Helperer</title>
     <style>
         body {
             display: flex;
@@ -13,6 +17,7 @@
             background-color: #f3f4f6;
             font-family: Arial, sans-serif;
         }
+
         .card {
             background: white;
             padding: 20px;
@@ -21,6 +26,7 @@
             text-align: center;
             width: 300px;
         }
+
         .input {
             width: calc(100% - 20px);
             padding: 10px;
@@ -30,6 +36,7 @@
             text-align: center;
             box-sizing: border-box;
         }
+
         .button {
             width: 100%;
             padding: 10px;
@@ -40,14 +47,17 @@
             border-radius: 5px;
             cursor: pointer;
         }
+
         .button:disabled {
             background-color: #ccc;
         }
+
         .score {
             margin-top: 15px;
         }
     </style>
 </head>
+
 <body>
     <div id="root"></div>
     <script>
@@ -97,7 +107,7 @@
 
             document.getElementById('root').innerHTML = `
                 <div class="card">
-                    <h1>Math Quiz</h1>
+                    <h1>Score Adder Helperer</h1>
                     <p>Solve: ${questionText}</p>
                     <input type="number" id="answer" class="input" />
                     <button class="button" onclick="checkAnswer()">Check Answer</button>
@@ -141,4 +151,5 @@
         render();
     </script>
 </body>
+
 </html>
