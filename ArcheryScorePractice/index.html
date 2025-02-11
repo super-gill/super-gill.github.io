@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Archery Score Trainer</title>
     <style>
+        /* Basic styles for layout and appearance */
         body {
             display: flex;
             justify-content: center;
@@ -53,6 +54,7 @@
             margin-top: 15px;
         }
 
+        /* Dark mode styles */
         .dark-mode {
             background-color: #1e1e1e;
             color: #d4d4d4;
@@ -79,38 +81,39 @@
             document.body.classList.toggle("dark-mode");
         }
 
-        // Generates a weighted random archery score
+        // Generates a weighted random archery score, favoring numbers >5, with X and M being rare
         function generateArcheryNumber() {
-            const weightedNumbers = [7, 7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, "X", "X", "M"];
+            const weightedNumbers = [];
+            for (let i = 6; i <= 10; i++) {
+                weightedNumbers.push(i, i, i, i);
+            }
+            weightedNumbers.push("X"); // X is rare
+            weightedNumbers.push("M"); // M is rare
             return weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
         }
 
-        // Generates two distinct even numbers for the large number addition question
+        // Generates two random numbers (0-60) ensuring they are not the same
         function generateLargeNumber() {
-            const weightedNumbers = Array(20).fill().map(() => {
-                let num = Math.floor(Math.random() * 31) + 30;
-                return num % 2 === 0 ? num : num + 1;
-            });
-            let num1 = weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
+            let num1 = Math.floor(Math.random() * 61);
             let num2;
             do {
-                num2 = weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
+                num2 = Math.floor(Math.random() * 61);
             } while (num1 === num2);
             return [num1, num2];
         }
 
-        // Converts symbolic values to numeric values
+        // Converts symbolic values (X and M) to numeric values
         function getNumericValue(value) {
             if (value === "X") return 10;
             if (value === "M") return 0;
             return value;
         }
 
-        let correct = 0, incorrect = 0; // Score tracking
-        let num1, num2, num3, questionType; // Stores the current question numbers
+        let correct = 0, incorrect = 0;
+        let num1, num2, num3, questionType;
 
         function render() {
-            let isArcheryQuestion = Math.random() < 0.7;
+            let isArcheryQuestion = Math.random() < 0.7; // 70% chance to generate an archery question
 
             // Generate numbers based on question type
             if (isArcheryQuestion) {
@@ -127,7 +130,7 @@
                 ? `${num1} + ${num2} + ${num3} = ?`
                 : `${num1} + ${num2} = ?`;
 
-            // Render the question and input elements
+            // Renders the question and input elements
             document.getElementById('root').innerHTML = `
                 <div class="card">
                     <h1>Archery Score Trainer</h1>
@@ -148,24 +151,24 @@
                 ? getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3)
                 : num1 + num2;
 
-            // Update the score based on the answer
+            // Updates the score based on the answer
             if (userAnswer === correctAnswer) {
                 correct++;
             } else {
                 incorrect++;
             }
 
-            // Show the correct answer
+            // Displays the correct answer
             document.getElementById('result').innerHTML = `Correct Answer: ${correctAnswer}`;
 
-            // Wait 3 seconds before rendering a new question
+            // Waits 3 seconds before rendering a new question
             setTimeout(() => {
                 document.getElementById('checkButton').disabled = false;
                 render();
             }, 3000);
         }
 
-        render(); // Initialize the first question
+        render(); // Initializes the first question
     </script>
 </body>
 </html>
