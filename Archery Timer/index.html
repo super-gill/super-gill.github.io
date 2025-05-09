@@ -14,17 +14,8 @@
       height: 100vh;
       transition: background-color 0.3s, color 0.3s;
     }
-
-    .dark-mode {
-      background-color: #1e1e1e;
-      color: #d4d4d4;
-    }
-
-    .light-mode {
-      background-color: #ffffff;
-      color: #000000;
-    }
-
+    .dark-mode { background-color: #1e1e1e; color: #d4d4d4; }
+    .light-mode { background-color: #ffffff; color: #000000; }
     .card {
       background: #2d2d2d;
       padding: 20px;
@@ -34,28 +25,11 @@
       width: 300px;
       transition: background-color 0.3s ease;
     }
-
-    .light-mode .card {
-      background: #f9f9f9;
-      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .card.work-phase {
-      background-color: #2b3f5c;
-    }
-
-    .card.rest-phase {
-      background-color: #3a2b5c;
-    }
-
-    .light-mode .card.work-phase {
-      background-color: #d0e7ff;
-    }
-
-    .light-mode .card.rest-phase {
-      background-color: #ecd9ff;
-    }
-
+    .light-mode .card { background: #f9f9f9; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); }
+    .card.work-phase { background-color: #2b3f5c; }
+    .card.rest-phase { background-color: #3a2b5c; }
+    .light-mode .card.work-phase { background-color: #d0e7ff; }
+    .light-mode .card.rest-phase { background-color: #ecd9ff; }
     input {
       width: calc(100% - 20px);
       padding: 10px;
@@ -68,13 +42,11 @@
       box-sizing: border-box;
       font-size: 16px;
     }
-
     .light-mode input {
       background-color: #ffffff;
       color: #000000;
       border: 1px solid #ccc;
     }
-
     button {
       padding: 10px;
       margin-top: 10px;
@@ -85,27 +57,10 @@
       cursor: pointer;
       font-size: 16px;
     }
-
-    .card button {
-      width: 100%;
-    }
-
-    h1 {
-      margin-bottom: 10px;
-      color: #BB86FC;
-    }
-
-    #phase {
-      margin-top: 20px;
-      font-size: 24px;
-      font-weight: bold;
-    }
-
-    #repCount {
-      font-size: 18px;
-      margin-top: 5px;
-    }
-
+    .card button { width: 100%; }
+    h1 { margin-bottom: 10px; color: #BB86FC; }
+    #phase { margin-top: 20px; font-size: 24px; font-weight: bold; }
+    #repCount { font-size: 18px; margin-top: 5px; }
     .link-button {
       margin-top: 20px;
       text-decoration: none;
@@ -113,7 +68,6 @@
       font-weight: bold;
       display: inline-block;
     }
-
     .theme-toggle {
       position: fixed;
       top: 10px;
@@ -126,7 +80,6 @@
       font-size: 16px;
       width: auto;
     }
-
     .dark-mode .theme-toggle {
       background-color: #2d2d2d;
       color: #d4d4d4;
@@ -140,40 +93,43 @@
     <h1>Interval Timer</h1>
     <label for="reps">Repetitions:</label>
     <input type="number" id="reps" value="5" min="1" />
-
     <label for="work">Work Duration (seconds):</label>
     <input type="number" id="work" value="1" min="1" />
-
     <label for="rest">Rest Duration (seconds):</label>
     <input type="number" id="rest" value="2" min="1" />
-
-    <button onclick="startTimer()">Start</button>
-
+    <button onclick="startTimer()" id="startButton">Start</button>
     <div id="phase"></div>
     <div id="repCount"></div>
-
     <a class="link-button" href="https://super-gill.github.io/ArcheryScorePractice/" target="_blank">🎯 Archery Score Trainer</a>
   </div>
-
   <script>
     let rep = 1;
+    let isRunning = false;
     const card = document.getElementById("cardContainer");
+    const startButton = document.getElementById("startButton");
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+    async function ensureAudioReady() {
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+    }
 
     function toggleTheme() {
       document.body.classList.toggle("dark-mode");
       document.body.classList.toggle("light-mode");
     }
 
-    function beep(count = 1, freq = 500, duration = 500, spacing = 100) {
-      const context = new (window.AudioContext || window.webkitAudioContext)();
+    async function beep(count = 1, freq = 500, duration = 500, spacing = 100) {
+      await ensureAudioReady();
       for (let i = 0; i < count; i++) {
-        const oscillator = context.createOscillator();
-        const gain = context.createGain();
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
 
         oscillator.type = "sine";
-        oscillator.frequency.setValueAtTime(freq, context.currentTime + i * ((duration + spacing) / 1000));
+        oscillator.frequency.setValueAtTime(freq, audioContext.currentTime + i * ((duration + spacing) / 1000));
 
-        const startTime = context.currentTime + i * ((duration + spacing) / 1000);
+        const startTime = audioContext.currentTime + i * ((duration + spacing) / 1000);
         const endTime = startTime + duration / 1000;
 
         gain.gain.setValueAtTime(0, startTime);
@@ -181,7 +137,7 @@
         gain.gain.linearRampToValueAtTime(0, endTime);
 
         oscillator.connect(gain);
-        gain.connect(context.destination);
+        gain.connect(audioContext.destination);
 
         oscillator.start(startTime);
         oscillator.stop(endTime);
@@ -207,6 +163,10 @@
     }
 
     function startTimer() {
+      if (isRunning) return;
+      isRunning = true;
+      startButton.disabled = true;
+
       const totalReps = parseInt(document.getElementById("reps").value);
       const work = parseInt(document.getElementById("work").value);
       const rest = parseInt(document.getElementById("rest").value);
@@ -224,6 +184,8 @@
         document.getElementById("repCount").textContent = "";
         card.classList.remove("work-phase", "rest-phase");
         down();
+        isRunning = false;
+        startButton.disabled = false;
         return;
       }
 
