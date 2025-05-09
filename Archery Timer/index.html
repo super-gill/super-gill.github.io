@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interval Timer</title>
+  <link rel="icon" type="image/png" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Archery_Target_icon.svg/1024px-Archery_Target_icon.svg.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .dark-mode {
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+    }
+
+    .light-mode {
+      background-color: #ffffff;
+      color: #000000;
+    }
+
+    .card {
+      background: #2d2d2d;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      width: 300px;
+    }
+
+    .light-mode .card {
+      background: #f9f9f9;
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    input {
+      width: calc(100% - 20px);
+      padding: 10px;
+      margin-top: 10px;
+      background-color: #3a3a3a;
+      color: #ffffff;
+      border: 1px solid #555;
+      border-radius: 5px;
+      text-align: center;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    .light-mode input {
+      background-color: #ffffff;
+      color: #000000;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 10px;
+      margin-top: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .card button {
+      width: 100%;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      color: #BB86FC;
+    }
+
+    #phase {
+      margin-top: 20px;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    #repCount {
+      font-size: 18px;
+      margin-top: 5px;
+    }
+
+    .link-button {
+      margin-top: 20px;
+      text-decoration: none;
+      color: #007bff;
+      font-weight: bold;
+      display: inline-block;
+    }
+
+    .theme-toggle {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 5px 10px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      width: auto;
+    }
+
+    .dark-mode .theme-toggle {
+      background-color: #2d2d2d;
+      color: #d4d4d4;
+      border: 1px solid #444;
+    }
+  </style>
+</head>
+<body class="dark-mode">
+  <button onclick="toggleTheme()" class="theme-toggle">🌙</button>
+  <div class="card">
+    <h1>Interval Timer</h1>
+    <label for="reps">Repetitions:</label>
+    <input type="number" id="reps" value="5" min="1" />
+
+    <label for="work">Work Duration (seconds):</label>
+    <input type="number" id="work" value="1" min="1" />
+
+    <label for="rest">Rest Duration (seconds):</label>
+    <input type="number" id="rest" value="2" min="1" />
+
+    <button onclick="startTimer()">Start</button>
+
+    <div id="phase"></div>
+    <div id="repCount"></div>
+
+    <a class="link-button" href="https://super-gill.github.io/ArcheryScorePractice/" target="_blank">🎯 Archery Score Trainer</a>
+  </div>
+
+  <script>
+    let rep = 1;
+
+    function toggleTheme() {
+      document.body.classList.toggle("dark-mode");
+      document.body.classList.toggle("light-mode");
+    }
+
+    function beep(count = 1, freq = 500, duration = 500, spacing = 100) {
+      const context = new (window.AudioContext || window.webkitAudioContext)();
+      for (let i = 0; i < count; i++) {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(freq, context.currentTime + i * ((duration + spacing) / 1000));
+
+        const startTime = context.currentTime + i * ((duration + spacing) / 1000);
+        const endTime = startTime + duration / 1000;
+
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.1, startTime + 0.05);
+        gain.gain.linearRampToValueAtTime(0, endTime);
+
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+
+        oscillator.start(startTime);
+        oscillator.stop(endTime);
+      }
+    }
+
+    function up() {
+      beep(1, 600, 800, 300);
+      beep(1, 800, 800, 300);
+      beep(1, 1000, 800, 300);
+    }
+
+    function down() {
+      beep(1, 1000, 800, 300);
+      beep(1, 800, 800, 300);
+      beep(1, 600, 800, 300);
+    }
+
+    function startTimer() {
+      const totalReps = parseInt(document.getElementById("reps").value);
+      const work = parseInt(document.getElementById("work").value);
+      const rest = parseInt(document.getElementById("rest").value);
+
+      rep = 1;
+      up();
+
+      setTimeout(() => runWork(totalReps, work, rest), 3000);
+    }
+
+    function runWork(totalReps, work, rest) {
+      if (rep > totalReps) {
+        document.getElementById("phase").textContent = "Workout Complete!";
+        document.getElementById("repCount").textContent = "";
+        down();
+        return;
+      }
+
+      document.getElementById("phase").textContent = "DRAW!";
+      document.getElementById("repCount").textContent = `Rep ${rep} of ${totalReps}`;
+      beep(1, 500, 500, 100);
+
+      setTimeout(() => runRest(totalReps, work, rest), work * 1000);
+    }
+
+    function runRest(totalReps, work, rest) {
+      document.getElementById("phase").textContent = "REST!";
+      document.getElementById("repCount").textContent = `Rep ${rep} of ${totalReps}`;
+      beep(2, 500, 300, 100);
+
+      rep++;
+      setTimeout(() => runWork(totalReps, work, rest), rest * 1000);
+    }
+  </script>
+</body>
+</html>
