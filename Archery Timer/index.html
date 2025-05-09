@@ -32,11 +32,28 @@
       box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.5);
       text-align: center;
       width: 300px;
+      transition: background-color 0.3s ease;
     }
 
     .light-mode .card {
       background: #f9f9f9;
       box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .card.work-phase {
+      background-color: #2b3f5c;
+    }
+
+    .card.rest-phase {
+      background-color: #3a2b5c;
+    }
+
+    .light-mode .card.work-phase {
+      background-color: #d0e7ff;
+    }
+
+    .light-mode .card.rest-phase {
+      background-color: #ecd9ff;
     }
 
     input {
@@ -119,7 +136,7 @@
 </head>
 <body class="dark-mode">
   <button onclick="toggleTheme()" class="theme-toggle">🌙</button>
-  <div class="card">
+  <div class="card" id="cardContainer">
     <h1>Interval Timer</h1>
     <label for="reps">Repetitions:</label>
     <input type="number" id="reps" value="5" min="1" />
@@ -140,6 +157,7 @@
 
   <script>
     let rep = 1;
+    const card = document.getElementById("cardContainer");
 
     function toggleTheme() {
       document.body.classList.toggle("dark-mode");
@@ -182,6 +200,12 @@
       beep(1, 600, 800, 300);
     }
 
+    function setCardPhase(phase) {
+      card.classList.remove("work-phase", "rest-phase");
+      if (phase === "work") card.classList.add("work-phase");
+      if (phase === "rest") card.classList.add("rest-phase");
+    }
+
     function startTimer() {
       const totalReps = parseInt(document.getElementById("reps").value);
       const work = parseInt(document.getElementById("work").value);
@@ -189,6 +213,7 @@
 
       rep = 1;
       up();
+      setCardPhase("work");
 
       setTimeout(() => runWork(totalReps, work, rest), 3000);
     }
@@ -197,10 +222,12 @@
       if (rep > totalReps) {
         document.getElementById("phase").textContent = "Workout Complete!";
         document.getElementById("repCount").textContent = "";
+        card.classList.remove("work-phase", "rest-phase");
         down();
         return;
       }
 
+      setCardPhase("work");
       document.getElementById("phase").textContent = "DRAW!";
       document.getElementById("repCount").textContent = `Rep ${rep} of ${totalReps}`;
       beep(1, 500, 500, 100);
@@ -209,6 +236,7 @@
     }
 
     function runRest(totalReps, work, rest) {
+      setCardPhase("rest");
       document.getElementById("phase").textContent = "REST!";
       document.getElementById("repCount").textContent = `Rep ${rep} of ${totalReps}`;
       beep(2, 500, 300, 100);
