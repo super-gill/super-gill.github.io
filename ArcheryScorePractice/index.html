@@ -1,175 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" type="image/png" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Archery_Target_icon.svg/1024px-Archery_Target_icon.svg.png">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Archery Score Trainer</title>
-    <style>
-        /* Basic styles for layout and appearance */
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: Arial, sans-serif;
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        .card {
-            background: #f9f9f9;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            width: 300px;
-        }
-
-        .input {
-            width: calc(100% - 20px);
-            padding: 10px;
-            margin-top: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            text-align: center;
-            box-sizing: border-box;
-        }
-
-        .button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .button:disabled {
-            background-color: #555;
-        }
-
-        .score {
-            margin-top: 15px;
-        }
-
-        /* Dark mode styles */
-        .dark-mode {
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-        }
-
-        .dark-mode .card {
-            background: #2d2d2d;
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.5);
-        }
-
-        .dark-mode .input {
-            background-color: #3a3a3a;
-            color: #ffffff;
-            border: 1px solid #555;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Archery Trainer</title>
+  <link rel="icon" type="image/png" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Archery_Target_icon.svg/1024px-Archery_Target_icon.svg.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .dark-mode { background-color: #1e1e1e; color: #d4d4d4; }
+    .light-mode { background-color: #ffffff; color: #000000; }
+    .card {
+      background: #2d2d2d;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      width: 300px;
+      transition: background-color 0.3s ease;
+    }
+    .light-mode .card { background: #f9f9f9; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); }
+    .card.work-phase { background-color: #2b3f5c; }
+    .card.rest-phase { background-color: #3a2b5c; }
+    .light-mode .card.work-phase { background-color: #d0e7ff; }
+    .light-mode .card.rest-phase { background-color: #ecd9ff; }
+    input, .input {
+      width: calc(100% - 20px);
+      padding: 10px;
+      margin-top: 10px;
+      background-color: #3a3a3a;
+      color: #ffffff;
+      border: 1px solid #555;
+      border-radius: 5px;
+      text-align: center;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    .light-mode input, .light-mode .input {
+      background-color: #ffffff;
+      color: #000000;
+      border: 1px solid #ccc;
+    }
+    button, .button {
+      padding: 10px;
+      margin-top: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      width: 100%;
+    }
+    .button:disabled { background-color: #555; }
+    .tabs {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      display: flex;
+      gap: 10px;
+    }
+    .theme-toggle {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 5px 10px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      width: auto;
+    }
+    .dark-mode .theme-toggle {
+      background-color: #2d2d2d;
+      color: #d4d4d4;
+      border: 1px solid #444;
+    }
+    .hidden { display: none; }
+    h1 { margin-bottom: 10px; color: #BB86FC; }
+  </style>
 </head>
 <body class="dark-mode">
-    <div id="root"></div>
-    <button onclick="toggleDarkMode()" style="position: fixed; top: 10px; right: 10px; padding: 5px 10px;">🌙</button>
-    <script>
-        // Toggles dark mode on and off
-        function toggleDarkMode() {
-            document.body.classList.toggle("dark-mode");
-        }
+  <div class="tabs">
+    <button onclick="showApp('timer')">⏱ Timer</button>
+    <button onclick="showApp('score')">🎯 Score</button>
+  </div>
+  <button onclick="toggleTheme()" class="theme-toggle">🌙</button>
 
-        // Generates a weighted random archery score, favoring numbers >5, with X and M being rare
-        function generateArcheryNumber() {
-            const weightedNumbers = [];
-            for (let i = 6; i <= 10; i++) {
-                weightedNumbers.push(i, i, i, i);
-            }
-            weightedNumbers.push("X"); // X is rare
-            weightedNumbers.push("M"); // M is rare
-            return weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
-        }
+  <div id="timerApp" class="card">
+    <h1>Interval Timer</h1>
+    <label for="reps">Repetitions:</label>
+    <input type="number" id="reps" value="5" min="1" />
+    <label for="work">Work Duration (seconds):</label>
+    <input type="number" id="work" value="1" min="1" />
+    <label for="rest">Rest Duration (seconds):</label>
+    <input type="number" id="rest" value="2" min="1" />
+    <button onclick="startTimer()" id="startButton">Start</button>
+    <div id="phase"></div>
+    <div id="repCount"></div>
+    <div id="countdown"></div>
+  </div>
 
-        // Generates two random numbers (0-60) ensuring they are not the same
-        function generateLargeNumber() {
-            let num1 = Math.floor(Math.random() * 61);
-            let num2;
-            do {
-                num2 = Math.floor(Math.random() * 61);
-            } while (num1 === num2);
-            return [num1, num2];
-        }
+  <div id="scoreApp" class="card hidden">
+    <h1>Archery Score Trainer</h1>
+    <p id="question"></p>
+    <input type="number" id="answer" class="input" inputmode="numeric" pattern="[0-9]*" />
+    <button class="button" id="checkButton" onclick="checkAnswer()">Check Answer</button>
+    <p id="result"></p>
+    <p class="score">Score: ✅ <span id="correct">0</span> | ❌ <span id="incorrect">0</span></p>
+  </div>
 
-        // Converts symbolic values (X and M) to numeric values
-        function getNumericValue(value) {
-            if (value === "X") return 10;
-            if (value === "M") return 0;
-            return value;
-        }
+  <script>
+    let currentApp = 'timer';
+    function showApp(app) {
+      document.getElementById('timerApp').classList.add('hidden');
+      document.getElementById('scoreApp').classList.add('hidden');
+      document.getElementById(app + 'App').classList.remove('hidden');
+    }
 
-        let correct = 0, incorrect = 0;
-        let num1, num2, num3, questionType;
+    function toggleTheme() {
+      document.body.classList.toggle("dark-mode");
+      document.body.classList.toggle("light-mode");
+    }
 
-        function render() {
-            let isArcheryQuestion = Math.random() < 0.7; // 70% chance to generate an archery question
+    // Score app logic
+    let correct = 0, incorrect = 0;
+    let num1, num2, num3, questionType;
 
-            // Generate numbers based on question type
-            if (isArcheryQuestion) {
-                num1 = generateArcheryNumber();
-                num2 = generateArcheryNumber();
-                num3 = generateArcheryNumber();
-                questionType = "archery";
-            } else {
-                [num1, num2] = generateLargeNumber();
-                questionType = "largeNumbers";
-            }
+    function generateArcheryNumber() {
+      const weighted = [];
+      for (let i = 6; i <= 10; i++) weighted.push(i, i, i, i);
+      weighted.push("X", "M");
+      return weighted[Math.floor(Math.random() * weighted.length)];
+    }
 
-            let questionText = questionType === "archery"
-                ? `${num1} + ${num2} + ${num3} = ?`
-                : `${num1} + ${num2} = ?`;
+    function generateLargeNumber() {
+      let a = Math.floor(Math.random() * 61), b;
+      do { b = Math.floor(Math.random() * 61); } while (a === b);
+      return [a, b];
+    }
 
-            // Renders the question and input elements
-            document.getElementById('root').innerHTML = `
-                <div class="card">
-                    <h1>Archery Score Trainer</h1>
-                    <p>Solve: ${questionText}</p>
-                    <input type="number" id="answer" class="input" inputmode="numeric" pattern="[0-9]*" />
-                    <button class="button" id="checkButton" onclick="checkAnswer()">Check Answer</button>
-                    <p id="result"></p>
-                    <p class="score">Score: ✅ <span id="correct">${correct}</span> | ❌ <span id="incorrect">${incorrect}</span></p>
-                    <a class="link-button" href="https://super-gill.github.io/Archery%20Timer/index.html" target="_blank">🎯 Archery Interval Trainer</a>
-                </div>
-            `;
-        }
+    function getNumericValue(val) {
+      if (val === "X") return 10;
+      if (val === "M") return 0;
+      return val;
+    }
 
-        function checkAnswer() {
-            document.getElementById('checkButton').disabled = true; // Prevents multiple rapid clicks
-            const userAnswer = parseInt(document.getElementById('answer').value);
+    function renderQuestion() {
+      let isArchery = Math.random() < 0.7;
+      if (isArchery) {
+        num1 = generateArcheryNumber();
+        num2 = generateArcheryNumber();
+        num3 = generateArcheryNumber();
+        questionType = "archery";
+        document.getElementById('question').textContent = `${num1} + ${num2} + ${num3} = ?`;
+      } else {
+        [num1, num2] = generateLargeNumber();
+        questionType = "large";
+        document.getElementById('question').textContent = `${num1} + ${num2} = ?`;
+      }
+    }
 
-            let correctAnswer = questionType === "archery"
-                ? getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3)
-                : num1 + num2;
+    function checkAnswer() {
+      document.getElementById('checkButton').disabled = true;
+      const user = parseInt(document.getElementById('answer').value);
+      const answer = questionType === "archery"
+        ? getNumericValue(num1) + getNumericValue(num2) + getNumericValue(num3)
+        : num1 + num2;
+      if (user === answer) correct++; else incorrect++;
+      document.getElementById('result').textContent = `Correct Answer: ${answer}`;
+      document.getElementById('correct').textContent = correct;
+      document.getElementById('incorrect').textContent = incorrect;
+      setTimeout(() => {
+        document.getElementById('checkButton').disabled = false;
+        renderQuestion();
+        document.getElementById('answer').value = '';
+        document.getElementById('result').textContent = '';
+      }, 3000);
+    }
 
-            // Updates the score based on the answer
-            if (userAnswer === correctAnswer) {
-                correct++;
-            } else {
-                incorrect++;
-            }
-
-            // Displays the correct answer
-            document.getElementById('result').innerHTML = `Correct Answer: ${correctAnswer}`;
-
-            // Waits 3 seconds before rendering a new question
-            setTimeout(() => {
-                document.getElementById('checkButton').disabled = false;
-                render();
-            }, 3000);
-        }
-
-        render(); // Initializes the first question
-    </script>
+    renderQuestion();
+  </script>
 </body>
 </html>
