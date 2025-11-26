@@ -1,763 +1,1070 @@
-<script>
-  // === MASTER FLASHCARD DATA (one big collection) ============
-  const allCards = [
-    { es: "Buenos días", en: "Good morning" },
-    { es: "Buenas tardes", en: "Good afternoon" },
-    { es: "Buenas noches", en: "Good night" },
-    { es: "Hola", en: "Hello" },
-    { es: "¿Qué tal?", en: "How's it going?" },
-    { es: "¿Cómo estás?", en: "How are you?" },
-    { es: "Estoy bien", en: "I'm fine" },
-    { es: "Más o menos", en: "So-so" },
-    { es: "Gracias", en: "Thank you" },
-    { es: "Muchas gracias", en: "Thank you very much" },
-    { es: "De nada", en: "You're welcome" },
-    { es: "Por favor", en: "Please" },
-    { es: "Perdón", en: "Sorry / excuse me" },
-    { es: "Lo siento", en: "I'm sorry" },
-    { es: "Hasta luego", en: "See you later" },
-    { es: "Hasta mañana", en: "See you tomorrow" },
-    { es: "Adiós", en: "Goodbye" },
-    { es: "Está bien", en: "It's okay" },
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Spanish Flashcards</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-    { es: "¿Cómo te llamas?", en: "What is your name?" },
-    { es: "Me llamo Laura", en: "My name is Laura" },
-    { es: "Me llamo Ben",  en: "My name is Ben" },
-    { es: "Me llamo Jason", en: "My name is Jason" },
-    { es: "¿De dónde eres?", en: "Where are you from?" },
-    { es: "Soy de Inglaterra", en: "I am from England" },
-    { es: "Soy de Irlanda",   en: "I am from Ireland" },
-    { es: "Soy de Escocia",   en: "I am from Scotland" },
-    { es: "¿Dónde vives?", en: "Where do you live?" },
-    { es: "Vivo en Milton Keynes", en: "I live in Milton Keynes" },
-    { es: "Vivo en Londres",       en: "I live in London" },
-    { es: "Soy gerente de IT",     en: "I am an IT manager" },
-    { es: "Soy profesor de español", en: "I am a Spanish teacher" },
-    { es: "Soy enfermera",          en: "I am a nurse" },
-    { es: "Soy estudiante de español", en: "I am a Spanish student" },
-    { es: "Tengo treinta y nueve años", en: "I am thirty-nine years old" },
-    { es: "Hablo un poco de español", en: "I speak a little Spanish" },
-    { es: "¿Hablas inglés?", en: "Do you speak English?" },
-    { es: "No entiendo",     en: "I don't understand" },
-    { es: "Entiendo",        en: "I understand" },
-    { es: "¿Puedes repetir, por favor?", en: "Can you repeat, please?" },
-    { es: "¿Por qué no?", en: "Why not?" },
-    { es: "Muy bien",    en: "Very good" },
-    { es: "¡Qué bien!",  en: "Great!" },
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: #f4f4f4;
+      color: #222;
+    }
 
-    { es: "Soy Jason", en: "I am Jason" },
-    { es: "Somos amigos", en: "We are friends" },
-    { es: "Somos amigos y tenemos una casa", en: "We are friends and we have a house" },
-    { es: "Ella es enfermera", en: "She is a nurse" },
-    { es: "Ella es enfermera y tiene un coche", en: "She is a nurse and she has a car" },
-    { es: "Tengo un coche", en: "I have a car" },
-    { es: "No tengo coche", en: "I don't have a car" },
-    { es: "Tengo una casa", en: "I have a house" },
-    { es: "Tengo dos amigos", en: "I have two friends" },
-    { es: "¿Tienes hermanos?", en: "Do you have siblings?" },
-    { es: "Sí, tengo un hermano", en: "Yes, I have one brother" },
-    { es: "No, no tengo hermanos", en: "No, I don't have siblings" },
-    { es: "Tengo hambre",  en: "I am hungry" },
-    { es: "Tengo sed",     en: "I am thirsty" },
-    { es: "Tengo frío",    en: "I am cold" },
-    { es: "Tengo calor",   en: "I am hot" },
-    { es: "Tengo sueño",   en: "I am sleepy" },
-    { es: "Tengo miedo de las arañas", en: "I am afraid of spiders" },
-    { es: "Tenemos una profesora amable", en: "We have a friendly teacher" },
-    { es: "Tenemos una buena idea",      en: "We have a good idea" },
+    .app {
+      width: 100%;
+      max-width: 480px;
+      padding: 1.5rem;
+    }
 
-    { es: "madre",   en: "mother" },
-    { es: "padre",   en: "father" },
-    { es: "hijo",    en: "son" },
-    { es: "hija",    en: "daughter" },
-    { es: "hermano", en: "brother" },
-    { es: "hermana", en: "sister" },
-    { es: "abuelo",  en: "grandfather" },
-    { es: "abuela",  en: "grandmother" },
-    { es: "tío",     en: "uncle" },
-    { es: "tía",     en: "aunt" },
-    { es: "primo",   en: "cousin (male)" },
-    { es: "prima",   en: "cousin (female)" },
-    { es: "esposo",  en: "husband" },
-    { es: "esposa",  en: "wife" },
-    { es: "novio",   en: "boyfriend" },
-    { es: "novia",   en: "girlfriend" },
-    { es: "padres",  en: "parents" },
-    { es: "familia", en: "family" },
+    .app-header {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
 
-    { es: "Mi madre se llama Laura", en: "My mother's name is Laura" },
-    { es: "Mi padre se llama Ben",   en: "My father's name is Ben" },
-    { es: "Tengo un hermano menor",  en: "I have a younger brother" },
-    { es: "Tengo una hermana mayor", en: "I have an older sister" },
-    { es: "Mi abuela vive en España", en: "My grandmother lives in Spain" },
-    { es: "Mi familia es pequeña",    en: "My family is small" },
-    { es: "Mi familia es grande",     en: "My family is big" },
+    .app-header h1 {
+      font-size: 1.4rem;
+      margin: 0 0 0.25rem;
+      font-weight: 600;
+    }
 
-    { es: "uno",   en: "one" },
-    { es: "dos",   en: "two" },
-    { es: "tres",  en: "three" },
-    { es: "diez",  en: "ten" },
-    { es: "veinte",   en: "twenty" },
-    { es: "treinta",  en: "thirty" },
-    { es: "cuarenta", en: "forty" },
-    { es: "cincuenta", en: "fifty" },
-    { es: "sesenta",   en: "sixty" },
-    { es: "sesenta y cinco", en: "sixty-five" },
-    { es: "cien", en: "one hundred" },
-    { es: "mil",  en: "one thousand" },
-    { es: "cero coma cinco", en: "zero point five" },
-    { es: "uno coma cinco",  en: "one point five" },
-    { es: "cero coma uno",   en: "zero point one" },
+    .app-header p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #666;
+    }
 
-    /* --- New combinations using mostly the same words --- */
-    { es: "Hola, ¿qué tal?",          en: "Hello, how's it going?" },
-    { es: "Hola, ¿cómo estás?",       en: "Hello, how are you?" },
-    { es: "Buenos días, ¿cómo estás?", en: "Good morning, how are you?" },
-    { es: "Buenas tardes, ¿qué tal?",  en: "Good afternoon, how's it going?" },
-    { es: "Buenas noches, hasta mañana", en: "Good night, see you tomorrow" },
+    /* Deck selector */
+    .deck-select {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      align-items: center;
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+    }
 
-    { es: "Estoy bien, gracias",    en: "I'm fine, thank you" },
-    { es: "Más o menos, gracias",   en: "So-so, thanks" },
-    { es: "Muy bien, gracias",      en: "Very good, thank you" },
-    { es: "Muchas gracias, hasta luego", en: "Thank you very much, see you later" },
+    .deck-select label {
+      font-weight: 500;
+    }
 
-    { es: "Lo siento, no entiendo", en: "I'm sorry, I don't understand" },
-    { es: "Perdón, no entiendo",    en: "Sorry, I don't understand" },
-    { es: "No entiendo, ¿puedes repetir, por favor?", en: "I don't understand, can you repeat, please?" },
-    { es: "Está bien, gracias",     en: "It's okay, thanks" },
+    .deck-select select {
+      flex: 1;
+      min-width: 160px;
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      font-size: 0.9rem;
+      background: #fff;
+    }
 
-    { es: "Hola, me llamo Jason", en: "Hi, my name is Jason" },
-    { es: "Hola, me llamo Laura", en: "Hi, my name is Laura" },
-    { es: "Hola, soy Jason",      en: "Hi, I am Jason" },
-    { es: "Buenos días, soy Jason", en: "Good morning, I am Jason" },
+    .mode-select {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+      align-items: center;
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+    }
 
-    { es: "Soy de Inglaterra y vivo en Milton Keynes", en: "I am from England and I live in Milton Keynes" },
-    { es: "Soy de Irlanda y vivo en Londres",          en: "I am from Ireland and I live in London" },
-    { es: "Soy gerente de IT y soy de Inglaterra",     en: "I am an IT manager and I am from England" },
+    .mode-select label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
 
-    { es: "Soy estudiante de español y hablo un poco de español", en: "I am a Spanish student and I speak a little Spanish" },
-    { es: "Soy profesor de español y hablo un poco de inglés",    en: "I am a Spanish teacher and I speak a little English" },
-    { es: "Tengo treinta y nueve años y soy de Inglaterra",       en: "I am thirty-nine years old and I am from England" },
+    .card-wrapper {
+      perspective: 1200px;
+      margin-bottom: 0.5rem;
+    }
 
-    { es: "Mi madre es enfermera",              en: "My mother is a nurse" },
-    { es: "Mi padre es profesor de español",    en: "My father is a Spanish teacher" },
-    { es: "Mi hermano es estudiante de español", en: "My brother is a Spanish student" },
+    .card {
+      position: relative;
+      width: 100%;
+      height: 220px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      transform-style: preserve-3d;
+      transition: transform 0.6s ease;
+    }
 
-    { es: "Mi hermana vive en Londres",        en: "My sister lives in London" },
-    { es: "Mi madre vive en Milton Keynes",    en: "My mother lives in Milton Keynes" },
-    { es: "Mi padre vive en Escocia",          en: "My father lives in Scotland" },
-    { es: "Mi familia vive en Inglaterra",     en: "My family lives in England" },
-    { es: "Mi familia vive en Milton Keynes",  en: "My family lives in Milton Keynes" },
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s ease;
+    }
 
-    { es: "Tengo dos hermanos",        en: "I have two brothers" },
-    { es: "Tengo dos hermanas",        en: "I have two sisters" },
-    { es: "Tengo un hijo y una hija",  en: "I have one son and one daughter" },
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
 
-    { es: "Tengo hambre y tengo sed", en: "I am hungry and thirsty" },
-    { es: "Tengo frío y tengo sueño", en: "I am cold and sleepy" },
-    { es: "Tengo calor y tengo sed",  en: "I am hot and thirsty" },
+    .card-face {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      backface-visibility: hidden;
+    }
 
-    { es: "Tengo un coche y una casa",          en: "I have a car and a house" },
-    { es: "No tengo coche y no tengo casa",     en: "I don't have a car and I don't have a house" },
-    { es: "Tenemos una buena idea y una profesora amable", en: "We have a good idea and a friendly teacher" },
+    .card-face.front {
+      background: #fff9c4; /* washed-out yellow */
+    }
 
-    { es: "Somos amigos y somos de Inglaterra", en: "We are friends and we are from England" },
-    { es: "Tengo dos amigos y un hermano",      en: "I have two friends and one brother" },
-    { es: "Tengo dos amigos y una hermana",     en: "I have two friends and one sister" },
-    { es: "Tengo un hijo y una hija y somos una familia", en: "I have a son and a daughter and we are a family" },
+    .card-face.back {
+      background: #e8f5e9; /* washed-out green */
+      transform: rotateY(180deg);
+    }
 
-    { es: "Mi familia es pequeña y somos amigos", en: "My family is small and we are friends" },
+    .card-text {
+      font-size: 1.5rem;
+      text-align: center;
+      line-height: 1.4;
+    }
 
-    { es: "cero coma dos",   en: "zero point two" },
-    { es: "cero coma tres",  en: "zero point three" },
-    { es: "uno coma dos",    en: "one point two" },
-    { es: "uno coma tres",   en: "one point three" },
-    { es: "dos coma cinco",  en: "two point five" },
-    { es: "tres coma cinco", en: "three point five" },
-    { es: "diez coma cinco", en: "ten point five" },
+    .direction-hint {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #777;
+      margin-bottom: 1rem;
+      min-height: 1.1em;
+    }
 
-    /* --- Extra food & drink vocabulary from your list --- */
-    { es: "carne", en: "meat" },
-    { es: "queso", en: "cheese" },
-    { es: "pescado", en: "fish" },
-    { es: "sándwich", en: "sandwich" },
-    { es: "hamburguesa", en: "hamburger" },
-    { es: "agua", en: "water" },
-    { es: "leche", en: "milk" },
-    { es: "pan", en: "bread" },
-    { es: "manzana", en: "apple" },
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      align-items: center;
+    }
 
-    { es: "Como carne", en: "I eat meat" },
-    { es: "Como queso", en: "I eat cheese" },
-    { es: "Como un sándwich", en: "I eat a sandwich" },
-    { es: "Como una hamburguesa", en: "I eat a hamburger" },
-    { es: "Bebo agua", en: "I drink water" },
-    { es: "Bebo leche", en: "I drink milk" },
-    { es: "Bebes agua", en: "You drink water" },
-    { es: "Bebes leche", en: "You drink milk" },
-    { es: "Bebe agua", en: "He / she drinks water" },
-    { es: "Bebe leche", en: "He / she drinks milk" },
+    .primary-actions {
+      display: flex;
+      gap: 0.75rem;
+      width: 100%;
+      justify-content: center;
+    }
 
-    /* --- Places, travel, and city words --- */
-    { es: "restaurante", en: "restaurant" },
-    { es: "supermercado", en: "supermarket" },
-    { es: "banco", en: "bank" },
-    { es: "calle", en: "street" },
-    { es: "baño", en: "bathroom" },
-    { es: "hospital", en: "hospital" },
-    { es: "museo", en: "museum" },
-    { es: "tren", en: "train" },
-    { es: "autobús", en: "bus" },
-    { es: "aeropuerto", en: "airport" },
-    { es: "hotel", en: "hotel" },
-    { es: "mesa", en: "table" },
-    { es: "persona", en: "person" },
-    { es: "personas", en: "people" },
-    { es: "maleta", en: "suitcase" },
-    { es: "pasaporte", en: "passport" },
-    { es: "boleto", en: "ticket" },
-    { es: "dinero", en: "money" },
-    { es: "taxi", en: "taxi" },
-    { es: "reserva", en: "reservation" },
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 0.6rem 1.4rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+      background: #ffffff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s;
+    }
 
-    { es: "Necesito un taxi", en: "I need a taxi" },
-    { es: "Necesito una mesa para dos personas", en: "I need a table for two people" },
-    { es: "El restaurante está aquí", en: "The restaurant is here" },
-    { es: "El hotel está en esta calle", en: "The hotel is on this street" },
-    { es: "El supermercado está aquí", en: "The supermarket is here" },
-    { es: "El baño está en el restaurante", en: "The bathroom is in the restaurant" },
-    { es: "El museo está aquí", en: "The museum is here" },
-    { es: "El aeropuerto está aquí", en: "The airport is here" },
-    { es: "Mi maleta está en el hotel", en: "My suitcase is in the hotel" },
-    { es: "Mi pasaporte está en la maleta", en: "My passport is in the suitcase" },
-    { es: "Tengo un boleto", en: "I have a ticket" },
-    { es: "Tengo dinero", en: "I have money" },
-    { es: "Necesito un boleto", en: "I need a ticket" },
-    { es: "Mi teléfono está en la maleta", en: "My phone is in the suitcase" },
+    button:active {
+      transform: translateY(1px) scale(0.99);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
 
-    /* --- Little glue words & pronouns from your list --- */
-    { es: "de", en: "of / from" },
-    { es: "con", en: "with" },
-    { es: "para", en: "for" },
-    { es: "en", en: "in / at" },
-    { es: "dónde", en: "where" },
-    { es: "aquí", en: "here" },
-    { es: "mi", en: "my" },
-    { es: "me", en: "me" },
-    { es: "teléfono", en: "telephone / phone" },
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+      box-shadow: none;
+    }
 
-    /* --- Extra conversation bits --- */
-    { es: "disculpe", en: "excuse me" },
-    { es: "Mucho gusto", en: "Nice to meet you" },
-    { es: "necesito", en: "I need" },
-    { es: "hablo", en: "I speak" },
-    { es: "hablas", en: "you speak" },
+    .btn-show {
+      flex: 1;
+    }
 
-    /* --- Eating / drinking verb forms --- */
-    { es: "como", en: "I eat" },
-    { es: "comes", en: "you eat" },
-    { es: "come", en: "he / she / it eats" },
-    { es: "bebo", en: "I drink" },
-    { es: "bebes", en: "you drink" },
-    { es: "bebe", en: "he / she / it drinks" },
+    .rating {
+      display: flex;
+      gap: 0.75rem;
+      width: 100%;
+      justify-content: center;
+    }
 
-    /* --- People words --- */
-    { es: "niño", en: "boy" },
-    { es: "hombre", en: "man" },
-    { es: "mujer", en: "woman" },
+    .btn-correct {
+      flex: 1;
+      background: #e8f5e9;
+    }
 
-    { es: "Soy un niño", en: "I am a boy" },
-    { es: "Soy un hombre", en: "I am a man" },
-    { es: "Soy una mujer", en: "I am a woman" },
+    .btn-incorrect {
+      flex: 1;
+      background: #ffebee;
+    }
 
-    /* --- Core verbs you asked to include --- */
-    { es: "ser", en: "to be (identity)" },
-    { es: "tener", en: "to have" },
-    { es: "llamarse", en: "to be called (name)" },
-    { es: "comer", en: "to eat" },
-    { es: "beber", en: "to drink" },
-    { es: "necesitar", en: "to need" },
+    .rating button:disabled {
+      background: #e0e0e0;
+      color: #888;
+    }
 
-    /* --- Conjugations of ser --- */
-    { es: "soy", en: "I am (ser)" },
-    { es: "eres", en: "you are (ser)" },
-    { es: "es", en: "he / she / it is (ser)" },
-    { es: "somos", en: "we are (ser)" },
-    { es: "sois", en: "you (plural) are (ser)" },
-    { es: "son", en: "they are (ser)" },
+    .btn-correct span,
+    .btn-incorrect span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
 
-    /* --- Conjugations of tener --- */
-    { es: "tengo", en: "I have" },
-    { es: "tienes", en: "you have" },
-    { es: "tiene", en: "he / she / it has" },
-    { es: "tenemos", en: "we have" },
-    { es: "tenéis", en: "you (plural) have" },
-    { es: "tienen", en: "they have" },
+    .btn-correct span::before {
+      content: "✓";
+      font-weight: 600;
+    }
 
-    /* --- Conjugations of llamarse --- */
-    { es: "me llamo", en: "my name is / I am called" },
-    { es: "te llamas", en: "your name is / you are called" },
-    { es: "se llama", en: "his / her name is / he / she is called" },
-    { es: "nos llamamos", en: "our name is / we are called" },
-    { es: "os llamáis", en: "your (plural) name is / you are called" },
-    { es: "se llaman", en: "their name is / they are called" }
-  ];
+    .btn-incorrect span::before {
+      content: "✕";
+      font-weight: 600;
+    }
 
-  // === DECK DEFINITIONS (same as before) =======================
-  const decks = {
-    all: {
-      label: "All cards (mixed)",
-      filter: () => true
-    },
-    greetings: {
-      label: "Greetings & small talk",
-      filter: (card) => {
-        const t = card.es.toLowerCase();
-        const keywords = [
-          "buenos días",
-          "buenas tardes",
-          "buenas noches",
-          "hola",
-          "¿qué tal",
-          "¿cómo estás",
-          "estoy bien",
-          "más o menos",
-          "gracias",
-          "muchas gracias",
-          "de nada",
-          "por favor",
-          "perdón",
-          "lo siento",
-          "hasta luego",
-          "hasta mañana",
-          "adiós",
-          "muy bien",
-          "¡qué bien",
-          "qué bien",
-          "está bien",
-          "mucho gusto"
-        ];
-        return keywords.some(k => t.includes(k));
+    .score {
+      font-size: 0.9rem;
+      color: #555;
+      text-align: center;
+    }
+
+    .score strong {
+      font-weight: 600;
+    }
+
+    .message {
+      min-height: 1.2em;
+      font-size: 0.8rem;
+      text-align: center;
+      color: #888;
+      margin-top: 0.25rem;
+    }
+
+    @media (max-width: 480px) {
+      .card {
+        height: 200px;
       }
-    },
-    introductions: {
-      label: "Introductions & personal info",
-      filter: (card) => {
-        const t = card.es.toLowerCase();
-        const keywords = [
-          "¿cómo te llamas",
-          "me llamo",
-          "¿de dónde eres",
-          "soy de",
-          "¿dónde vives",
-          "vivo en",
-          "soy gerente",
-          "soy profesor",
-          "soy enfermera",
-          "soy estudiante",
-          "tengo treinta y nueve años",
-          "hablo un poco",
-          "soy jason",
-          "hola, soy",
-          "buenos días, soy"
-        ];
-        return keywords.some(k => t.includes(k));
-      }
-    },
-    family: {
-      label: "Family & relatives",
-      filter: (card) => {
-        const t = card.es.toLowerCase();
-        const keywords = [
-          "madre",
-          "padre",
-          "hijo",
-          "hija",
-          "hermano",
-          "hermana",
-          "abuelo",
-          "abuela",
-          "tío",
-          "tía",
-          "primo",
-          "prima",
-          "esposo",
-          "esposa",
-          "novio",
-          "novia",
-          "padres",
-          "familia"
-        ];
-        return keywords.some(k => t.includes(k));
-      }
-    },
-    foodDrink: {
-      label: "Food & drink",
-      filter: (card) => {
-        const t = card.es.toLowerCase();
-        const keywords = [
-          "carne",
-          "queso",
-          "pescado",
-          "sándwich",
-          "hamburguesa",
-          "agua",
-          "leche",
-          "pan",
-          "manzana",
-          "como ",
-          "bebo",
-          "bebes",
-          "bebe"
-        ];
-        return keywords.some(k => t.includes(k));
-      }
-    },
-    numbers: {
-      label: "Numbers & decimals",
-      filter: (card) => {
-        const t = card.es.toLowerCase();
-        const keywords = [
-          "uno",
-          "dos",
-          "tres",
-          "diez",
-          "veinte",
-          "treinta",
-          "cuarenta",
-          "cincuenta",
-          "sesenta",
-          "cien",
-          "mil",
-          "cero coma",
-          "uno coma",
-          "dos coma",
-          "tres coma",
-          "diez coma"
-        ];
-        return keywords.some(k => t.includes(k));
-      }
-    },
-    placesTravel: {
-      label: "Places & travel",
-      filter: (card) => {
-        const t = card.es.toLowerCase();
-        const keywords = [
-          "restaurante",
-          "supermercado",
-          "banco",
-          "calle",
-          "baño",
-          "hospital",
-          "museo",
-          "tren",
-          "autobús",
-          "aeropuerto",
-          "hotel",
-          "mesa",
-          "persona",
-          "personas",
-          "maleta",
-          "pasaporte",
-          "boleto",
-          "dinero",
-          "taxi",
-          "reserva"
-        ];
-        return keywords.some(k => t.includes(k));
-      }
-    },
-    verbs: {
-      label: "Verbs & conjugations",
-      filter: (card) => {
-        const t = card.es.toLowerCase();
-        const keywords = [
-          "ser",
-          "tener",
-          "llamarse",
-          "comer",
-          "beber",
-          "necesitar",
-          "soy",
-          "eres",
-          " es ",
-          "somos",
-          "sois",
-          "son",
-          "tengo",
-          "tienes",
-          "tiene",
-          "tenemos",
-          "tenéis",
-          "tienen",
-          "me llamo",
-          "te llamas",
-          "se llama",
-          "nos llamamos",
-          "os llamáis",
-          "se llaman",
-          "como",
-          "comes",
-          "come",
-          "bebo",
-          "bebes",
-          "bebe",
-          "necesito",
-          "hablo",
-          "hablas"
-        ];
-        return keywords.some(k => t.includes(k));
-      }
-    },
-    words: {
-      label: "Single words",
-      filter: (card) => {
-        const t = card.es.trim();
-        return !t.includes(" ") && !/[¿?.,]/.test(t);
+
+      .card-text {
+        font-size: 1.3rem;
       }
     }
-  };
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>Spanish Flashcards</h1>
+      <p>Flip the card, then mark if you got it right or wrong.</p>
+    </header>
 
-  // === STATE ==================================================
-  let currentDeckId = "all";
-  let currentDeckCards = [];
+    <!-- Deck selection -->
+    <div class="deck-select">
+      <label for="deck-select">Deck:</label>
+      <select id="deck-select">
+        <option value="all">All cards (mixed)</option>
+        <option value="greetings">Greetings &amp; small talk</option>
+        <option value="introductions">Introductions &amp; personal info</option>
+        <option value="family">Family &amp; relatives</option>
+        <option value="foodDrink">Food &amp; drink</option>
+        <option value="numbers">Numbers &amp; decimals</option>
+        <option value="placesTravel">Places &amp; travel</option>
+        <option value="verbs">Verbs &amp; conjugations</option>
+        <option value="words">Single words</option>
+      </select>
+    </div>
 
-  let currentIndex = 0;
-  let correctCount = 0;
-  let incorrectCount = 0;
-  let isShowingAnswer = false;
+    <div class="mode-select">
+      <label>
+        <input type="radio" name="direction-mode" value="es-en" checked>
+        🇪🇸 → 🇬🇧
+      </label>
+      <label>
+        <input type="radio" name="direction-mode" value="en-es">
+        🇬🇧 → 🇪🇸
+      </label>
+      <label>
+        <input type="radio" name="direction-mode" value="random">
+        🇪🇸 🎲 🇬🇧
+      </label>
+    </div>
 
-  let currentFrontText = "";
-  let currentBackText = "";
+    <div class="card-wrapper" aria-live="polite">
+      <div class="card" id="card">
+        <div class="card-inner">
+          <div class="card-face front">
+            <div class="card-text" id="card-question"></div>
+          </div>
+          <div class="card-face back">
+            <div class="card-text" id="card-answer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  // NEW: track missed cards and whether we're in "review missed" phase
-  let missedQueue = [];
-  let inMissedPhase = false;
+    <div class="direction-hint" id="direction-hint"></div>
 
-  // === ELEMENTS ===============================================
-  const cardEl = document.getElementById("card");
-  const questionEl = document.getElementById("card-question");
-  const answerEl = document.getElementById("card-answer");
-  const showAnswerBtn = document.getElementById("show-answer-btn");
-  const correctBtn = document.getElementById("correct-btn");
-  const incorrectBtn = document.getElementById("incorrect-btn");
-  const scoreEl = document.getElementById("score");
-  const messageEl = document.getElementById("message");
-  const directionHintEl = document.getElementById("direction-hint");
-  const modeRadios = document.querySelectorAll('input[name="direction-mode"]');
-  const deckSelectEl = document.getElementById("deck-select");
+    <div class="controls">
+      <div class="primary-actions">
+        <button id="show-answer-btn" class="btn-show">
+          Show answer
+        </button>
+      </div>
 
-  // === UTILS ==================================================
-  function shuffle(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
-    }
-  }
+      <div class="rating" id="rating-buttons">
+        <button id="correct-btn" class="btn-correct">
+          <span>I got it</span>
+        </button>
+        <button id="incorrect-btn" class="btn-incorrect">
+          <span>I missed it</span>
+        </button>
+      </div>
 
-  function buildDeckCards(deckId) {
-    const def = decks[deckId] || decks.all;
-    return allCards.filter(def.filter);
-  }
+      <div class="score" id="score">
+        Correct: <strong>0</strong> · Incorrect: <strong>0</strong>
+      </div>
+      <div class="message" id="message"></div>
+    </div>
+  </div>
 
-  function updateScore() {
-    scoreEl.innerHTML =
-      "Correct: <strong>" +
-      correctCount +
-      "</strong> · Incorrect: <strong>" +
-      incorrectCount +
-      "</strong>";
-  }
+  <script>
+    // === MASTER FLASHCARD DATA (your big list) =================
+    const flashcards = [
+      { es: "Buenos días", en: "Good morning" },
+      { es: "Buenas tardes", en: "Good afternoon" },
+      { es: "Buenas noches", en: "Good night" },
+      { es: "Hola", en: "Hello" },
+      { es: "¿Qué tal?", en: "How's it going?" },
+      { es: "¿Cómo estás?", en: "How are you?" },
+      { es: "Estoy bien", en: "I'm fine" },
+      { es: "Más o menos", en: "So-so" },
+      { es: "Gracias", en: "Thank you" },
+      { es: "Muchas gracias", en: "Thank you very much" },
+      { es: "De nada", en: "You're welcome" },
+      { es: "Por favor", en: "Please" },
+      { es: "Perdón", en: "Sorry / excuse me" },
+      { es: "Lo siento", en: "I'm sorry" },
+      { es: "Hasta luego", en: "See you later" },
+      { es: "Hasta mañana", en: "See you tomorrow" },
+      { es: "Adiós", en: "Goodbye" },
+      { es: "Está bien", en: "It's okay" },
 
-  function showMessage(text, timeout = 2000) {
-    messageEl.textContent = text;
-    if (timeout > 0) {
-      setTimeout(() => {
-        if (messageEl.textContent === text) {
-          messageEl.textContent = "";
+      { es: "¿Cómo te llamas?", en: "What is your name?" },
+      { es: "Me llamo Laura", en: "My name is Laura" },
+      { es: "Me llamo Ben",  en: "My name is Ben" },
+      { es: "Me llamo Jason", en: "My name is Jason" },
+      { es: "¿De dónde eres?", en: "Where are you from?" },
+      { es: "Soy de Inglaterra", en: "I am from England" },
+      { es: "Soy de Irlanda",   en: "I am from Ireland" },
+      { es: "Soy de Escocia",   en: "I am from Scotland" },
+      { es: "¿Dónde vives?", en: "Where do you live?" },
+      { es: "Vivo en Milton Keynes", en: "I live in Milton Keynes" },
+      { es: "Vivo en Londres",       en: "I live in London" },
+      { es: "Soy gerente de IT",     en: "I am an IT manager" },
+      { es: "Soy profesor de español", en: "I am a Spanish teacher" },
+      { es: "Soy enfermera",          en: "I am a nurse" },
+      { es: "Soy estudiante de español", en: "I am a Spanish student" },
+      { es: "Tengo treinta y nueve años", en: "I am thirty-nine years old" },
+      { es: "Hablo un poco de español", en: "I speak a little Spanish" },
+      { es: "¿Hablas inglés?", en: "Do you speak English?" },
+      { es: "No entiendo",     en: "I don't understand" },
+      { es: "Entiendo",        en: "I understand" },
+      { es: "¿Puedes repetir, por favor?", en: "Can you repeat, please?" },
+      { es: "¿Por qué no?", en: "Why not?" },
+      { es: "Muy bien",    en: "Very good" },
+      { es: "¡Qué bien!",  en: "Great!" },
+
+      { es: "Soy Jason", en: "I am Jason" },
+      { es: "Somos amigos", en: "We are friends" },
+      { es: "Somos amigos y tenemos una casa", en: "We are friends and we have a house" },
+      { es: "Ella es enfermera", en: "She is a nurse" },
+      { es: "Ella es enfermera y tiene un coche", en: "She is a nurse and she has a car" },
+      { es: "Tengo un coche", en: "I have a car" },
+      { es: "No tengo coche", en: "I don't have a car" },
+      { es: "Tengo una casa", en: "I have a house" },
+      { es: "Tengo dos amigos", en: "I have two friends" },
+      { es: "¿Tienes hermanos?", en: "Do you have siblings?" },
+      { es: "Sí, tengo un hermano", en: "Yes, I have one brother" },
+      { es: "No, no tengo hermanos", en: "No, I don't have siblings" },
+      { es: "Tengo hambre",  en: "I am hungry" },
+      { es: "Tengo sed",     en: "I am thirsty" },
+      { es: "Tengo frío",    en: "I am cold" },
+      { es: "Tengo calor",   en: "I am hot" },
+      { es: "Tengo sueño",   en: "I am sleepy" },
+      { es: "Tengo miedo de las arañas", en: "I am afraid of spiders" },
+      { es: "Tenemos una profesora amable", en: "We have a friendly teacher" },
+      { es: "Tenemos una buena idea",      en: "We have a good idea" },
+
+      { es: "madre",   en: "mother" },
+      { es: "padre",   en: "father" },
+      { es: "hijo",    en: "son" },
+      { es: "hija",    en: "daughter" },
+      { es: "hermano", en: "brother" },
+      { es: "hermana", en: "sister" },
+      { es: "abuelo",  en: "grandfather" },
+      { es: "abuela",  en: "grandmother" },
+      { es: "tío",     en: "uncle" },
+      { es: "tía",     en: "aunt" },
+      { es: "primo",   en: "cousin (male)" },
+      { es: "prima",   en: "cousin (female)" },
+      { es: "esposo",  en: "husband" },
+      { es: "esposa",  en: "wife" },
+      { es: "novio",   en: "boyfriend" },
+      { es: "novia",   en: "girlfriend" },
+      { es: "padres",  en: "parents" },
+      { es: "familia", en: "family" },
+
+      { es: "Mi madre se llama Laura", en: "My mother's name is Laura" },
+      { es: "Mi padre se llama Ben",   en: "My father's name is Ben" },
+      { es: "Tengo un hermano menor",  en: "I have a younger brother" },
+      { es: "Tengo una hermana mayor", en: "I have an older sister" },
+      { es: "Mi abuela vive en España", en: "My grandmother lives in Spain" },
+      { es: "Mi familia es pequeña",    en: "My family is small" },
+      { es: "Mi familia es grande",     en: "My family is big" },
+
+      { es: "uno",   en: "one" },
+      { es: "dos",   en: "two" },
+      { es: "tres",  en: "three" },
+      { es: "diez",  en: "ten" },
+      { es: "veinte",   en: "twenty" },
+      { es: "treinta",  en: "thirty" },
+      { es: "cuarenta", en: "forty" },
+      { es: "cincuenta", en: "fifty" },
+      { es: "sesenta",   en: "sixty" },
+      { es: "sesenta y cinco", en: "sixty-five" },
+      { es: "cien", en: "one hundred" },
+      { es: "mil",  en: "one thousand" },
+      { es: "cero coma cinco", en: "zero point five" },
+      { es: "uno coma cinco",  en: "one point five" },
+      { es: "cero coma uno",   en: "zero point one" },
+
+      { es: "Hola, ¿qué tal?",          en: "Hello, how's it going?" },
+      { es: "Hola, ¿cómo estás?",       en: "Hello, how are you?" },
+      { es: "Buenos días, ¿cómo estás?", en: "Good morning, how are you?" },
+      { es: "Buenas tardes, ¿qué tal?",  en: "Good afternoon, how's it going?" },
+      { es: "Buenas noches, hasta mañana", en: "Good night, see you tomorrow" },
+
+      { es: "Estoy bien, gracias",    en: "I'm fine, thank you" },
+      { es: "Más o menos, gracias",   en: "So-so, thanks" },
+      { es: "Muy bien, gracias",      en: "Very good, thank you" },
+      { es: "Muchas gracias, hasta luego", en: "Thank you very much, see you later" },
+
+      { es: "Lo siento, no entiendo", en: "I'm sorry, I don't understand" },
+      { es: "Perdón, no entiendo",    en: "Sorry, I don't understand" },
+      { es: "No entiendo, ¿puedes repetir, por favor?", en: "I don't understand, can you repeat, please?" },
+      { es: "Está bien, gracias",     en: "It's okay, thanks" },
+
+      { es: "Hola, me llamo Jason", en: "Hi, my name is Jason" },
+      { es: "Hola, me llamo Laura", en: "Hi, my name is Laura" },
+      { es: "Hola, soy Jason",      en: "Hi, I am Jason" },
+      { es: "Buenos días, soy Jason", en: "Good morning, I am Jason" },
+
+      { es: "Soy de Inglaterra y vivo en Milton Keynes", en: "I am from England and I live in Milton Keynes" },
+      { es: "Soy de Irlanda y vivo en Londres",          en: "I am from Ireland and I live in London" },
+      { es: "Soy gerente de IT y soy de Inglaterra",     en: "I am an IT manager and I am from England" },
+
+      { es: "Soy estudiante de español y hablo un poco de español", en: "I am a Spanish student and I speak a little Spanish" },
+      { es: "Soy profesor de español y hablo un poco de inglés",    en: "I am a Spanish teacher and I speak a little English" },
+      { es: "Tengo treinta y nueve años y soy de Inglaterra",       en: "I am thirty-nine years old and I am from England" },
+
+      { es: "Mi madre es enfermera",              en: "My mother is a nurse" },
+      { es: "Mi padre es profesor de español",    en: "My father is a Spanish teacher" },
+      { es: "Mi hermano es estudiante de español", en: "My brother is a Spanish student" },
+
+      { es: "Mi hermana vive en Londres",        en: "My sister lives in London" },
+      { es: "Mi madre vive en Milton Keynes",    en: "My mother lives in Milton Keynes" },
+      { es: "Mi padre vive en Escocia",          en: "My father lives in Scotland" },
+      { es: "Mi familia vive en Inglaterra",     en: "My family lives in England" },
+      { es: "Mi familia vive en Milton Keynes",  en: "My family lives in Milton Keynes" },
+
+      { es: "Tengo dos hermanos",        en: "I have two brothers" },
+      { es: "Tengo dos hermanas",        en: "I have two sisters" },
+      { es: "Tengo un hijo y una hija",  en: "I have one son and one daughter" },
+
+      { es: "Tengo hambre y tengo sed", en: "I am hungry and thirsty" },
+      { es: "Tengo frío y tengo sueño", en: "I am cold and sleepy" },
+      { es: "Tengo calor y tengo sed",  en: "I am hot and thirsty" },
+
+      { es: "Tengo un coche y una casa",          en: "I have a car and a house" },
+      { es: "No tengo coche y no tengo casa",     en: "I don't have a car and I don't have a house" },
+      { es: "Tenemos una buena idea y una profesora amable", en: "We have a good idea and a friendly teacher" },
+
+      { es: "Somos amigos y somos de Inglaterra", en: "We are friends and we are from England" },
+      { es: "Tengo dos amigos y un hermano",      en: "I have two friends and one brother" },
+      { es: "Tengo dos amigos y una hermana",     en: "I have two friends and one sister" },
+      { es: "Tengo un hijo y una hija y somos una familia", en: "I have a son and a daughter and we are a family" },
+
+      { es: "Mi familia es pequeña y somos amigos", en: "My family is small and we are friends" },
+
+      { es: "cero coma dos",   en: "zero point two" },
+      { es: "cero coma tres",  en: "zero point three" },
+      { es: "uno coma dos",    en: "one point two" },
+      { es: "uno coma tres",   en: "one point three" },
+      { es: "dos coma cinco",  en: "two point five" },
+      { es: "tres coma cinco", en: "three point five" },
+      { es: "diez coma cinco", en: "ten point five" },
+
+      { es: "carne", en: "meat" },
+      { es: "queso", en: "cheese" },
+      { es: "pescado", en: "fish" },
+      { es: "sándwich", en: "sandwich" },
+      { es: "hamburguesa", en: "hamburger" },
+      { es: "agua", en: "water" },
+      { es: "leche", en: "milk" },
+      { es: "pan", en: "bread" },
+      { es: "manzana", en: "apple" },
+
+      { es: "Como carne", en: "I eat meat" },
+      { es: "Como queso", en: "I eat cheese" },
+      { es: "Como un sándwich", en: "I eat a sandwich" },
+      { es: "Como una hamburguesa", en: "I eat a hamburger" },
+      { es: "Bebo agua", en: "I drink water" },
+      { es: "Bebo leche", en: "I drink milk" },
+      { es: "Bebes agua", en: "You drink water" },
+      { es: "Bebes leche", en: "You drink milk" },
+      { es: "Bebe agua", en: "He / she drinks water" },
+      { es: "Bebe leche", en: "He / she drinks milk" },
+
+      { es: "restaurante", en: "restaurant" },
+      { es: "supermercado", en: "supermarket" },
+      { es: "banco", en: "bank" },
+      { es: "calle", en: "street" },
+      { es: "baño", en: "bathroom" },
+      { es: "hospital", en: "hospital" },
+      { es: "museo", en: "museum" },
+      { es: "tren", en: "train" },
+      { es: "autobús", en: "bus" },
+      { es: "aeropuerto", en: "airport" },
+      { es: "hotel", en: "hotel" },
+      { es: "mesa", en: "table" },
+      { es: "persona", en: "person" },
+      { es: "personas", en: "people" },
+      { es: "maleta", en: "suitcase" },
+      { es: "pasaporte", en: "passport" },
+      { es: "boleto", en: "ticket" },
+      { es: "dinero", en: "money" },
+      { es: "taxi", en: "taxi" },
+      { es: "reserva", en: "reservation" },
+
+      { es: "Necesito un taxi", en: "I need a taxi" },
+      { es: "Necesito una mesa para dos personas", en: "I need a table for two people" },
+      { es: "El restaurante está aquí", en: "The restaurant is here" },
+      { es: "El hotel está en esta calle", en: "The hotel is on this street" },
+      { es: "El supermercado está aquí", en: "The supermarket is here" },
+      { es: "El baño está en el restaurante", en: "The bathroom is in the restaurant" },
+      { es: "El museo está aquí", en: "The museum is here" },
+      { es: "El aeropuerto está aquí", en: "The airport is here" },
+      { es: "Mi maleta está en el hotel", en: "My suitcase is in the hotel" },
+      { es: "Mi pasaporte está en la maleta", en: "My passport is in the suitcase" },
+      { es: "Tengo un boleto", en: "I have a ticket" },
+      { es: "Tengo dinero", en: "I have money" },
+      { es: "Necesito un boleto", en: "I need a ticket" },
+      { es: "Mi teléfono está en la maleta", en: "My phone is in the suitcase" },
+
+      { es: "de", en: "of / from" },
+      { es: "con", en: "with" },
+      { es: "para", en: "for" },
+      { es: "en", en: "in / at" },
+      { es: "dónde", en: "where" },
+      { es: "aquí", en: "here" },
+      { es: "mi", en: "my" },
+      { es: "me", en: "me" },
+      { es: "teléfono", en: "telephone / phone" },
+
+      { es: "disculpe", en: "excuse me" },
+      { es: "Mucho gusto", en: "Nice to meet you" },
+      { es: "necesito", en: "I need" },
+      { es: "hablo", en: "I speak" },
+      { es: "hablas", en: "you speak" },
+
+      { es: "como", en: "I eat" },
+      { es: "comes", en: "you eat" },
+      { es: "come", en: "he / she / it eats" },
+      { es: "bebo", en: "I drink" },
+      { es: "bebes", en: "you drink" },
+      { es: "bebe", en: "he / she / it drinks" },
+
+      { es: "niño", en: "boy" },
+      { es: "hombre", en: "man" },
+      { es: "mujer", en: "woman" },
+
+      { es: "Soy un niño", en: "I am a boy" },
+      { es: "Soy un hombre", en: "I am a man" },
+      { es: "Soy una mujer", en: "I am a woman" },
+
+      { es: "ser", en: "to be (identity)" },
+      { es: "tener", en: "to have" },
+      { es: "llamarse", en: "to be called (name)" },
+      { es: "comer", en: "to eat" },
+      { es: "beber", en: "to drink" },
+      { es: "necesitar", en: "to need" },
+
+      { es: "soy", en: "I am (ser)" },
+      { es: "eres", en: "you are (ser)" },
+      { es: "es", en: "he / she / it is (ser)" },
+      { es: "somos", en: "we are (ser)" },
+      { es: "sois", en: "you (plural) are (ser)" },
+      { es: "son", en: "they are (ser)" },
+
+      { es: "tengo", en: "I have" },
+      { es: "tienes", en: "you have" },
+      { es: "tiene", en: "he / she / it has" },
+      { es: "tenemos", en: "we have" },
+      { es: "tenéis", en: "you (plural) have" },
+      { es: "tienen", en: "they have" },
+
+      { es: "me llamo", en: "my name is / I am called" },
+      { es: "te llamas", en: "your name is / you are called" },
+      { es: "se llama", en: "his / her name is / he / she is called" },
+      { es: "nos llamamos", en: "our name is / we are called" },
+      { es: "os llamáis", en: "your (plural) name is / you are called" },
+      { es: "se llaman", en: "their name is / they are called" }
+    ];
+
+    // === DECK DEFINITIONS ======================================
+    const decks = {
+      all: {
+        label: "All cards (mixed)",
+        filter: () => true
+      },
+      greetings: {
+        label: "Greetings & small talk",
+        filter: (card) => {
+          const t = card.es.toLowerCase();
+          const keywords = [
+            "buenos días",
+            "buenas tardes",
+            "buenas noches",
+            "hola",
+            "¿qué tal",
+            "¿cómo estás",
+            "estoy bien",
+            "más o menos",
+            "gracias",
+            "muchas gracias",
+            "de nada",
+            "por favor",
+            "perdón",
+            "lo siento",
+            "hasta luego",
+            "hasta mañana",
+            "adiós",
+            "muy bien",
+            "¡qué bien",
+            "qué bien",
+            "está bien",
+            "mucho gusto"
+          ];
+          return keywords.some(k => t.includes(k));
         }
-      }, timeout);
+      },
+      introductions: {
+        label: "Introductions & personal info",
+        filter: (card) => {
+          const t = card.es.toLowerCase();
+          const keywords = [
+            "¿cómo te llamas",
+            "me llamo",
+            "¿de dónde eres",
+            "soy de",
+            "¿dónde vives",
+            "vivo en",
+            "soy gerente",
+            "soy profesor",
+            "soy enfermera",
+            "soy estudiante",
+            "tengo treinta y nueve años",
+            "hablo un poco",
+            "soy jason",
+            "hola, soy",
+            "buenos días, soy"
+          ];
+          return keywords.some(k => t.includes(k));
+        }
+      },
+      family: {
+        label: "Family & relatives",
+        filter: (card) => {
+          const t = card.es.toLowerCase();
+          const keywords = [
+            "madre",
+            "padre",
+            "hijo",
+            "hija",
+            "hermano",
+            "hermana",
+            "abuelo",
+            "abuela",
+            "tío",
+            "tía",
+            "primo",
+            "prima",
+            "esposo",
+            "esposa",
+            "novio",
+            "novia",
+            "padres",
+            "familia"
+          ];
+          return keywords.some(k => t.includes(k));
+        }
+      },
+      foodDrink: {
+        label: "Food & drink",
+        filter: (card) => {
+          const t = card.es.toLowerCase();
+          const keywords = [
+            "carne",
+            "queso",
+            "pescado",
+            "sándwich",
+            "hamburguesa",
+            "agua",
+            "leche",
+            "pan",
+            "manzana",
+            "como ",
+            "bebo",
+            "bebes",
+            "bebe"
+          ];
+          return keywords.some(k => t.includes(k));
+        }
+      },
+      numbers: {
+        label: "Numbers & decimals",
+        filter: (card) => {
+          const t = card.es.toLowerCase();
+          const keywords = [
+            "uno",
+            "dos",
+            "tres",
+            "diez",
+            "veinte",
+            "treinta",
+            "cuarenta",
+            "cincuenta",
+            "sesenta",
+            "cien",
+            "mil",
+            "cero coma",
+            "uno coma",
+            "dos coma",
+            "tres coma",
+            "diez coma"
+          ];
+          return keywords.some(k => t.includes(k));
+        }
+      },
+      placesTravel: {
+        label: "Places & travel",
+        filter: (card) => {
+          const t = card.es.toLowerCase();
+          const keywords = [
+            "restaurante",
+            "supermercado",
+            "banco",
+            "calle",
+            "baño",
+            "hospital",
+            "museo",
+            "tren",
+            "autobús",
+            "aeropuerto",
+            "hotel",
+            "mesa",
+            "persona",
+            "personas",
+            "maleta",
+            "pasaporte",
+            "boleto",
+            "dinero",
+            "taxi",
+            "reserva"
+          ];
+          return keywords.some(k => t.includes(k));
+        }
+      },
+      verbs: {
+        label: "Verbs & conjugations",
+        filter: (card) => {
+          const t = card.es.toLowerCase();
+          const keywords = [
+            "ser",
+            "tener",
+            "llamarse",
+            "comer",
+            "beber",
+            "necesitar",
+            "soy",
+            "eres",
+            " es ",
+            "somos",
+            "sois",
+            "son",
+            "tengo",
+            "tienes",
+            "tiene",
+            "tenemos",
+            "tenéis",
+            "tienen",
+            "me llamo",
+            "te llamas",
+            "se llama",
+            "nos llamamos",
+            "os llamáis",
+            "se llaman",
+            "como",
+            "comes",
+            "come",
+            "bebo",
+            "bebes",
+            "bebe",
+            "necesito",
+            "hablo",
+            "hablas"
+          ];
+          return keywords.some(k => t.includes(k));
+        }
+      },
+      words: {
+        label: "Single words",
+        filter: (card) => {
+          const t = card.es.trim();
+          return !t.includes(" ") && !/[¿?.,]/.test(t);
+        }
+      }
+    };
+
+    // === STATE ==================================================
+    let currentDeckId = "all";
+    let currentDeckCards = [];
+    let currentIndex = 0;
+    let correctCount = 0;
+    let incorrectCount = 0;
+    let isShowingAnswer = false;
+
+    let currentFrontText = "";
+    let currentBackText = "";
+
+    // Missed cards logic
+    let missedQueue = [];
+    let inMissedPhase = false;
+
+    // === ELEMENTS ===============================================
+    const cardEl = document.getElementById("card");
+    const questionEl = document.getElementById("card-question");
+    const answerEl = document.getElementById("card-answer");
+    const showAnswerBtn = document.getElementById("show-answer-btn");
+    const correctBtn = document.getElementById("correct-btn");
+    const incorrectBtn = document.getElementById("incorrect-btn");
+    const scoreEl = document.getElementById("score");
+    const messageEl = document.getElementById("message");
+    const directionHintEl = document.getElementById("direction-hint");
+    const modeRadios = document.querySelectorAll('input[name="direction-mode"]');
+    const deckSelectEl = document.getElementById("deck-select");
+
+    // === UTILS ==================================================
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
     }
-  }
 
-  function getCurrentMode() {
-    const checked = document.querySelector('input[name="direction-mode"]:checked');
-    return checked ? checked.value : "es-en";
-  }
+    function buildDeckCards(deckId) {
+      const def = decks[deckId] || decks.all;
+      return flashcards.filter(def.filter);
+    }
 
-  function loadCard() {
-    if (!currentDeckCards.length) {
-      questionEl.textContent = "No cards in this deck.";
+    function updateScore() {
+      scoreEl.innerHTML =
+        "Correct: <strong>" +
+        correctCount +
+        "</strong> · Incorrect: <strong>" +
+        incorrectCount +
+        "</strong>";
+    }
+
+    function showMessage(text, timeout = 2000) {
+      messageEl.textContent = text;
+      if (timeout > 0) {
+        setTimeout(() => {
+          if (messageEl.textContent === text) {
+            messageEl.textContent = "";
+          }
+        }, timeout);
+      }
+    }
+
+    function getCurrentMode() {
+      const checked = document.querySelector('input[name="direction-mode"]:checked');
+      return checked ? checked.value : "es-en";
+    }
+
+    function loadCard() {
+      if (!currentDeckCards.length) {
+        questionEl.textContent = "No cards in this deck.";
+        answerEl.textContent = "";
+        directionHintEl.textContent = "";
+        showAnswerBtn.disabled = true;
+        correctBtn.disabled = true;
+        incorrectBtn.disabled = true;
+        isShowingAnswer = false;
+        cardEl.classList.remove("flipped");
+        return;
+      }
+
+      const card = currentDeckCards[currentIndex];
+      const mode = getCurrentMode();
+
+      let showSpanishOnFront;
+
+      if (mode === "es-en") {
+        showSpanishOnFront = true;
+      } else if (mode === "en-es") {
+        showSpanishOnFront = false;
+      } else {
+        showSpanishOnFront = Math.random() < 0.5;
+      }
+
+      if (showSpanishOnFront) {
+        currentFrontText = card.es;
+        currentBackText = card.en;
+        directionHintEl.textContent = "Translate into English";
+      } else {
+        currentFrontText = card.en;
+        currentBackText = card.es;
+        directionHintEl.textContent = "Translate into Spanish";
+      }
+
+      questionEl.textContent = currentFrontText;
       answerEl.textContent = "";
-      directionHintEl.textContent = "";
-      showAnswerBtn.disabled = true;
+
+      isShowingAnswer = false;
+      cardEl.classList.remove("flipped");
+      showAnswerBtn.disabled = false;
+
       correctBtn.disabled = true;
       incorrectBtn.disabled = true;
       messageEl.textContent = "";
-      isShowingAnswer = false;
-      cardEl.classList.remove("flipped");
-      return;
     }
 
-    const card = currentDeckCards[currentIndex];
-    const mode = getCurrentMode();
+    function showAnswer() {
+      if (isShowingAnswer || !currentDeckCards.length) return;
+      isShowingAnswer = true;
 
-    let showSpanishOnFront;
+      answerEl.textContent = currentBackText;
+      cardEl.classList.add("flipped");
+      showAnswerBtn.disabled = true;
 
-    if (mode === "es-en") {
-      showSpanishOnFront = true;
-    } else if (mode === "en-es") {
-      showSpanishOnFront = false;
-    } else {
-      // "random" mode: 50/50 each card
-      showSpanishOnFront = Math.random() < 0.5;
+      correctBtn.disabled = false;
+      incorrectBtn.disabled = false;
     }
 
-    if (showSpanishOnFront) {
-      currentFrontText = card.es;
-      currentBackText = card.en;
-      directionHintEl.textContent = "Translate into English";
-    } else {
-      currentFrontText = card.en;
-      currentBackText = card.es;
-      directionHintEl.textContent = "Translate into Spanish";
-    }
+    function goToNextCard() {
+      if (!currentDeckCards.length) return;
 
-    questionEl.textContent = currentFrontText;
-    answerEl.textContent = "";
+      currentIndex++;
 
-    isShowingAnswer = false;
-    cardEl.classList.remove("flipped");
-    showAnswerBtn.disabled = false;
+      if (currentIndex >= currentDeckCards.length) {
+        if (!inMissedPhase && missedQueue.length > 0) {
+          // switch to reviewing missed cards
+          currentDeckCards = missedQueue.slice();
+          missedQueue = [];
+          shuffle(currentDeckCards);
+          currentIndex = 0;
+          inMissedPhase = true;
+          showMessage("Reviewing missed cards from this deck.");
+          loadCard();
+          return;
+        }
 
-    correctBtn.disabled = true;
-    incorrectBtn.disabled = true;
-
-    messageEl.textContent = "";
-  }
-
-  function showAnswer() {
-    if (isShowingAnswer || !currentDeckCards.length) return;
-    isShowingAnswer = true;
-
-    answerEl.textContent = currentBackText;
-
-    cardEl.classList.add("flipped");
-    showAnswerBtn.disabled = true;
-
-    correctBtn.disabled = false;
-    incorrectBtn.disabled = false;
-  }
-
-  // UPDATED: respects missedQueue and review phase
-  function goToNextCard() {
-    if (!currentDeckCards.length) return;
-
-    currentIndex++;
-
-    // If we've reached the end of the current list
-    if (currentIndex >= currentDeckCards.length) {
-      // If we just finished the main deck and there are missed cards, review them
-      if (!inMissedPhase && missedQueue.length > 0) {
-        currentDeckCards = missedQueue.slice();
-        missedQueue = [];
+        // finished deck (and either no misses, or finished reviewing misses)
+        currentDeckCards = buildDeckCards(currentDeckId);
         shuffle(currentDeckCards);
         currentIndex = 0;
-        inMissedPhase = true;
-        showMessage("Reviewing missed cards from this deck.");
+        inMissedPhase = false;
+        showMessage("You've seen all the cards in this deck. Shuffled and starting again.");
         loadCard();
         return;
       }
 
-      // Otherwise we finished either:
-      // - main deck with no misses, or
-      // - the missed review phase.
-      currentDeckCards = buildDeckCards(currentDeckId);
+      loadCard();
+    }
+
+    function handleResult(isCorrect) {
+      if (!isShowingAnswer || !currentDeckCards.length) return;
+
+      const currentCard = currentDeckCards[currentIndex];
+
+      if (isCorrect) {
+        correctCount++;
+      } else {
+        incorrectCount++;
+        missedQueue.push(currentCard);
+      }
+
+      updateScore();
+      goToNextCard();
+    }
+
+    function changeDeck(deckId) {
+      currentDeckId = deckId;
+      currentDeckCards = buildDeckCards(deckId);
       shuffle(currentDeckCards);
       currentIndex = 0;
+      correctCount = 0;
+      incorrectCount = 0;
+      missedQueue = [];
       inMissedPhase = false;
-      showMessage("You've seen all the cards in this deck. Shuffled and starting again.");
+      updateScore();
       loadCard();
-      return;
-    }
-
-    // Normal advance within current list
-    loadCard();
-  }
-
-  // UPDATED: adds the card to missedQueue when incorrect
-  function handleResult(isCorrect) {
-    if (!isShowingAnswer || !currentDeckCards.length) return;
-
-    const currentCard = currentDeckCards[currentIndex];
-
-    if (isCorrect) {
-      correctCount++;
-    } else {
-      incorrectCount++;
-      missedQueue.push(currentCard);
-    }
-    updateScore();
-    goToNextCard();
-  }
-
-  // UPDATED: change deck resets missedQueue and review phase
-  function changeDeck(deckId) {
-    currentDeckId = deckId;
-    currentDeckCards = buildDeckCards(deckId);
-    shuffle(currentDeckCards);
-    currentIndex = 0;
-    correctCount = 0;
-    incorrectCount = 0;
-    missedQueue = [];
-    inMissedPhase = false;
-    updateScore();
-    loadCard();
-    if (currentDeckCards.length) {
-      showMessage(
-        currentDeckCards.length +
+      if (currentDeckCards.length) {
+        showMessage(
+          currentDeckCards.length +
           " card" +
           (currentDeckCards.length === 1 ? "" : "s") +
           " in this deck.",
-        1500
-      );
-    } else {
-      showMessage("This deck is empty.", 3000);
+          1500
+        );
+      } else {
+        showMessage("This deck is empty.", 3000);
+      }
     }
-  }
 
-  // === EVENT LISTENERS ========================================
-  showAnswerBtn.addEventListener("click", showAnswer);
-  correctBtn.addEventListener("click", () => handleResult(true));
-  incorrectBtn.addEventListener("click", () => handleResult(false));
+    // === EVENT LISTENERS =======================================
+    showAnswerBtn.addEventListener("click", showAnswer);
+    correctBtn.addEventListener("click", () => handleResult(true));
+    incorrectBtn.addEventListener("click", () => handleResult(false));
 
-  document.addEventListener("keydown", (e) => {
-    if (e.key === " " || e.code === "Space") {
-      e.preventDefault();
-      if (!isShowingAnswer) showAnswer();
-    } else if (e.key === "ArrowRight") {
-      handleResult(true);
-    } else if (e.key === "ArrowLeft") {
-      handleResult(false);
-    }
-  });
-
-  modeRadios.forEach((radio) => {
-    radio.addEventListener("change", () => {
-      loadCard(); // reload same card with new direction/mode
+    document.addEventListener("keydown", (e) => {
+      if (e.key === " " || e.code === "Space") {
+        e.preventDefault();
+        if (!isShowingAnswer) showAnswer();
+      } else if (e.key === "ArrowRight") {
+        handleResult(true);
+      } else if (e.key === "ArrowLeft") {
+        handleResult(false);
+      }
     });
-  });
 
-  deckSelectEl.addEventListener("change", (e) => {
-    changeDeck(e.target.value);
-  });
+    modeRadios.forEach((radio) => {
+      radio.addEventListener("change", () => {
+        loadCard();
+      });
+    });
 
-  // === INIT ===================================================
-  currentDeckCards = buildDeckCards(currentDeckId);
-  shuffle(currentDeckCards);
-  loadCard();
-  updateScore();
-  if (currentDeckCards.length) {
-    showMessage(currentDeckCards.length + " cards in this deck.", 1500);
-  }
-</script>
+    deckSelectEl.addEventListener("change", (e) => {
+      changeDeck(e.target.value);
+    });
+
+    // === INIT ===================================================
+    changeDeck(currentDeckId);
+  </script>
+</body>
+</html>
