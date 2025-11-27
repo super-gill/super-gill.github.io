@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>Spanish Flashcards</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
     * {
       box-sizing: border-box;
@@ -44,7 +45,6 @@
       color: #666;
     }
 
-    /* Deck selector */
     .deck-select {
       display: flex;
       flex-wrap: wrap;
@@ -52,7 +52,7 @@
       justify-content: center;
       align-items: center;
       font-size: 0.85rem;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
     }
 
     .deck-select label {
@@ -76,13 +76,20 @@
       justify-content: center;
       align-items: center;
       font-size: 0.85rem;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
     }
 
     .mode-select label {
       display: inline-flex;
       align-items: center;
       gap: 0.25rem;
+    }
+
+    .deck-info {
+      font-size: 0.8rem;
+      text-align: center;
+      color: #666;
+      margin-bottom: 0.5rem;
     }
 
     .card-wrapper {
@@ -124,18 +131,49 @@
     }
 
     .card-face.front {
-      background: #fff9c4; /* washed-out yellow */
+      background: #fff9c4;
     }
 
     .card-face.back {
-      background: #e8f5e9; /* washed-out green */
+      background: #e8f5e9;
       transform: rotateY(180deg);
+    }
+
+    .card.missed .card-face.front,
+    .card.missed .card-face.back {
+      background: #ffebee;
+    }
+
+    .card-badge {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.8rem;
+      padding: 0.15rem 0.6rem;
+      font-size: 0.7rem;
+      border-radius: 999px;
+      background: rgba(244, 67, 54, 0.12);
+      color: #b71c1c;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .card-badge:empty {
+      display: none;
     }
 
     .card-text {
       font-size: 1.5rem;
       text-align: center;
       line-height: 1.4;
+    }
+
+    /* Pronunciation line under Spanish single-word cards */
+    .card-pron {
+      font-size: 0.9rem;
+      margin-top: 0.35rem;
+      color: #555;
     }
 
     .direction-hint {
@@ -262,22 +300,38 @@
       <p>Flip the card, then mark if you got it right or wrong.</p>
     </header>
 
-    <!-- Deck selection -->
+    <!-- Topic selection -->
     <div class="deck-select">
-      <label for="deck-select">Deck:</label>
-      <select id="deck-select">
-        <option value="all">All cards (mixed)</option>
+      <label for="topic-select">Topic:</label>
+      <select id="topic-select">
+        <option value="all">All topics</option>
         <option value="greetings">Greetings &amp; small talk</option>
         <option value="introductions">Introductions &amp; personal info</option>
+        <option value="jobs">Jobs (Singles)</option>
+        <option value="months">Months (Singles)</option>
+        <option value="countries">Countries (Singles)</option>
+        <option value="cities">Cities (Singles)</option>
         <option value="family">Family &amp; relatives</option>
-        <option value="foodDrink">Food &amp; drink</option>
+        <option value="food">Food &amp; drink</option>
         <option value="numbers">Numbers &amp; decimals</option>
-        <option value="placesTravel">Places &amp; travel</option>
+        <option value="places">Places &amp; travel</option>
+        <option value="feelings">Feelings &amp; tener expressions</option>
         <option value="verbs">Verbs &amp; conjugations</option>
-        <option value="words">Single words</option>
       </select>
     </div>
 
+    <!-- Focus selection -->
+    <div class="deck-select">
+      <label for="focus-select">Focus:</label>
+      <select id="focus-select">
+        <option value="all">All cards</option>
+        <option value="words">Single words</option>
+        <option value="sentences">Phrases &amp; sentences</option>
+        <option value="grammar">Grammar / verb forms</option>
+      </select>
+    </div>
+
+    <!-- Direction selection -->
     <div class="mode-select">
       <label>
         <input type="radio" name="direction-mode" value="es-en" checked>
@@ -293,10 +347,13 @@
       </label>
     </div>
 
+    <div class="deck-info" id="deck-info"></div>
+
     <div class="card-wrapper" aria-live="polite">
       <div class="card" id="card">
         <div class="card-inner">
           <div class="card-face front">
+            <div class="card-badge" id="card-badge"></div>
             <div class="card-text" id="card-question"></div>
           </div>
           <div class="card-face back">
@@ -332,528 +389,640 @@
   </div>
 
   <script>
-    // === MASTER FLASHCARD DATA (your big list) =================
+    // === FLASHCARD DATA ========================================
     const flashcards = [
-      { es: "Buenos días", en: "Good morning" },
-      { es: "Buenas tardes", en: "Good afternoon" },
-      { es: "Buenas noches", en: "Good night" },
-      { es: "Hola", en: "Hello" },
-      { es: "¿Qué tal?", en: "How's it going?" },
-      { es: "¿Cómo estás?", en: "How are you?" },
-      { es: "Estoy bien", en: "I'm fine" },
-      { es: "Más o menos", en: "So-so" },
-      { es: "Gracias", en: "Thank you" },
-      { es: "Muchas gracias", en: "Thank you very much" },
-      { es: "De nada", en: "You're welcome" },
-      { es: "Por favor", en: "Please" },
-      { es: "Perdón", en: "Sorry / excuse me" },
-      { es: "Lo siento", en: "I'm sorry" },
-      { es: "Hasta luego", en: "See you later" },
-      { es: "Hasta mañana", en: "See you tomorrow" },
-      { es: "Adiós", en: "Goodbye" },
-      { es: "Está bien", en: "It's okay" },
+      // --- GREETINGS & SMALL TALK ------------------------------
+      { es: "Buenos días", en: "Good morning", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Buenas tardes", en: "Good afternoon", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Buenas noches", en: "Good night", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Hola", en: "Hello", topic: ["greetings", "introductions"], type: "single-word", grammar: [] },
+      { es: "¿Qué tal?", en: "How's it going?", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "¿Cómo estás?", en: "How are you?", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Estoy bien", en: "I'm fine", topic: ["greetings", "feelings"], type: "sentence", grammar: [] },
+      { es: "Más o menos", en: "So-so", topic: ["greetings", "feelings"], type: "sentence", grammar: [] },
+      { es: "Gracias", en: "Thank you", topic: ["greetings"], type: "single-word", grammar: [] },
+      { es: "Muchas gracias", en: "Thank you very much", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "De nada", en: "You're welcome", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Por favor", en: "Please", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Perdón", en: "Sorry / excuse me", topic: ["greetings"], type: "single-word", grammar: [] },
+      { es: "Lo siento", en: "I'm sorry", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Hasta luego", en: "See you later", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Hasta mañana", en: "See you tomorrow", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Adiós", en: "Goodbye", topic: ["greetings"], type: "single-word", grammar: [] },
+      { es: "Está bien", en: "It's okay", topic: ["greetings", "feelings"], type: "sentence", grammar: [] },
 
-      { es: "¿Cómo te llamas?", en: "What is your name?" },
-      { es: "Me llamo Laura", en: "My name is Laura" },
-      { es: "Me llamo Ben",  en: "My name is Ben" },
-      { es: "Me llamo Jason", en: "My name is Jason" },
-      { es: "¿De dónde eres?", en: "Where are you from?" },
-      { es: "Soy de Inglaterra", en: "I am from England" },
-      { es: "Soy de Irlanda",   en: "I am from Ireland" },
-      { es: "Soy de Escocia",   en: "I am from Scotland" },
-      { es: "¿Dónde vives?", en: "Where do you live?" },
-      { es: "Vivo en Milton Keynes", en: "I live in Milton Keynes" },
-      { es: "Vivo en Londres",       en: "I live in London" },
-      { es: "Soy gerente de IT",     en: "I am an IT manager" },
-      { es: "Soy profesor de español", en: "I am a Spanish teacher" },
-      { es: "Soy enfermera",          en: "I am a nurse" },
-      { es: "Soy estudiante de español", en: "I am a Spanish student" },
-      { es: "Tengo treinta y nueve años", en: "I am thirty-nine years old" },
-      { es: "Hablo un poco de español", en: "I speak a little Spanish" },
-      { es: "¿Hablas inglés?", en: "Do you speak English?" },
-      { es: "No entiendo",     en: "I don't understand" },
-      { es: "Entiendo",        en: "I understand" },
-      { es: "¿Puedes repetir, por favor?", en: "Can you repeat, please?" },
-      { es: "¿Por qué no?", en: "Why not?" },
-      { es: "Muy bien",    en: "Very good" },
-      { es: "¡Qué bien!",  en: "Great!" },
+      // --- INTRODUCTIONS & PERSONAL INFO -----------------------
+      { es: "¿Cómo te llamas?", en: "What is your name?", topic: ["introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Me llamo Laura", en: "My name is Laura", topic: ["introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Me llamo Ben",  en: "My name is Ben", topic: ["introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Me llamo Jason", en: "My name is Jason", topic: ["introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "¿De dónde eres?", en: "Where are you from?", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy de Inglaterra", en: "I am from England", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy de Irlanda",   en: "I am from Ireland", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy de Escocia",   en: "I am from Scotland", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "¿Dónde vives?", en: "Where do you live?", topic: ["introductions"], type: "sentence", grammar: [] },
+      { es: "Vivo en Milton Keynes", en: "I live in Milton Keynes", topic: ["introductions", "places"], type: "sentence", grammar: [] },
+      { es: "Vivo en Londres",       en: "I live in London", topic: ["introductions", "places"], type: "sentence", grammar: [] },
+      { es: "Soy gerente de IT",     en: "I am an IT manager", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy profesor de español", en: "I am a Spanish teacher", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy enfermera",          en: "I am a nurse", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy estudiante de español", en: "I am a Spanish student", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Tengo treinta y nueve años", en: "I am thirty-nine years old", topic: ["introductions"], type: "sentence", grammar: ["tener"] },
+      { es: "Hablo un poco de español", en: "I speak a little Spanish", topic: ["introductions"], type: "sentence", grammar: [] },
+      { es: "¿Hablas inglés?", en: "Do you speak English?", topic: ["introductions"], type: "sentence", grammar: [] },
+      { es: "No entiendo",     en: "I don't understand", topic: ["introductions"], type: "sentence", grammar: [] },
+      { es: "Entiendo",        en: "I understand", topic: ["introductions"], type: "sentence", grammar: [] },
+      { es: "¿Puedes repetir, por favor?", en: "Can you repeat, please?", topic: ["introductions"], type: "sentence", grammar: [] },
+      { es: "¿Por qué no?", en: "Why not?", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Muy bien",    en: "Very good", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "¡Qué bien!",  en: "Great!", topic: ["greetings"], type: "sentence", grammar: [] },
 
-      { es: "Soy Jason", en: "I am Jason" },
-      { es: "Somos amigos", en: "We are friends" },
-      { es: "Somos amigos y tenemos una casa", en: "We are friends and we have a house" },
-      { es: "Ella es enfermera", en: "She is a nurse" },
-      { es: "Ella es enfermera y tiene un coche", en: "She is a nurse and she has a car" },
-      { es: "Tengo un coche", en: "I have a car" },
-      { es: "No tengo coche", en: "I don't have a car" },
-      { es: "Tengo una casa", en: "I have a house" },
-      { es: "Tengo dos amigos", en: "I have two friends" },
-      { es: "¿Tienes hermanos?", en: "Do you have siblings?" },
-      { es: "Sí, tengo un hermano", en: "Yes, I have one brother" },
-      { es: "No, no tengo hermanos", en: "No, I don't have siblings" },
-      { es: "Tengo hambre",  en: "I am hungry" },
-      { es: "Tengo sed",     en: "I am thirsty" },
-      { es: "Tengo frío",    en: "I am cold" },
-      { es: "Tengo calor",   en: "I am hot" },
-      { es: "Tengo sueño",   en: "I am sleepy" },
-      { es: "Tengo miedo de las arañas", en: "I am afraid of spiders" },
-      { es: "Tenemos una profesora amable", en: "We have a friendly teacher" },
-      { es: "Tenemos una buena idea",      en: "We have a good idea" },
+      // --- BASIC SER/TENER SENTENCES ---------------------------
+      { es: "Soy Jason", en: "I am Jason", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Somos amigos", en: "We are friends", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Somos amigos y tenemos una casa", en: "We are friends and we have a house", topic: ["introductions", "family"], type: "sentence", grammar: ["ser", "tener"] },
+      { es: "Ella es enfermera", en: "She is a nurse", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Ella es enfermera y tiene un coche", en: "She is a nurse and she has a car", topic: ["introductions"], type: "sentence", grammar: ["ser", "tener"] },
+      { es: "Tengo un coche", en: "I have a car", topic: ["introductions"], type: "sentence", grammar: ["tener"] },
+      { es: "No tengo coche", en: "I don't have a car", topic: ["introductions"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo una casa", en: "I have a house", topic: ["introductions", "family"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo dos amigos", en: "I have two friends", topic: ["introductions"], type: "sentence", grammar: ["tener"] },
+      { es: "¿Tienes hermanos?", en: "Do you have siblings?", topic: ["family"], type: "sentence", grammar: ["tener"] },
+      { es: "Sí, tengo un hermano", en: "Yes, I have one brother", topic: ["family"], type: "sentence", grammar: ["tener"] },
+      { es: "No, no tengo hermanos", en: "No, I don't have siblings", topic: ["family"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo hambre",  en: "I am hungry", topic: ["feelings", "food"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo sed",     en: "I am thirsty", topic: ["feelings", "food"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo frío",    en: "I am cold", topic: ["feelings"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo calor",   en: "I am hot", topic: ["feelings"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo sueño",   en: "I am sleepy", topic: ["feelings"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo miedo de las arañas", en: "I am afraid of spiders", topic: ["feelings"], type: "sentence", grammar: ["tener"] },
+      { es: "Tenemos una profesora amable", en: "We have a friendly teacher", topic: ["introductions"], type: "sentence", grammar: ["tener"] },
+      { es: "Tenemos una buena idea",      en: "We have a good idea", topic: ["introductions"], type: "sentence", grammar: ["tener"] },
 
-      { es: "madre",   en: "mother" },
-      { es: "padre",   en: "father" },
-      { es: "hijo",    en: "son" },
-      { es: "hija",    en: "daughter" },
-      { es: "hermano", en: "brother" },
-      { es: "hermana", en: "sister" },
-      { es: "abuelo",  en: "grandfather" },
-      { es: "abuela",  en: "grandmother" },
-      { es: "tío",     en: "uncle" },
-      { es: "tía",     en: "aunt" },
-      { es: "primo",   en: "cousin (male)" },
-      { es: "prima",   en: "cousin (female)" },
-      { es: "esposo",  en: "husband" },
-      { es: "esposa",  en: "wife" },
-      { es: "novio",   en: "boyfriend" },
-      { es: "novia",   en: "girlfriend" },
-      { es: "padres",  en: "parents" },
-      { es: "familia", en: "family" },
+      // --- FAMILY WORDS ----------------------------------------
+      { es: "madre",   en: "mother", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "padre",   en: "father", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "hijo",    en: "son", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "hija",    en: "daughter", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "hermano", en: "brother", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "hermana", en: "sister", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "abuelo",  en: "grandfather", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "abuela",  en: "grandmother", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "tío",     en: "uncle", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "tía",     en: "aunt", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "primo",   en: "cousin (male)", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "prima",   en: "cousin (female)", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "esposo",  en: "husband", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "esposa",  en: "wife", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "novio",   en: "boyfriend", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "novia",   en: "girlfriend", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "padres",  en: "parents", topic: ["family"], type: "single-word", grammar: [] },
+      { es: "familia", en: "family", topic: ["family"], type: "single-word", grammar: [] },
 
-      { es: "Mi madre se llama Laura", en: "My mother's name is Laura" },
-      { es: "Mi padre se llama Ben",   en: "My father's name is Ben" },
-      { es: "Tengo un hermano menor",  en: "I have a younger brother" },
-      { es: "Tengo una hermana mayor", en: "I have an older sister" },
-      { es: "Mi abuela vive en España", en: "My grandmother lives in Spain" },
-      { es: "Mi familia es pequeña",    en: "My family is small" },
-      { es: "Mi familia es grande",     en: "My family is big" },
+      // --- FAMILY SENTENCES ------------------------------------
+      { es: "Mi madre se llama Laura", en: "My mother's name is Laura", topic: ["family", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Mi padre se llama Ben",   en: "My father's name is Ben", topic: ["family", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Tengo un hermano menor",  en: "I have a younger brother", topic: ["family"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo una hermana mayor", en: "I have an older sister", topic: ["family"], type: "sentence", grammar: ["tener"] },
+      { es: "Mi abuela vive en España", en: "My grandmother lives in Spain", topic: ["family", "places"], type: "sentence", grammar: [] },
+      { es: "Mi familia es pequeña",    en: "My family is small", topic: ["family"], type: "sentence", grammar: ["ser"] },
+      { es: "Mi familia es grande",     en: "My family is big", topic: ["family"], type: "sentence", grammar: ["ser"] },
 
-      { es: "uno",   en: "one" },
-      { es: "dos",   en: "two" },
-      { es: "tres",  en: "three" },
-      { es: "diez",  en: "ten" },
-      { es: "veinte",   en: "twenty" },
-      { es: "treinta",  en: "thirty" },
-      { es: "cuarenta", en: "forty" },
-      { es: "cincuenta", en: "fifty" },
-      { es: "sesenta",   en: "sixty" },
-      { es: "sesenta y cinco", en: "sixty-five" },
-      { es: "cien", en: "one hundred" },
-      { es: "mil",  en: "one thousand" },
-      { es: "cero coma cinco", en: "zero point five" },
-      { es: "uno coma cinco",  en: "one point five" },
-      { es: "cero coma uno",   en: "zero point one" },
+      // --- NUMBERS & DECIMALS ----------------------------------
+      { es: "uno",   en: "one", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "dos",   en: "two", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "tres",  en: "three", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "diez",  en: "ten", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "veinte",   en: "twenty", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "treinta",  en: "thirty", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "cuarenta", en: "forty", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "cincuenta", en: "fifty", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "sesenta",   en: "sixty", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "sesenta y cinco", en: "sixty-five", topic: ["numbers"], type: "sentence", grammar: [] },
+      { es: "cien", en: "one hundred", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "mil",  en: "one thousand", topic: ["numbers"], type: "single-word", grammar: [] },
+      { es: "cero coma cinco", en: "zero point five", topic: ["numbers"], type: "sentence", grammar: [] },
+      { es: "uno coma cinco",  en: "one point five", topic: ["numbers"], type: "sentence", grammar: [] },
+      { es: "cero coma uno",   en: "zero point one", topic: ["numbers"], type: "sentence", grammar: [] },
 
-      { es: "Hola, ¿qué tal?",          en: "Hello, how's it going?" },
-      { es: "Hola, ¿cómo estás?",       en: "Hello, how are you?" },
-      { es: "Buenos días, ¿cómo estás?", en: "Good morning, how are you?" },
-      { es: "Buenas tardes, ¿qué tal?",  en: "Good afternoon, how's it going?" },
-      { es: "Buenas noches, hasta mañana", en: "Good night, see you tomorrow" },
+      // --- COMBO GREETINGS -------------------------------------
+      { es: "Hola, ¿qué tal?",          en: "Hello, how's it going?", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Hola, ¿cómo estás?",       en: "Hello, how are you?", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Buenos días, ¿cómo estás?", en: "Good morning, how are you?", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Buenas tardes, ¿qué tal?",  en: "Good afternoon, how's it going?", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Buenas noches, hasta mañana", en: "Good night, see you tomorrow", topic: ["greetings"], type: "sentence", grammar: [] },
 
-      { es: "Estoy bien, gracias",    en: "I'm fine, thank you" },
-      { es: "Más o menos, gracias",   en: "So-so, thanks" },
-      { es: "Muy bien, gracias",      en: "Very good, thank you" },
-      { es: "Muchas gracias, hasta luego", en: "Thank you very much, see you later" },
+      { es: "Estoy bien, gracias",    en: "I'm fine, thank you", topic: ["greetings", "feelings"], type: "sentence", grammar: [] },
+      { es: "Más o menos, gracias",   en: "So-so, thanks", topic: ["greetings", "feelings"], type: "sentence", grammar: [] },
+      { es: "Muy bien, gracias",      en: "Very good, thank you", topic: ["greetings"], type: "sentence", grammar: [] },
+      { es: "Muchas gracias, hasta luego", en: "Thank you very much, see you later", topic: ["greetings"], type: "sentence", grammar: [] },
 
-      { es: "Lo siento, no entiendo", en: "I'm sorry, I don't understand" },
-      { es: "Perdón, no entiendo",    en: "Sorry, I don't understand" },
-      { es: "No entiendo, ¿puedes repetir, por favor?", en: "I don't understand, can you repeat, please?" },
-      { es: "Está bien, gracias",     en: "It's okay, thanks" },
+      { es: "Lo siento, no entiendo", en: "I'm sorry, I don't understand", topic: ["introductions"], type: "sentence", grammar: [] },
+      { es: "Perdón, no entiendo",    en: "Sorry, I don't understand", topic: ["introductions"], type: "sentence", grammar: [] },
+      { es: "No entiendo, ¿puedes repetir, por favor?", en: "I don't understand, can you repeat, please?", topic: ["introductions"], type: "sentence", grammar: [] },
+      { es: "Está bien, gracias",     en: "It's okay, thanks", topic: ["greetings", "feelings"], type: "sentence", grammar: [] },
 
-      { es: "Hola, me llamo Jason", en: "Hi, my name is Jason" },
-      { es: "Hola, me llamo Laura", en: "Hi, my name is Laura" },
-      { es: "Hola, soy Jason",      en: "Hi, I am Jason" },
-      { es: "Buenos días, soy Jason", en: "Good morning, I am Jason" },
+      { es: "Hola, me llamo Jason", en: "Hi, my name is Jason", topic: ["introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Hola, me llamo Laura", en: "Hi, my name is Laura", topic: ["introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Hola, soy Jason",      en: "Hi, I am Jason", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Buenos días, soy Jason", en: "Good morning, I am Jason", topic: ["greetings", "introductions"], type: "sentence", grammar: ["ser"] },
 
-      { es: "Soy de Inglaterra y vivo en Milton Keynes", en: "I am from England and I live in Milton Keynes" },
-      { es: "Soy de Irlanda y vivo en Londres",          en: "I am from Ireland and I live in London" },
-      { es: "Soy gerente de IT y soy de Inglaterra",     en: "I am an IT manager and I am from England" },
+      { es: "Soy de Inglaterra y vivo en Milton Keynes", en: "I am from England and I live in Milton Keynes", topic: ["introductions", "places"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy de Irlanda y vivo en Londres",          en: "I am from Ireland and I live in London", topic: ["introductions", "places"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy gerente de IT y soy de Inglaterra",     en: "I am an IT manager and I am from England", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
 
-      { es: "Soy estudiante de español y hablo un poco de español", en: "I am a Spanish student and I speak a little Spanish" },
-      { es: "Soy profesor de español y hablo un poco de inglés",    en: "I am a Spanish teacher and I speak a little English" },
-      { es: "Tengo treinta y nueve años y soy de Inglaterra",       en: "I am thirty-nine years old and I am from England" },
+      { es: "Soy estudiante de español y hablo un poco de español", en: "I am a Spanish student and I speak a little Spanish", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy profesor de español y hablo un poco de inglés",    en: "I am a Spanish teacher and I speak a little English", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Tengo treinta y nueve años y soy de Inglaterra",       en: "I am thirty-nine years old and I am from England", topic: ["introductions"], type: "sentence", grammar: ["tener", "ser"] },
 
-      { es: "Mi madre es enfermera",              en: "My mother is a nurse" },
-      { es: "Mi padre es profesor de español",    en: "My father is a Spanish teacher" },
-      { es: "Mi hermano es estudiante de español", en: "My brother is a Spanish student" },
+      { es: "Mi madre es enfermera",              en: "My mother is a nurse", topic: ["family"], type: "sentence", grammar: ["ser"] },
+      { es: "Mi padre es profesor de español",    en: "My father is a Spanish teacher", topic: ["family"], type: "sentence", grammar: ["ser"] },
+      { es: "Mi hermano es estudiante de español", en: "My brother is a Spanish student", topic: ["family"], type: "sentence", grammar: ["ser"] },
 
-      { es: "Mi hermana vive en Londres",        en: "My sister lives in London" },
-      { es: "Mi madre vive en Milton Keynes",    en: "My mother lives in Milton Keynes" },
-      { es: "Mi padre vive en Escocia",          en: "My father lives in Scotland" },
-      { es: "Mi familia vive en Inglaterra",     en: "My family lives in England" },
-      { es: "Mi familia vive en Milton Keynes",  en: "My family lives in Milton Keynes" },
+      { es: "Mi hermana vive en Londres",        en: "My sister lives in London", topic: ["family", "places"], type: "sentence", grammar: [] },
+      { es: "Mi madre vive en Milton Keynes",    en: "My mother lives in Milton Keynes", topic: ["family", "places"], type: "sentence", grammar: [] },
+      { es: "Mi padre vive en Escocia",          en: "My father lives in Scotland", topic: ["family", "places"], type: "sentence", grammar: [] },
+      { es: "Mi familia vive en Inglaterra",     en: "My family lives in England", topic: ["family", "places"], type: "sentence", grammar: [] },
+      { es: "Mi familia vive en Milton Keynes",  en: "My family lives in Milton Keynes", topic: ["family", "places"], type: "sentence", grammar: [] },
 
-      { es: "Tengo dos hermanos",        en: "I have two brothers" },
-      { es: "Tengo dos hermanas",        en: "I have two sisters" },
-      { es: "Tengo un hijo y una hija",  en: "I have one son and one daughter" },
+      { es: "Tengo dos hermanos",        en: "I have two brothers", topic: ["family"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo dos hermanas",        en: "I have two sisters", topic: ["family"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo un hijo y una hija",  en: "I have one son and one daughter", topic: ["family"], type: "sentence", grammar: ["tener"] },
 
-      { es: "Tengo hambre y tengo sed", en: "I am hungry and thirsty" },
-      { es: "Tengo frío y tengo sueño", en: "I am cold and sleepy" },
-      { es: "Tengo calor y tengo sed",  en: "I am hot and thirsty" },
+      { es: "Tengo hambre y tengo sed", en: "I am hungry and thirsty", topic: ["feelings", "food"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo frío y tengo sueño", en: "I am cold and sleepy", topic: ["feelings"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo calor y tengo sed",  en: "I am hot and thirsty", topic: ["feelings", "food"], type: "sentence", grammar: ["tener"] },
 
-      { es: "Tengo un coche y una casa",          en: "I have a car and a house" },
-      { es: "No tengo coche y no tengo casa",     en: "I don't have a car and I don't have a house" },
-      { es: "Tenemos una buena idea y una profesora amable", en: "We have a good idea and a friendly teacher" },
+      { es: "Tengo un coche y una casa",          en: "I have a car and a house", topic: ["introductions", "family"], type: "sentence", grammar: ["tener"] },
+      { es: "No tengo coche y no tengo casa",     en: "I don't have a car and I don't have a house", topic: ["introductions", "family"], type: "sentence", grammar: ["tener"] },
+      { es: "Tenemos una buena idea y una profesora amable", en: "We have a good idea and a friendly teacher", topic: ["introductions"], type: "sentence", grammar: ["tener"] },
 
-      { es: "Somos amigos y somos de Inglaterra", en: "We are friends and we are from England" },
-      { es: "Tengo dos amigos y un hermano",      en: "I have two friends and one brother" },
-      { es: "Tengo dos amigos y una hermana",     en: "I have two friends and one sister" },
-      { es: "Tengo un hijo y una hija y somos una familia", en: "I have a son and a daughter and we are a family" },
+      { es: "Somos amigos y somos de Inglaterra", en: "We are friends and we are from England", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Tengo dos amigos y un hermano",      en: "I have two friends and one brother", topic: ["family"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo dos amigos y una hermana",     en: "I have two friends and one sister", topic: ["family"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo un hijo y una hija y somos una familia", en: "I have a son and a daughter and we are a family", topic: ["family"], type: "sentence", grammar: ["tener", "ser"] },
 
-      { es: "Mi familia es pequeña y somos amigos", en: "My family is small and we are friends" },
+      { es: "Mi familia es pequeña y somos amigos", en: "My family is small and we are friends", topic: ["family"], type: "sentence", grammar: ["ser"] },
 
-      { es: "cero coma dos",   en: "zero point two" },
-      { es: "cero coma tres",  en: "zero point three" },
-      { es: "uno coma dos",    en: "one point two" },
-      { es: "uno coma tres",   en: "one point three" },
-      { es: "dos coma cinco",  en: "two point five" },
-      { es: "tres coma cinco", en: "three point five" },
-      { es: "diez coma cinco", en: "ten point five" },
+      // --- MORE DECIMALS ---------------------------------------
+      { es: "cero coma dos",   en: "zero point two", topic: ["numbers"], type: "sentence", grammar: [] },
+      { es: "cero coma tres",  en: "zero point three", topic: ["numbers"], type: "sentence", grammar: [] },
+      { es: "uno coma dos",    en: "one point two", topic: ["numbers"], type: "sentence", grammar: [] },
+      { es: "uno coma tres",   en: "one point three", topic: ["numbers"], type: "sentence", grammar: [] },
+      { es: "dos coma cinco",  en: "two point five", topic: ["numbers"], type: "sentence", grammar: [] },
+      { es: "tres coma cinco", en: "three point five", topic: ["numbers"], type: "sentence", grammar: [] },
+      { es: "diez coma cinco", en: "ten point five", topic: ["numbers"], type: "sentence", grammar: [] },
 
-      { es: "carne", en: "meat" },
-      { es: "queso", en: "cheese" },
-      { es: "pescado", en: "fish" },
-      { es: "sándwich", en: "sandwich" },
-      { es: "hamburguesa", en: "hamburger" },
-      { es: "agua", en: "water" },
-      { es: "leche", en: "milk" },
-      { es: "pan", en: "bread" },
-      { es: "manzana", en: "apple" },
+      // --- FOOD & DRINK WORDS ---------------------------------
+      { es: "carne", en: "meat", topic: ["food"], type: "single-word", grammar: [] },
+      { es: "queso", en: "cheese", topic: ["food"], type: "single-word", grammar: [] },
+      { es: "pescado", en: "fish", topic: ["food"], type: "single-word", grammar: [] },
+      { es: "sándwich", en: "sandwich", topic: ["food"], type: "single-word", grammar: [] },
+      { es: "hamburguesa", en: "hamburger", topic: ["food"], type: "single-word", grammar: [] },
+      { es: "agua", en: "water", topic: ["food", "drink"], type: "single-word", grammar: [] },
+      { es: "leche", en: "milk", topic: ["food", "drink"], type: "single-word", grammar: [] },
+      { es: "pan", en: "bread", topic: ["food"], type: "single-word", grammar: [] },
+      { es: "manzana", en: "apple", topic: ["food"], type: "single-word", grammar: [] },
 
-      { es: "Como carne", en: "I eat meat" },
-      { es: "Como queso", en: "I eat cheese" },
-      { es: "Como un sándwich", en: "I eat a sandwich" },
-      { es: "Como una hamburguesa", en: "I eat a hamburger" },
-      { es: "Bebo agua", en: "I drink water" },
-      { es: "Bebo leche", en: "I drink milk" },
-      { es: "Bebes agua", en: "You drink water" },
-      { es: "Bebes leche", en: "You drink milk" },
-      { es: "Bebe agua", en: "He / she drinks water" },
-      { es: "Bebe leche", en: "He / she drinks milk" },
+      // --- FOOD & DRINK SENTENCES ------------------------------
+      { es: "Como carne", en: "I eat meat", topic: ["food"], type: "sentence", grammar: ["comer"] },
+      { es: "Como queso", en: "I eat cheese", topic: ["food"], type: "sentence", grammar: ["comer"] },
+      { es: "Como un sándwich", en: "I eat a sandwich", topic: ["food"], type: "sentence", grammar: ["comer"] },
+      { es: "Como una hamburguesa", en: "I eat a hamburger", topic: ["food"], type: "sentence", grammar: ["comer"] },
+      { es: "Bebo agua", en: "I drink water", topic: ["food", "drink"], type: "sentence", grammar: ["beber"] },
+      { es: "Bebo leche", en: "I drink milk", topic: ["food", "drink"], type: "sentence", grammar: ["beber"] },
+      { es: "Bebes agua", en: "You drink water", topic: ["food", "drink"], type: "sentence", grammar: ["beber"] },
+      { es: "Bebes leche", en: "You drink milk", topic: ["food", "drink"], type: "sentence", grammar: ["beber"] },
+      { es: "Bebe agua", en: "He / she drinks water", topic: ["food", "drink"], type: "sentence", grammar: ["beber"] },
+      { es: "Bebe leche", en: "He / she drinks milk", topic: ["food", "drink"], type: "sentence", grammar: ["beber"] },
 
-      { es: "restaurante", en: "restaurant" },
-      { es: "supermercado", en: "supermarket" },
-      { es: "banco", en: "bank" },
-      { es: "calle", en: "street" },
-      { es: "baño", en: "bathroom" },
-      { es: "hospital", en: "hospital" },
-      { es: "museo", en: "museum" },
-      { es: "tren", en: "train" },
-      { es: "autobús", en: "bus" },
-      { es: "aeropuerto", en: "airport" },
-      { es: "hotel", en: "hotel" },
-      { es: "mesa", en: "table" },
-      { es: "persona", en: "person" },
-      { es: "personas", en: "people" },
-      { es: "maleta", en: "suitcase" },
-      { es: "pasaporte", en: "passport" },
-      { es: "boleto", en: "ticket" },
-      { es: "dinero", en: "money" },
-      { es: "taxi", en: "taxi" },
-      { es: "reserva", en: "reservation" },
+      // --- PLACES & TRAVEL WORDS -------------------------------
+      { es: "restaurante", en: "restaurant", topic: ["places", "food"], type: "single-word", grammar: [] },
+      { es: "supermercado", en: "supermarket", topic: ["places", "food"], type: "single-word", grammar: [] },
+      { es: "banco", en: "bank", topic: ["places"], type: "single-word", grammar: [] },
+      { es: "calle", en: "street", topic: ["places"], type: "single-word", grammar: [] },
+      { es: "baño", en: "bathroom", topic: ["places"], type: "single-word", grammar: [] },
+      { es: "hospital", en: "hospital", topic: ["places"], type: "single-word", grammar: [] },
+      { es: "museo", en: "museum", topic: ["places"], type: "single-word", grammar: [] },
+      { es: "tren", en: "train", topic: ["places", "travel"], type: "single-word", grammar: [] },
+      { es: "autobús", en: "bus", topic: ["places", "travel"], type: "single-word", grammar: [] },
+      { es: "aeropuerto", en: "airport", topic: ["places", "travel"], type: "single-word", grammar: [] },
+      { es: "hotel", en: "hotel", topic: ["places", "travel"], type: "single-word", grammar: [] },
+      { es: "mesa", en: "table", topic: ["food"], type: "single-word", grammar: [] },
+      { es: "persona", en: "person", topic: ["introductions"], type: "single-word", grammar: [] },
+      { es: "personas", en: "people", topic: ["introductions"], type: "single-word", grammar: [] },
+      { es: "maleta", en: "suitcase", topic: ["travel"], type: "single-word", grammar: [] },
+      { es: "pasaporte", en: "passport", topic: ["travel"], type: "single-word", grammar: [] },
+      { es: "boleto", en: "ticket", topic: ["travel"], type: "single-word", grammar: [] },
+      { es: "dinero", en: "money", topic: ["places"], type: "single-word", grammar: [] },
+      { es: "taxi", en: "taxi", topic: ["travel"], type: "single-word", grammar: [] },
+      { es: "reserva", en: "reservation", topic: ["travel", "places"], type: "single-word", grammar: [] },
 
-      { es: "Necesito un taxi", en: "I need a taxi" },
-      { es: "Necesito una mesa para dos personas", en: "I need a table for two people" },
-      { es: "El restaurante está aquí", en: "The restaurant is here" },
-      { es: "El hotel está en esta calle", en: "The hotel is on this street" },
-      { es: "El supermercado está aquí", en: "The supermarket is here" },
-      { es: "El baño está en el restaurante", en: "The bathroom is in the restaurant" },
-      { es: "El museo está aquí", en: "The museum is here" },
-      { es: "El aeropuerto está aquí", en: "The airport is here" },
-      { es: "Mi maleta está en el hotel", en: "My suitcase is in the hotel" },
-      { es: "Mi pasaporte está en la maleta", en: "My passport is in the suitcase" },
-      { es: "Tengo un boleto", en: "I have a ticket" },
-      { es: "Tengo dinero", en: "I have money" },
-      { es: "Necesito un boleto", en: "I need a ticket" },
-      { es: "Mi teléfono está en la maleta", en: "My phone is in the suitcase" },
+      // --- PLACES & TRAVEL SENTENCES ---------------------------
+      { es: "Necesito un taxi", en: "I need a taxi", topic: ["travel"], type: "sentence", grammar: ["necesitar"] },
+      { es: "Necesito una mesa para dos personas", en: "I need a table for two people", topic: ["food", "places"], type: "sentence", grammar: ["necesitar"] },
+      { es: "El restaurante está aquí", en: "The restaurant is here", topic: ["places", "food"], type: "sentence", grammar: [] },
+      { es: "El hotel está en esta calle", en: "The hotel is on this street", topic: ["places", "travel"], type: "sentence", grammar: [] },
+      { es: "El supermercado está aquí", en: "The supermarket is here", topic: ["places", "food"], type: "sentence", grammar: [] },
+      { es: "El baño está en el restaurante", en: "The bathroom is in the restaurant", topic: ["places", "food"], type: "sentence", grammar: [] },
+      { es: "El museo está aquí", en: "The museum is here", topic: ["places"], type: "sentence", grammar: [] },
+      { es: "El aeropuerto está aquí", en: "The airport is here", topic: ["places", "travel"], type: "sentence", grammar: [] },
+      { es: "Mi maleta está en el hotel", en: "My suitcase is in the hotel", topic: ["travel"], type: "sentence", grammar: [] },
+      { es: "Mi pasaporte está en la maleta", en: "My passport is in the suitcase", topic: ["travel"], type: "sentence", grammar: [] },
+      { es: "Tengo un boleto", en: "I have a ticket", topic: ["travel"], type: "sentence", grammar: ["tener"] },
+      { es: "Tengo dinero", en: "I have money", topic: ["places"], type: "sentence", grammar: ["tener"] },
+      { es: "Necesito un boleto", en: "I need a ticket", topic: ["travel"], type: "sentence", grammar: ["necesitar"] },
+      { es: "Mi teléfono está en la maleta", en: "My phone is in the suitcase", topic: ["travel"], type: "sentence", grammar: [] },
 
-      { es: "de", en: "of / from" },
-      { es: "con", en: "with" },
-      { es: "para", en: "for" },
-      { es: "en", en: "in / at" },
-      { es: "dónde", en: "where" },
-      { es: "aquí", en: "here" },
-      { es: "mi", en: "my" },
-      { es: "me", en: "me" },
-      { es: "teléfono", en: "telephone / phone" },
+      // --- GLUE WORDS & PRONOUNS -------------------------------
+      { es: "de", en: "of / from", topic: ["verbs"], type: "single-word", grammar: [] },
+      { es: "con", en: "with", topic: ["verbs"], type: "single-word", grammar: [] },
+      { es: "para", en: "for", topic: ["verbs"], type: "single-word", grammar: [] },
+      { es: "en", en: "in / at", topic: ["verbs"], type: "single-word", grammar: [] },
+      { es: "dónde", en: "where", topic: ["verbs"], type: "single-word", grammar: [] },
+      { es: "aquí", en: "here", topic: ["places"], type: "single-word", grammar: [] },
+      { es: "mi", en: "my", topic: ["verbs"], type: "single-word", grammar: [] },
+      { es: "me", en: "me", topic: ["verbs"], type: "single-word", grammar: [] },
+      { es: "teléfono", en: "telephone / phone", topic: ["introductions", "travel"], type: "single-word", grammar: [] },
 
-      { es: "disculpe", en: "excuse me" },
-      { es: "Mucho gusto", en: "Nice to meet you" },
-      { es: "necesito", en: "I need" },
-      { es: "hablo", en: "I speak" },
-      { es: "hablas", en: "you speak" },
+      // --- EXTRA CONVERSATION BITS -----------------------------
+      { es: "disculpe", en: "excuse me", topic: ["greetings"], type: "single-word", grammar: [] },
+      { es: "Mucho gusto", en: "Nice to meet you", topic: ["introductions"], type: "sentence", grammar: [] },
+      { es: "necesito", en: "I need", topic: ["verbs"], type: "single-word", grammar: ["necesitar"] },
+      { es: "hablo", en: "I speak", topic: ["verbs"], type: "single-word", grammar: [] },
+      { es: "hablas", en: "you speak", topic: ["verbs"], type: "single-word", grammar: [] },
 
-      { es: "como", en: "I eat" },
-      { es: "comes", en: "you eat" },
-      { es: "come", en: "he / she / it eats" },
-      { es: "bebo", en: "I drink" },
-      { es: "bebes", en: "you drink" },
-      { es: "bebe", en: "he / she / it drinks" },
+      // --- EATING / DRINKING VERB FORMS ------------------------
+      { es: "como", en: "I eat", topic: ["verbs", "food"], type: "single-word", grammar: ["comer"] },
+      { es: "comes", en: "you eat", topic: ["verbs", "food"], type: "single-word", grammar: ["comer"] },
+      { es: "come", en: "he / she / it eats", topic: ["verbs", "food"], type: "single-word", grammar: ["comer"] },
+      { es: "bebo", en: "I drink", topic: ["verbs", "food"], type: "single-word", grammar: ["beber"] },
+      { es: "bebes", en: "you drink", topic: ["verbs", "food"], type: "single-word", grammar: ["beber"] },
+      { es: "bebe", en: "he / she / it drinks", topic: ["verbs", "food"], type: "single-word", grammar: ["beber"] },
 
-      { es: "niño", en: "boy" },
-      { es: "hombre", en: "man" },
-      { es: "mujer", en: "woman" },
+      // --- PEOPLE WORDS ----------------------------------------
+      { es: "niño", en: "boy", topic: ["introductions"], type: "single-word", grammar: [] },
+      { es: "hombre", en: "man", topic: ["introductions"], type: "single-word", grammar: [] },
+      { es: "mujer", en: "woman", topic: ["introductions"], type: "single-word", grammar: [] },
 
-      { es: "Soy un niño", en: "I am a boy" },
-      { es: "Soy un hombre", en: "I am a man" },
-      { es: "Soy una mujer", en: "I am a woman" },
+      { es: "Soy un niño", en: "I am a boy", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy un hombre", en: "I am a man", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Soy una mujer", en: "I am a woman", topic: ["introductions"], type: "sentence", grammar: ["ser"] },
 
-      { es: "ser", en: "to be (identity)" },
-      { es: "tener", en: "to have" },
-      { es: "llamarse", en: "to be called (name)" },
-      { es: "comer", en: "to eat" },
-      { es: "beber", en: "to drink" },
-      { es: "necesitar", en: "to need" },
+      // --- CORE VERBS (INFINITIVES) ----------------------------
+      { es: "ser", en: "to be (identity)", topic: ["verbs"], type: "single-word", grammar: ["ser"] },
+      { es: "tener", en: "to have", topic: ["verbs"], type: "single-word", grammar: ["tener"] },
+      { es: "llamarse", en: "to be called (name)", topic: ["verbs"], type: "single-word", grammar: ["llamarse"] },
+      { es: "comer", en: "to eat", topic: ["verbs"], type: "single-word", grammar: ["comer"] },
+      { es: "beber", en: "to drink", topic: ["verbs"], type: "single-word", grammar: ["beber"] },
+      { es: "necesitar", en: "to need", topic: ["verbs"], type: "single-word", grammar: ["necesitar"] },
 
-      { es: "soy", en: "I am (ser)" },
-      { es: "eres", en: "you are (ser)" },
-      { es: "es", en: "he / she / it is (ser)" },
-      { es: "somos", en: "we are (ser)" },
-      { es: "sois", en: "you (plural) are (ser)" },
-      { es: "son", en: "they are (ser)" },
+      // --- CONJUGATIONS OF SER --------------------------------
+      { es: "soy", en: "I am (ser)", topic: ["verbs"], type: "single-word", grammar: ["ser"] },
+      { es: "eres", en: "you are (ser)", topic: ["verbs"], type: "single-word", grammar: ["ser"] },
+      { es: "es", en: "he / she / it is (ser)", topic: ["verbs"], type: "single-word", grammar: ["ser"] },
+      { es: "somos", en: "we are (ser)", topic: ["verbs"], type: "single-word", grammar: ["ser"] },
+      { es: "sois", en: "you (plural) are (ser)", topic: ["verbs"], type: "single-word", grammar: ["ser"] },
+      { es: "son", en: "they are (ser)", topic: ["verbs"], type: "single-word", grammar: ["ser"] },
 
-      { es: "tengo", en: "I have" },
-      { es: "tienes", en: "you have" },
-      { es: "tiene", en: "he / she / it has" },
-      { es: "tenemos", en: "we have" },
-      { es: "tenéis", en: "you (plural) have" },
-      { es: "tienen", en: "they have" },
+      // --- CONJUGATIONS OF TENER ------------------------------
+      { es: "tengo", en: "I have", topic: ["verbs"], type: "single-word", grammar: ["tener"] },
+      { es: "tienes", en: "you have", topic: ["verbs"], type: "single-word", grammar: ["tener"] },
+      { es: "tiene", en: "he / she / it has", topic: ["verbs"], type: "single-word", grammar: ["tener"] },
+      { es: "tenemos", en: "we have", topic: ["verbs"], type: "single-word", grammar: ["tener"] },
+      { es: "tenéis", en: "you (plural) have", topic: ["verbs"], type: "single-word", grammar: ["tener"] },
+      { es: "tienen", en: "they have", topic: ["verbs"], type: "single-word", grammar: ["tener"] },
 
-      { es: "me llamo", en: "my name is / I am called" },
-      { es: "te llamas", en: "your name is / you are called" },
-      { es: "se llama", en: "his / her name is / he / she is called" },
-      { es: "nos llamamos", en: "our name is / we are called" },
-      { es: "os llamáis", en: "your (plural) name is / you are called" },
-      { es: "se llaman", en: "their name is / they are called" }
+      // --- CONJUGATIONS OF LLAMARSE ---------------------------
+      { es: "me llamo", en: "my name is / I am called", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "te llamas", en: "your name is / you are called", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "se llama", en: "his / her name is / he / she is called", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "nos llamamos", en: "our name is / we are called", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "os llamáis", en: "your (plural) name is / you are called", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "se llaman", en: "their name is / they are called", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+
+      // --- COMPLEX MIXED SENTENCES ----------------------------
+      {
+        es: "Mi madre tiene sesenta y cinco años y vive en Londres",
+        en: "My mother is sixty-five years old and lives in London",
+        topic: ["family", "places"],
+        type: "sentence",
+        grammar: ["tener"]
+      },
+      {
+        es: "Mi padre es profesor de español, tiene cincuenta años y vive en Escocia",
+        en: "My father is a Spanish teacher, is fifty years old and lives in Scotland",
+        topic: ["family", "introductions", "places"],
+        type: "sentence",
+        grammar: ["ser", "tener"]
+      },
+      {
+        es: "Mi abuela tiene sesenta y cinco años y vive en España con mi abuelo",
+        en: "My grandmother is sixty-five years old and lives in Spain with my grandfather",
+        topic: ["family", "places"],
+        type: "sentence",
+        grammar: ["tener"]
+      },
+      {
+        es: "Tengo dos hermanas y un hermano; mi familia es grande y vive en Inglaterra",
+        en: "I have two sisters and one brother; my family is big and lives in England",
+        topic: ["family", "places"],
+        type: "sentence",
+        grammar: ["tener", "ser"]
+      },
+      {
+        es: "Mi novia está comiendo una hamburguesa en la mesa diez del restaurante",
+        en: "My girlfriend is eating a hamburger at table ten in the restaurant",
+        topic: ["family", "food", "places"],
+        type: "sentence",
+        grammar: ["comer"]
+      },
+      {
+        es: "Mi madre está bebiendo agua y mi padre está comiendo carne en el restaurante",
+        en: "My mother is drinking water and my father is eating meat in the restaurant",
+        topic: ["family", "food", "places"],
+        type: "sentence",
+        grammar: ["beber", "comer"]
+      },
+      {
+        es: "Mi familia tiene una reserva en el hotel y el taxi está en la calle",
+        en: "My family has a reservation at the hotel and the taxi is in the street",
+        topic: ["family", "travel", "places"],
+        type: "sentence",
+        grammar: ["tener"]
+      },
+      {
+        es: "Tengo un boleto y una reserva en el hotel; mi pasaporte está en la maleta",
+        en: "I have a ticket and a reservation at the hotel; my passport is in the suitcase",
+        topic: ["travel", "places"],
+        type: "sentence",
+        grammar: ["tener"]
+      },
+      {
+        es: "Soy estudiante de español, tengo treinta y nueve años y vivo en Milton Keynes",
+        en: "I am a Spanish student, I am thirty-nine years old and I live in Milton Keynes",
+        topic: ["introductions"],
+        type: "sentence",
+        grammar: ["ser", "tener"]
+      },
+      {
+        es: "Soy gerente de IT, vivo en Inglaterra y tengo dos amigos",
+        en: "I am an IT manager, I live in England and I have two friends",
+        topic: ["introductions"],
+        type: "sentence",
+        grammar: ["ser", "tener"]
+      },
+      {
+        es: "Tengo hambre y sed; mi hermano tiene sueño y mi hermana tiene frío",
+        en: "I am hungry and thirsty; my brother is sleepy and my sister is cold",
+        topic: ["feelings", "family", "food"],
+        type: "sentence",
+        grammar: ["tener"]
+      },
+      {
+        es: "En el restaurante, tengo una mesa para dos personas y bebo agua",
+        en: "In the restaurant, I have a table for two people and I drink water",
+        topic: ["food", "places", "travel"],
+        type: "sentence",
+        grammar: ["tener", "beber"]
+      },
+
+      // --- JOBS (single-word-style cards) ----------------------
+      { es: "gerente de IT",          en: "IT manager",            topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "enfermera",              en: "nurse",                 topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "médico",                 en: "doctor",                topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "profesor",               en: "teacher",               topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "profesor de español",    en: "Spanish teacher",       topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "ingeniero",              en: "engineer",              topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "abogado",                en: "lawyer",                topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "policía",                en: "police officer",        topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "bombero",                en: "firefighter",           topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "camarero",               en: "waiter",                topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "cocinero",               en: "cook / chef",           topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "conductor",              en: "driver",                topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "recepcionista",          en: "receptionist",          topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "dependiente",            en: "shop assistant",        topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "estudiante",             en: "student",               topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "secretario",             en: "secretary",             topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "arquitecto",             en: "architect",             topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "electricista",           en: "electrician",           topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "mecánico",               en: "mechanic",              topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "programador",            en: "programmer",            topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "jardinero",              en: "gardener",              topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "panadero",               en: "baker",                 topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "fontanero",              en: "plumber",               topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "dentista",               en: "dentist",               topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "piloto",                 en: "pilot",                 topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "contable",               en: "accountant",            topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "diseñador",              en: "designer",              topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "psicólogo",              en: "psychologist",          topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "científico",             en: "scientist",             topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "periodista",             en: "journalist",            topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "fotógrafo",              en: "photographer",          topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "músico",                 en: "musician",              topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "actor",                  en: "actor",                 topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "cartero",                en: "postman / mail carrier",topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "limpiador",              en: "cleaner",               topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "vendedor",               en: "salesperson",           topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "jefe de proyecto",       en: "project manager",       topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "administrador de sistemas", en: "systems administrator", topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "analista",               en: "analyst",               topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+      { es: "consultor",              en: "consultant",            topic: ["introductions", "jobs"], type: "single-word", grammar: [] },
+
+      // --- MONTHS (time words) ---------------------------------
+      { es: "enero",      en: "January",   topic: ["months"], type: "single-word", grammar: [] },
+      { es: "febrero",    en: "February",  topic: ["months"], type: "single-word", grammar: [] },
+      { es: "marzo",      en: "March",     topic: ["months"], type: "single-word", grammar: [] },
+      { es: "abril",      en: "April",     topic: ["months"], type: "single-word", grammar: [] },
+      { es: "mayo",       en: "May",       topic: ["months"], type: "single-word", grammar: [] },
+      { es: "junio",      en: "June",      topic: ["months"], type: "single-word", grammar: [] },
+      { es: "julio",      en: "July",      topic: ["months"], type: "single-word", grammar: [] },
+      { es: "agosto",     en: "August",    topic: ["months"], type: "single-word", grammar: [] },
+      { es: "septiembre", en: "September", topic: ["months"], type: "single-word", grammar: [] },
+      { es: "octubre",    en: "October",   topic: ["months"], type: "single-word", grammar: [] },
+      { es: "noviembre",  en: "November",  topic: ["months"], type: "single-word", grammar: [] },
+      { es: "diciembre",  en: "December",  topic: ["months"], type: "single-word", grammar: [] },
+
+      // --- COUNTRIES (single-word cards) -----------------------
+      { es: "España",        en: "Spain",          topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Reino Unido",   en: "United Kingdom", topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Irlanda",       en: "Ireland",        topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Francia",       en: "France",         topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Alemania",      en: "Germany",        topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Italia",        en: "Italy",          topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Portugal",      en: "Portugal",       topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Estados Unidos",en: "United States",  topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "México",        en: "Mexico",         topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Canadá",        en: "Canada",         topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Argentina",     en: "Argentina",      topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Chile",         en: "Chile",          topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Colombia",      en: "Colombia",       topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Perú",          en: "Peru",           topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Brasil",        en: "Brazil",         topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Japón",         en: "Japan",          topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "China",         en: "China",          topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "India",         en: "India",          topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Australia",     en: "Australia",      topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Nueva Zelanda", en: "New Zealand",    topic: ["countries", "places"], type: "single-word", grammar: [] },
+      { es: "Sudáfrica",     en: "South Africa",   topic: ["countries", "places"], type: "single-word", grammar: [] },
+
+      // --- CITIES (single-word cards) --------------------------
+      { es: "Madrid",            en: "Madrid",           topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Barcelona",         en: "Barcelona",        topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Londres",           en: "London",           topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Dublín",            en: "Dublin",           topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "París",             en: "Paris",            topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Berlín",            en: "Berlin",           topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Roma",              en: "Rome",             topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Lisboa",            en: "Lisbon",           topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Nueva York",        en: "New York",         topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Los Ángeles",       en: "Los Angeles",      topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Ciudad de México",  en: "Mexico City",      topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Toronto",           en: "Toronto",          topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Buenos Aires",      en: "Buenos Aires",     topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Santiago",          en: "Santiago",         topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Bogotá",            en: "Bogotá",           topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Lima",              en: "Lima",             topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Río de Janeiro",    en: "Rio de Janeiro",   topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Tokio",             en: "Tokyo",            topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Pekín",             en: "Beijing",          topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Sídney",            en: "Sydney",           topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Melbourne",         en: "Melbourne",        topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Johannesburgo",     en: "Johannesburg",     topic: ["cities", "places"], type: "single-word", grammar: [] },
+      { es: "Ciudad del Cabo",   en: "Cape Town",        topic: ["cities", "places"], type: "single-word", grammar: [] }
     ];
 
-    // === DECK DEFINITIONS ======================================
-    const decks = {
-      all: {
-        label: "All cards (mixed)",
-        filter: () => true
-      },
-      greetings: {
-        label: "Greetings & small talk",
-        filter: (card) => {
-          const t = card.es.toLowerCase();
-          const keywords = [
-            "buenos días",
-            "buenas tardes",
-            "buenas noches",
-            "hola",
-            "¿qué tal",
-            "¿cómo estás",
-            "estoy bien",
-            "más o menos",
-            "gracias",
-            "muchas gracias",
-            "de nada",
-            "por favor",
-            "perdón",
-            "lo siento",
-            "hasta luego",
-            "hasta mañana",
-            "adiós",
-            "muy bien",
-            "¡qué bien",
-            "qué bien",
-            "está bien",
-            "mucho gusto"
-          ];
-          return keywords.some(k => t.includes(k));
-        }
-      },
-      introductions: {
-        label: "Introductions & personal info",
-        filter: (card) => {
-          const t = card.es.toLowerCase();
-          const keywords = [
-            "¿cómo te llamas",
-            "me llamo",
-            "¿de dónde eres",
-            "soy de",
-            "¿dónde vives",
-            "vivo en",
-            "soy gerente",
-            "soy profesor",
-            "soy enfermera",
-            "soy estudiante",
-            "tengo treinta y nueve años",
-            "hablo un poco",
-            "soy jason",
-            "hola, soy",
-            "buenos días, soy"
-          ];
-          return keywords.some(k => t.includes(k));
-        }
-      },
-      family: {
-        label: "Family & relatives",
-        filter: (card) => {
-          const t = card.es.toLowerCase();
-          const keywords = [
-            "madre",
-            "padre",
-            "hijo",
-            "hija",
-            "hermano",
-            "hermana",
-            "abuelo",
-            "abuela",
-            "tío",
-            "tía",
-            "primo",
-            "prima",
-            "esposo",
-            "esposa",
-            "novio",
-            "novia",
-            "padres",
-            "familia"
-          ];
-          return keywords.some(k => t.includes(k));
-        }
-      },
-      foodDrink: {
-        label: "Food & drink",
-        filter: (card) => {
-          const t = card.es.toLowerCase();
-          const keywords = [
-            "carne",
-            "queso",
-            "pescado",
-            "sándwich",
-            "hamburguesa",
-            "agua",
-            "leche",
-            "pan",
-            "manzana",
-            "como ",
-            "bebo",
-            "bebes",
-            "bebe"
-          ];
-          return keywords.some(k => t.includes(k));
-        }
-      },
-      numbers: {
-        label: "Numbers & decimals",
-        filter: (card) => {
-          const t = card.es.toLowerCase();
-          const keywords = [
-            "uno",
-            "dos",
-            "tres",
-            "diez",
-            "veinte",
-            "treinta",
-            "cuarenta",
-            "cincuenta",
-            "sesenta",
-            "cien",
-            "mil",
-            "cero coma",
-            "uno coma",
-            "dos coma",
-            "tres coma",
-            "diez coma"
-          ];
-          return keywords.some(k => t.includes(k));
-        }
-      },
-      placesTravel: {
-        label: "Places & travel",
-        filter: (card) => {
-          const t = card.es.toLowerCase();
-          const keywords = [
-            "restaurante",
-            "supermercado",
-            "banco",
-            "calle",
-            "baño",
-            "hospital",
-            "museo",
-            "tren",
-            "autobús",
-            "aeropuerto",
-            "hotel",
-            "mesa",
-            "persona",
-            "personas",
-            "maleta",
-            "pasaporte",
-            "boleto",
-            "dinero",
-            "taxi",
-            "reserva"
-          ];
-          return keywords.some(k => t.includes(k));
-        }
-      },
-      verbs: {
-        label: "Verbs & conjugations",
-        filter: (card) => {
-          const t = card.es.toLowerCase();
-          const keywords = [
-            "ser",
-            "tener",
-            "llamarse",
-            "comer",
-            "beber",
-            "necesitar",
-            "soy",
-            "eres",
-            " es ",
-            "somos",
-            "sois",
-            "son",
-            "tengo",
-            "tienes",
-            "tiene",
-            "tenemos",
-            "tenéis",
-            "tienen",
-            "me llamo",
-            "te llamas",
-            "se llama",
-            "nos llamamos",
-            "os llamáis",
-            "se llaman",
-            "como",
-            "comes",
-            "come",
-            "bebo",
-            "bebes",
-            "bebe",
-            "necesito",
-            "hablo",
-            "hablas"
-          ];
-          return keywords.some(k => t.includes(k));
-        }
-      },
-      words: {
-        label: "Single words",
-        filter: (card) => {
-          const t = card.es.trim();
-          return !t.includes(" ") && !/[¿?.,]/.test(t);
-        }
-      }
+    // === PRONUNCIATIONS FOR SPANISH SINGLE-WORD CARDS =========
+    const pronunciations = {
+      // Jobs
+      "gerente de IT": "Heh-ren-teh deh ee-teh",
+      "enfermera": "En-fehr-meh-rah",
+      "médico": "Meh-dee-koh",
+      "profesor": "Pro-feh-sor",
+      "profesor de español": "Pro-feh-sor deh Es-pahn-yol",
+      "ingeniero": "Een-heh-nyeh-roh",
+      "abogado": "Ah-boh-gah-doh",
+      "policía": "Poh-lee-see-ah",
+      "bombero": "Bom-beh-roh",
+      "camarero": "Kah-mah-reh-roh",
+      "cocinero": "Koh-see-neh-roh",
+      "conductor": "Kon-dook-tor",
+      "recepcionista": "Reh-sep-see-oh-nees-tah",
+      "dependiente": "Deh-pen-dee-ehn-teh",
+      "estudiante": "Es-too-dee-ahn-teh",
+      "secretario": "Seh-kreh-tah-ryoh",
+      "arquitecto": "Ahr-kee-tek-toh",
+      "electricista": "Eh-lehk-tree-sees-tah",
+      "mecánico": "Meh-kah-nee-koh",
+      "programador": "Pro-grah-mah-dor",
+      "jardinero": "Har-dee-neh-roh",
+      "panadero": "Pah-nah-deh-roh",
+      "fontanero": "Fon-tah-neh-roh",
+      "dentista": "Den-tees-tah",
+      "piloto": "Pee-loh-toh",
+      "contable": "Kon-tah-bleh",
+      "diseñador": "Dee-seh-nyah-dor",
+      "psicólogo": "See-koh-loh-goh",
+      "científico": "Syen-tee-fee-koh",
+      "periodista": "Pehr-ee-oh-dees-tah",
+      "fotógrafo": "Foh-toh-grah-foh",
+      "músico": "Moo-see-koh",
+      "actor": "Ak-tor",
+      "cartero": "Kar-teh-roh",
+      "limpiador": "Leem-pee-ah-dor",
+      "vendedor": "Ben-deh-dor",
+      "jefe de proyecto": "Heh-feh deh Pro-yek-toh",
+      "administrador de sistemas": "Ad-mee-nees-tra-dor deh Sees-teh-mahs",
+      "analista": "Ah-nah-lees-tah",
+      "consultor": "Kon-sool-tor",
+
+      // Months
+      "enero": "Eh-neh-roh",
+      "febrero": "Feh-breh-roh",
+      "marzo": "Mar-soh",
+      "abril": "Ah-breel",
+      "mayo": "Mah-yoh",
+      "junio": "Hoo-nee-oh",
+      "julio": "Hoo-lyoh",
+      "agosto": "Ah-gohs-toh",
+      "septiembre": "Sep-tee-ehm-breh",
+      "octubre": "Ok-too-breh",
+      "noviembre": "No-bee-ehm-breh",
+      "diciembre": "Dee-see-ehm-breh",
+
+      // Countries
+      "España": "Es-pahn-yah",
+      "Reino Unido": "Ray-noh Oo-nee-doh",
+      "Irlanda": "Eer-lahn-dah",
+      "Francia": "Frahn-see-ah",
+      "Alemania": "Ah-leh-mah-nyah",
+      "Italia": "Ee-tah-lyah",
+      "Portugal": "Por-too-gahl",
+      "Estados Unidos": "Es-tah-dohs Oo-nee-dohs",
+      "México": "Meh-hee-koh",
+      "Canadá": "Kah-nah-dah",
+      "Argentina": "Ahr-hen-tee-nah",
+      "Chile": "Chee-leh",
+      "Colombia": "Koh-lohm-byah",
+      "Perú": "Peh-roo",
+      "Brasil": "Bra-seel",
+      "Japón": "Ha-pon",
+      "China": "Chee-nah",
+      "India": "Een-dyah",
+      "Australia": "Aus-trah-lyah",
+      "Nueva Zelanda": "Nweh-bah Seh-lahn-dah",
+      "Sudáfrica": "Soo-dah-free-kah",
+
+      // Cities
+      "Madrid": "Mah-dreed",
+      "Barcelona": "Bar-seh-loh-nah",
+      "Londres": "Lohn-drehs",
+      "Dublín": "Doo-bleen",
+      "París": "Pah-rees",
+      "Berlín": "Behr-leen",
+      "Roma": "Roh-mah",
+      "Lisboa": "Lees-boh-ah",
+      "Nueva York": "Nweh-bah York",
+      "Los Ángeles": "Los Ahn-heh-lehs",
+      "Ciudad de México": "See-oo-dad deh Meh-hee-koh",
+      "Toronto": "Toh-ron-toh",
+      "Buenos Aires": "Bweh-nohs Eye-rehs",
+      "Santiago": "Sahn-tee-ah-goh",
+      "Bogotá": "Boh-goh-tah",
+      "Lima": "Lee-mah",
+      "Río de Janeiro": "Ree-oh deh Ha-neh-roh",
+      "Tokio": "Toh-kee-oh",
+      "Pekín": "Peh-keen",
+      "Sídney": "Seed-ney",
+      "Melbourne": "Mel-born",
+      "Johannesburgo": "Yo-hah-nes-boor-goh",
+      "Ciudad del Cabo": "See-oo-dad del Kah-boh"
     };
 
+    function getPronunciation(spanish) {
+      return pronunciations[spanish] || "";
+    }
+
     // === STATE ==================================================
-    let currentDeckId = "all";
-    let currentDeckCards = [];
-    let currentIndex = 0;
+    let selectedTopic = "all";
+    let selectedFocus = "all";
+
+    let baseDeckCards = [];
+    let baseIndex = 0;
+    let baseDeckSize = 0;
+    let baseDeckSeen = 0;
+
+    let missedCards = [];
+    let phase = "base";
+
     let correctCount = 0;
     let incorrectCount = 0;
     let isShowingAnswer = false;
+    let sessionComplete = false;
 
     let currentFrontText = "";
     let currentBackText = "";
-
-    // Missed cards logic
-    let missedQueue = [];
-    let inMissedPhase = false;
+    let frontIsSpanish = true;
 
     // === ELEMENTS ===============================================
     const cardEl = document.getElementById("card");
@@ -866,7 +1035,10 @@
     const messageEl = document.getElementById("message");
     const directionHintEl = document.getElementById("direction-hint");
     const modeRadios = document.querySelectorAll('input[name="direction-mode"]');
-    const deckSelectEl = document.getElementById("deck-select");
+    const topicSelectEl = document.getElementById("topic-select");
+    const focusSelectEl = document.getElementById("focus-select");
+    const deckInfoEl = document.getElementById("deck-info");
+    const cardBadgeEl = document.getElementById("card-badge");
 
     // === UTILS ==================================================
     function shuffle(array) {
@@ -876,11 +1048,6 @@
       }
     }
 
-    function buildDeckCards(deckId) {
-      const def = decks[deckId] || decks.all;
-      return flashcards.filter(def.filter);
-    }
-
     function updateScore() {
       scoreEl.innerHTML =
         "Correct: <strong>" +
@@ -888,6 +1055,12 @@
         "</strong> · Incorrect: <strong>" +
         incorrectCount +
         "</strong>";
+    }
+
+    function updateDeckInfo() {
+      const left = Math.max(baseDeckSize - baseDeckSeen, 0);
+      deckInfoEl.textContent =
+        "Cards in selection: " + baseDeckSize + " · Left this run: " + left;
     }
 
     function showMessage(text, timeout = 2000) {
@@ -906,9 +1079,35 @@
       return checked ? checked.value : "es-en";
     }
 
+    function cardMatchesTopic(card, topic) {
+      if (topic === "all") return true;
+      return card.topic && card.topic.includes(topic);
+    }
+
+    function cardMatchesFocus(card, focus) {
+      if (focus === "all") return true;
+      if (focus === "words") return card.type === "single-word";
+      if (focus === "sentences") return card.type !== "single-word";
+      if (focus === "grammar") return card.grammar && card.grammar.length > 0;
+      return true;
+    }
+
+    function getCurrentCard() {
+      if (phase === "base") {
+        if (baseIndex < 0 || baseIndex >= baseDeckCards.length) return null;
+        return baseDeckCards[baseIndex];
+      } else {
+        if (!missedCards.length) return null;
+        return missedCards[0];
+      }
+    }
+
     function loadCard() {
-      if (!currentDeckCards.length) {
-        questionEl.textContent = "No cards in this deck.";
+      if (sessionComplete) return;
+
+      const card = getCurrentCard();
+      if (!card) {
+        questionEl.textContent = "No cards in this selection.";
         answerEl.textContent = "";
         directionHintEl.textContent = "";
         showAnswerBtn.disabled = true;
@@ -916,12 +1115,12 @@
         incorrectBtn.disabled = true;
         isShowingAnswer = false;
         cardEl.classList.remove("flipped");
+        cardEl.classList.remove("missed");
+        if (cardBadgeEl) cardBadgeEl.textContent = "";
         return;
       }
 
-      const card = currentDeckCards[currentIndex];
       const mode = getCurrentMode();
-
       let showSpanishOnFront;
 
       if (mode === "es-en") {
@@ -931,6 +1130,8 @@
       } else {
         showSpanishOnFront = Math.random() < 0.5;
       }
+
+      frontIsSpanish = showSpanishOnFront;
 
       if (showSpanishOnFront) {
         currentFrontText = card.es;
@@ -942,11 +1143,36 @@
         directionHintEl.textContent = "Translate into Spanish";
       }
 
-      questionEl.textContent = currentFrontText;
-      answerEl.textContent = "";
+      // Build front side with optional pronunciation (Spanish, single-word cards)
+      let frontHtml = currentFrontText;
+      if (frontIsSpanish && card.type === "single-word") {
+        const p = getPronunciation(card.es);
+        if (p) {
+          frontHtml =
+            "<div>" + currentFrontText + "</div>" +
+            '<div class="card-pron">' + p + "</div>";
+        }
+      }
+      questionEl.innerHTML = frontHtml;
+      answerEl.innerHTML = "";
+
+      // Challenge badge: more than 7 words on the front
+      if (cardBadgeEl) {
+        const wordCount = currentFrontText
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean).length;
+
+        if (wordCount > 7) {
+          cardBadgeEl.textContent = "Challenge card!";
+        } else {
+          cardBadgeEl.textContent = "";
+        }
+      }
 
       isShowingAnswer = false;
       cardEl.classList.remove("flipped");
+      cardEl.classList.toggle("missed", phase === "missed");
       showAnswerBtn.disabled = false;
 
       correctBtn.disabled = true;
@@ -955,10 +1181,26 @@
     }
 
     function showAnswer() {
-      if (isShowingAnswer || !currentDeckCards.length) return;
+      if (sessionComplete) return;
+      if (isShowingAnswer) return;
+
+      const card = getCurrentCard();
+      if (!card) return;
+
       isShowingAnswer = true;
 
-      answerEl.textContent = currentBackText;
+      // Build back side with optional pronunciation if Spanish is on the back
+      let backHtml = currentBackText;
+      if (!frontIsSpanish && card.type === "single-word") {
+        const p = getPronunciation(card.es);
+        if (p) {
+          backHtml =
+            "<div>" + currentBackText + "</div>" +
+            '<div class="card-pron">' + p + "</div>";
+        }
+      }
+
+      answerEl.innerHTML = backHtml;
       cardEl.classList.add("flipped");
       showAnswerBtn.disabled = true;
 
@@ -966,74 +1208,124 @@
       incorrectBtn.disabled = false;
     }
 
-    function goToNextCard() {
-      if (!currentDeckCards.length) return;
+    function finishSession() {
+      sessionComplete = true;
+      isShowingAnswer = false;
+      cardEl.classList.remove("flipped");
+      cardEl.classList.remove("missed");
 
-      currentIndex++;
+      questionEl.textContent = "Deck complete!";
+      answerEl.textContent = "";
+      directionHintEl.textContent = "";
+      if (cardBadgeEl) cardBadgeEl.textContent = "";
 
-      if (currentIndex >= currentDeckCards.length) {
-        if (!inMissedPhase && missedQueue.length > 0) {
-          // switch to reviewing missed cards
-          currentDeckCards = missedQueue.slice();
-          missedQueue = [];
-          shuffle(currentDeckCards);
-          currentIndex = 0;
-          inMissedPhase = true;
-          showMessage("Reviewing missed cards from this deck.");
-          loadCard();
-          return;
-        }
+      showAnswerBtn.disabled = true;
+      correctBtn.disabled = true;
+      incorrectBtn.disabled = true;
 
-        // finished deck (and either no misses, or finished reviewing misses)
-        currentDeckCards = buildDeckCards(currentDeckId);
-        shuffle(currentDeckCards);
-        currentIndex = 0;
-        inMissedPhase = false;
-        showMessage("You've seen all the cards in this deck. Shuffled and starting again.");
-        loadCard();
-        return;
+      let summary = "You have completed this selection for this session.";
+      if (baseDeckSize > 0) {
+        summary +=
+          " You went through " +
+          baseDeckSize +
+          " card" +
+          (baseDeckSize === 1 ? "" : "s") +
+          ".";
       }
-
-      loadCard();
+      showMessage(summary, 6000);
     }
 
     function handleResult(isCorrect) {
-      if (!isShowingAnswer || !currentDeckCards.length) return;
+      if (!isShowingAnswer || sessionComplete) return;
 
-      const currentCard = currentDeckCards[currentIndex];
+      const card = getCurrentCard();
+      if (!card) {
+        finishSession();
+        return;
+      }
 
       if (isCorrect) {
         correctCount++;
       } else {
         incorrectCount++;
-        missedQueue.push(currentCard);
+        if (!missedCards.includes(card)) {
+          missedCards.push(card);
+        }
+      }
+
+      if (phase === "base") {
+        if (baseDeckSeen < baseDeckSize) {
+          baseDeckSeen++;
+        }
+        baseIndex++;
+
+        if (baseIndex >= baseDeckCards.length) {
+          if (missedCards.length > 0) {
+            phase = "missed";
+            showMessage("Reviewing missed cards from this selection.");
+          } else {
+            updateScore();
+            updateDeckInfo();
+            finishSession();
+            return;
+          }
+        }
+      } else if (phase === "missed") {
+        if (missedCards.length > 0) {
+          if (isCorrect) {
+            missedCards.shift();
+          } else {
+            const first = missedCards.shift();
+            missedCards.push(first);
+          }
+        }
+
+        if (missedCards.length === 0) {
+          updateScore();
+          updateDeckInfo();
+          finishSession();
+          return;
+        }
       }
 
       updateScore();
-      goToNextCard();
+      updateDeckInfo();
+      loadCard();
     }
 
-    function changeDeck(deckId) {
-      currentDeckId = deckId;
-      currentDeckCards = buildDeckCards(deckId);
-      shuffle(currentDeckCards);
-      currentIndex = 0;
+    function rebuildSession() {
+      baseDeckCards = flashcards.filter(card =>
+        cardMatchesTopic(card, selectedTopic) &&
+        cardMatchesFocus(card, selectedFocus)
+      );
+
+      shuffle(baseDeckCards);
+
+      baseDeckSize = baseDeckCards.length;
+      baseDeckSeen = 0;
+      baseIndex = 0;
+
+      missedCards = [];
+      phase = "base";
       correctCount = 0;
       incorrectCount = 0;
-      missedQueue = [];
-      inMissedPhase = false;
+      sessionComplete = false;
+      isShowingAnswer = false;
+
       updateScore();
+      updateDeckInfo();
       loadCard();
-      if (currentDeckCards.length) {
+
+      if (baseDeckCards.length) {
         showMessage(
-          currentDeckCards.length +
-          " card" +
-          (currentDeckCards.length === 1 ? "" : "s") +
-          " in this deck.",
+          baseDeckCards.length +
+            " card" +
+            (baseDeckCards.length === 1 ? "" : "s") +
+            " in this selection.",
           1500
         );
       } else {
-        showMessage("This deck is empty.", 3000);
+        showMessage("This selection is empty.", 3000);
       }
     }
 
@@ -1045,7 +1337,7 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === " " || e.code === "Space") {
         e.preventDefault();
-        if (!isShowingAnswer) showAnswer();
+        if (!isShowingAnswer && !sessionComplete) showAnswer();
       } else if (e.key === "ArrowRight") {
         handleResult(true);
       } else if (e.key === "ArrowLeft") {
@@ -1059,12 +1351,18 @@
       });
     });
 
-    deckSelectEl.addEventListener("change", (e) => {
-      changeDeck(e.target.value);
+    topicSelectEl.addEventListener("change", (e) => {
+      selectedTopic = e.target.value;
+      rebuildSession();
+    });
+
+    focusSelectEl.addEventListener("change", (e) => {
+      selectedFocus = e.target.value;
+      rebuildSession();
     });
 
     // === INIT ===================================================
-    changeDeck(currentDeckId);
+    rebuildSession();
   </script>
 </body>
 </html>
