@@ -316,6 +316,12 @@
         <option value="places">Places &amp; travel</option>
         <option value="feelings">Feelings &amp; tener expressions</option>
         <option value="verbs">Verbs &amp; conjugations</option>
+        <option value="verb_ser">Verb: ser</option>
+        <option value="verb_tener">Verb: tener</option>
+        <option value="verb_llamarse">Verb: llamarse</option>
+        <option value="verb_comer">Verb: comer</option>
+        <option value="verb_beber">Verb: beber</option>
+        <option value="verb_necesitar">Verb: necesitar</option>
         <option value="hard">Mixed hard sentences</option>
       </select>
     </div>
@@ -513,13 +519,13 @@
 
     function renderSideHTML(text, card, isSpanishSide) {
       if (!card || !isSpanishSide) return text;
-      if (card.type !== "single-word") return text;
+      if (card.cardType !== "word") return text;
       const pron = getPronunciation(card.es);
       if (!pron) return text;
       return `<div>${card.es}</div><div class="card-pron">${pron}</div>`;
     }
 
-    // === FLASHCARD DATA WITH METADATA ==========================
+    // === FLASHCARD DATA ========================================
     const flashcards = [
       // --- GREETINGS & SMALL TALK ------------------------------
       { es: "Buenos días", en: "Good morning", topic: ["greetings"], type: "sentence", grammar: [] },
@@ -811,6 +817,60 @@
       { es: "hablo", en: "I speak", topic: ["verbs"], type: "single-word", grammar: [] },
       { es: "hablas", en: "you speak", topic: ["verbs"], type: "single-word", grammar: [] },
 
+      // Verb practice: ser
+      { es: "Yo soy de Inglaterra", en: "I am from England", topic: ["verbs", "introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Tú eres mi amigo", en: "You are my friend", topic: ["verbs", "introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Él es mi padre", en: "He is my father", topic: ["verbs", "family"], type: "sentence", grammar: ["ser"] },
+      { es: "Ella es mi hermana", en: "She is my sister", topic: ["verbs", "family"], type: "sentence", grammar: ["ser"] },
+      { es: "Nosotros somos amigos", en: "We are friends", topic: ["verbs", "introductions"], type: "sentence", grammar: ["ser"] },
+      { es: "Vosotros sois estudiantes de español", en: "You (plural) are Spanish students", topic: ["verbs", "jobs"], type: "sentence", grammar: ["ser"] },
+      { es: "Ellos son mis padres", en: "They are my parents", topic: ["verbs", "family"], type: "sentence", grammar: ["ser"] },
+
+      // Verb practice: tener
+      { es: "Yo tengo dos hermanos", en: "I have two brothers", topic: ["verbs", "family"], type: "sentence", grammar: ["tener"] },
+      { es: "Tú tienes un perro", en: "You have a dog", topic: ["verbs", "pets"], type: "sentence", grammar: ["tener"] },
+      { es: "Él tiene tres hijos", en: "He has three children", topic: ["verbs", "family"], type: "sentence", grammar: ["tener"] },
+      { es: "Ella tiene una casa en Inglaterra", en: "She has a house in England", topic: ["verbs", "places"], type: "sentence", grammar: ["tener"] },
+      { es: "Nosotros tenemos una casa pequeña", en: "We have a small house", topic: ["verbs", "family"], type: "sentence", grammar: ["tener"] },
+      { es: "Vosotros tenéis un coche rojo", en: "You (plural) have a red car", topic: ["verbs"], type: "sentence", grammar: ["tener"] },
+      { es: "Ellos tienen muchos amigos", en: "They have many friends", topic: ["verbs", "introductions"], type: "sentence", grammar: ["tener"] },
+
+      // Verb practice: llamarse
+      { es: "Yo me llamo Jason", en: "My name is Jason", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Tú te llamas Laura", en: "Your name is Laura", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Él se llama Ben", en: "His name is Ben", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Ella se llama Marta", en: "Her name is Marta", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Nosotros nos llamamos Ben y Laura", en: "We are called Ben and Laura", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Vosotros os llamáis Ana y Jorge", en: "You (plural) are called Ana and Jorge", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+      { es: "Ellos se llaman Luis y Carlos", en: "They are called Luis and Carlos", topic: ["verbs", "introductions"], type: "sentence", grammar: ["llamarse"] },
+
+      // Verb practice: comer
+      { es: "Yo como pan", en: "I eat bread", topic: ["verbs", "food"], type: "sentence", grammar: ["comer"] },
+      { es: "Tú comes manzana", en: "You eat apple", topic: ["verbs", "food"], type: "sentence", grammar: ["comer"] },
+      { es: "Él come carne", en: "He eats meat", topic: ["verbs", "food"], type: "sentence", grammar: ["comer"] },
+      { es: "Ella come queso", en: "She eats cheese", topic: ["verbs", "food"], type: "sentence", grammar: ["comer"] },
+      { es: "Nosotros comemos manzana y pan", en: "We eat apple and bread", topic: ["verbs", "food"], type: "sentence", grammar: ["comer"] },
+      { es: "Vosotros coméis hamburguesa", en: "You (plural) eat hamburger", topic: ["verbs", "food"], type: "sentence", grammar: ["comer"] },
+      { es: "Ellos comen carne y queso", en: "They eat meat and cheese", topic: ["verbs", "food"], type: "sentence", grammar: ["comer"] },
+
+      // Verb practice: beber
+      { es: "Yo bebo agua", en: "I drink water", topic: ["verbs", "food"], type: "sentence", grammar: ["beber"] },
+      { es: "Tú bebes leche", en: "You drink milk", topic: ["verbs", "food"], type: "sentence", grammar: ["beber"] },
+      { es: "Él bebe agua", en: "He drinks water", topic: ["verbs", "food"], type: "sentence", grammar: ["beber"] },
+      { es: "Ella bebe leche", en: "She drinks milk", topic: ["verbs", "food"], type: "sentence", grammar: ["beber"] },
+      { es: "Nosotros bebemos agua en el restaurante", en: "We drink water in the restaurant", topic: ["verbs", "food", "places"], type: "sentence", grammar: ["beber"] },
+      { es: "Vosotros bebéis leche", en: "You (plural) drink milk", topic: ["verbs", "food"], type: "sentence", grammar: ["beber"] },
+      { es: "Ellos beben agua y leche", en: "They drink water and milk", topic: ["verbs", "food"], type: "sentence", grammar: ["beber"] },
+
+      // Verb practice: necesitar
+      { es: "Yo necesito dinero", en: "I need money", topic: ["verbs", "places"], type: "sentence", grammar: ["necesitar"] },
+      { es: "Tú necesitas un taxi", en: "You need a taxi", topic: ["verbs", "places"], type: "sentence", grammar: ["necesitar"] },
+      { es: "Él necesita una reserva", en: "He needs a reservation", topic: ["verbs", "places"], type: "sentence", grammar: ["necesitar"] },
+      { es: "Ella necesita un boleto", en: "She needs a ticket", topic: ["verbs", "places"], type: "sentence", grammar: ["necesitar"] },
+      { es: "Nosotros necesitamos una mesa para cuatro personas", en: "We need a table for four people", topic: ["verbs", "places", "food", "numbers"], type: "sentence", grammar: ["necesitar"] },
+      { es: "Vosotros necesitáis dinero", en: "You (plural) need money", topic: ["verbs", "places"], type: "sentence", grammar: ["necesitar"] },
+      { es: "Ellos necesitan un hotel en Inglaterra", en: "They need a hotel in England", topic: ["verbs", "places"], type: "sentence", grammar: ["necesitar"] },
+
       // --- PEOPLE / SIMPLE SENTENCES ---------------------------
       { es: "niño", en: "boy", topic: ["introductions"], type: "single-word", grammar: [] },
       { es: "hombre", en: "man", topic: ["introductions"], type: "single-word", grammar: [] },
@@ -925,6 +985,76 @@
       { es: "diciembre", en: "December", topic: ["months"], type: "single-word", grammar: [] }
     ];
 
+    // === NORMALISE TO NEW DATA MODEL ==========================
+    flashcards.forEach((card, index) => {
+      // topics
+      if (!Array.isArray(card.topics)) {
+        if (Array.isArray(card.topic)) {
+          card.topics = card.topic.slice();
+        } else if (typeof card.topic === "string") {
+          card.topics = [card.topic];
+        } else {
+          card.topics = [];
+        }
+      }
+
+      // cardType
+      if (!card.cardType) {
+        if (card.type === "single-word") {
+          card.cardType = "word";
+        } else {
+          card.cardType = "sentence";
+        }
+      }
+
+      // grammarPoints
+      if (!Array.isArray(card.grammarPoints)) {
+        if (Array.isArray(card.grammar)) {
+          card.grammarPoints = card.grammar.slice();
+        } else {
+          card.grammarPoints = [];
+        }
+      }
+
+      // auto-assign verb topics from grammarPoints
+      if (card.grammarPoints.length) {
+        if (!card.topics.includes("verbs")) card.topics.push("verbs");
+        if (card.grammarPoints.includes("ser") && !card.topics.includes("verb_ser")) {
+          card.topics.push("verb_ser");
+        }
+        if (card.grammarPoints.includes("tener") && !card.topics.includes("verb_tener")) {
+          card.topics.push("verb_tener");
+        }
+        if (card.grammarPoints.includes("llamarse") && !card.topics.includes("verb_llamarse")) {
+          card.topics.push("verb_llamarse");
+        }
+        if (card.grammarPoints.includes("comer") && !card.topics.includes("verb_comer")) {
+          card.topics.push("verb_comer");
+        }
+        if (card.grammarPoints.includes("beber") && !card.topics.includes("verb_beber")) {
+          card.topics.push("verb_beber");
+        }
+        if (card.grammarPoints.includes("necesitar") && !card.topics.includes("verb_necesitar")) {
+          card.topics.push("verb_necesitar");
+        }
+      }
+
+      // difficulty: 3 if tagged "hard", else 1
+      if (card.difficulty == null) {
+        card.difficulty = card.topics.includes("hard") ? 3 : 1;
+      }
+
+      // lesson placeholder
+      if (card.lesson === undefined) {
+        card.lesson = null;
+      }
+
+      // stable id
+      if (!card.id) {
+        card.id = "card_" + index;
+      }
+    });
+
     // === STATE =================================================
     let selectedTopic = "all";
     let selectedFocus = "all";
@@ -940,7 +1070,9 @@
 
     let correctCount = 0;
     let incorrectCount = 0;
-    let isShowingAnswer = false;
+
+    let hasSeenAnswer = false;
+    let isBackSide = false;
 
     let currentFrontText = "";
     let currentBackText = "";
@@ -1012,16 +1144,16 @@
       return checked ? checked.value : "es-en";
     }
 
-    function cardMatchesTopic(card, topic) {
-      if (topic === "all") return true;
-      return card.topic && card.topic.includes(topic);
+    function cardMatchesTopic(card, topicId) {
+      if (topicId === "all") return true;
+      return Array.isArray(card.topics) && card.topics.includes(topicId);
     }
 
     function cardMatchesFocus(card, focus) {
       if (focus === "all") return true;
-      if (focus === "words") return card.type === "single-word";
-      if (focus === "sentences") return card.type !== "single-word";
-      if (focus === "grammar") return card.grammar && card.grammar.length > 0;
+      if (focus === "words") return card.cardType === "word";
+      if (focus === "sentences") return card.cardType === "sentence";
+      if (focus === "grammar") return card.grammarPoints && card.grammarPoints.length > 0;
       return true;
     }
 
@@ -1047,10 +1179,12 @@
         showAnswerBtn.disabled = true;
         correctBtn.disabled = true;
         incorrectBtn.disabled = true;
-        isShowingAnswer = false;
+        hasSeenAnswer = false;
+        isBackSide = false;
         cardEl.classList.remove("flipped");
         cardEl.classList.remove("missed");
         if (cardBadgeEl) cardBadgeEl.textContent = "";
+        updateDeckInfo();
         return;
       }
 
@@ -1080,7 +1214,7 @@
       questionEl.innerHTML = frontHTML;
       answerEl.textContent = "";
 
-      // Badge: mark long / challenging fronts
+      // Badge for challenge cards (long fronts)
       if (cardBadgeEl) {
         const raw = currentFrontText.replace(/[¿?¡!,.:;]/g, "");
         const wordCount = raw
@@ -1090,7 +1224,9 @@
         cardBadgeEl.textContent = wordCount > 7 ? "Challenge card!" : "";
       }
 
-      isShowingAnswer = false;
+      hasSeenAnswer = false;
+      isBackSide = false;
+
       cardEl.classList.remove("flipped");
       cardEl.classList.toggle("missed", phase === "missed");
       showAnswerBtn.disabled = false;
@@ -1103,37 +1239,55 @@
     }
 
     function showAnswer() {
-      if (sessionComplete || isShowingAnswer) return;
+      if (sessionComplete) return;
 
       const card = getCurrentCard();
       if (!card) return;
 
-      isShowingAnswer = true;
+      // First time: show the answer and enable rating
+      if (!hasSeenAnswer) {
+        hasSeenAnswer = true;
+        isBackSide = true;
 
-      const mode = getCurrentMode();
-      let spanishOnBack;
+        const mode = getCurrentMode();
+        let spanishOnBack;
 
-      if (mode === "es-en") {
-        spanishOnBack = false;
-      } else if (mode === "en-es") {
-        spanishOnBack = true;
-      } else {
-        spanishOnBack = currentBackText === card.es;
+        if (mode === "es-en") {
+          spanishOnBack = false;
+        } else if (mode === "en-es") {
+          spanishOnBack = true;
+        } else {
+          spanishOnBack = currentBackText === card.es;
+        }
+
+        const backHTML = renderSideHTML(currentBackText, card, spanishOnBack);
+        answerEl.innerHTML = backHTML;
+
+        cardEl.classList.add("flipped");
+        showAnswerBtn.textContent = "Show question";
+
+        correctBtn.disabled = false;
+        incorrectBtn.disabled = false;
+        return;
       }
 
-      const backHTML = renderSideHTML(currentBackText, card, spanishOnBack);
-      answerEl.innerHTML = backHTML;
-
-      cardEl.classList.add("flipped");
-      showAnswerBtn.disabled = true;
-
-      correctBtn.disabled = false;
-      incorrectBtn.disabled = false;
+      // After that: just toggle front/back, without changing score state
+      if (isBackSide) {
+        cardEl.classList.remove("flipped");
+        isBackSide = false;
+        showAnswerBtn.textContent = "Show answer";
+      } else {
+        cardEl.classList.add("flipped");
+        isBackSide = true;
+        showAnswerBtn.textContent = "Show question";
+      }
     }
 
     function finishSession() {
       sessionComplete = true;
-      isShowingAnswer = false;
+      hasSeenAnswer = false;
+      isBackSide = false;
+
       cardEl.classList.remove("flipped");
       cardEl.classList.remove("missed");
 
@@ -1160,7 +1314,7 @@
     }
 
     function handleResult(isCorrect) {
-      if (!isShowingAnswer || sessionComplete) return;
+      if (!hasSeenAnswer || sessionComplete) return;
 
       const card = getCurrentCard();
       if (!card) {
@@ -1234,7 +1388,8 @@
       correctCount = 0;
       incorrectCount = 0;
       sessionComplete = false;
-      isShowingAnswer = false;
+      hasSeenAnswer = false;
+      isBackSide = false;
 
       updateScore();
 
@@ -1261,7 +1416,7 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === " " || e.code === "Space") {
         e.preventDefault();
-        if (!sessionComplete && !isShowingAnswer) showAnswer();
+        if (!sessionComplete) showAnswer();
       } else if (e.key === "ArrowRight") {
         handleResult(true);
       } else if (e.key === "ArrowLeft") {
