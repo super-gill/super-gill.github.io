@@ -1087,7 +1087,6 @@
       },
 
       // --- NUMBERS & AGE --------------------------------------
-      // 1–20
       {
         es: "uno",
         en: "one",
@@ -1228,8 +1227,6 @@
         subtopic: "numbers",
         difficulty: "easy"
       },
-
-      // Tens 10–100
       {
         es: "treinta",
         en: "thirty",
@@ -1286,8 +1283,6 @@
         subtopic: "tens",
         difficulty: "easy"
       },
-
-      // Tens + units examples
       {
         es: "veintidós",
         en: "twenty-two",
@@ -1337,8 +1332,6 @@
         subtopic: "combined",
         difficulty: "medium"
       },
-
-      // Age sentences
       {
         es: "¿Cuántos años tienes?",
         en: "How old are you?",
@@ -3003,6 +2996,7 @@
       showAnswerBtn.disabled = true;
       correctBtn.disabled = true;
       incorrectBtn.disabled = true;
+      showAnswerBtn.textContent = "Show answer";
 
       showMessage("Deck complete. All cards answered. Choose another deck or difficulty.", 4000);
     }
@@ -3019,6 +3013,7 @@
         isShowingAnswer = false;
         cardEl.classList.remove("flipped");
         cardEl.classList.remove("review-mode");
+        showAnswerBtn.textContent = "Show answer";
         updateRemaining();
         return;
       }
@@ -3050,6 +3045,7 @@
 
       isShowingAnswer = false;
       cardEl.classList.remove("flipped");
+      showAnswerBtn.textContent = "Show answer";
 
       if (inMissedPhase) {
         cardEl.classList.add("review-mode");
@@ -3065,16 +3061,27 @@
       updateRemaining();
     }
 
-    function showAnswer() {
-      if (isShowingAnswer || !currentDeckCards.length) return;
-      isShowingAnswer = true;
+    // Toggle card front/back
+    function toggleAnswer() {
+      if (!currentDeckCards.length) return;
 
-      answerEl.textContent = currentBackText;
-      cardEl.classList.add("flipped");
-      showAnswerBtn.disabled = true;
-
-      correctBtn.disabled = false;
-      incorrectBtn.disabled = false;
+      // If currently showing front, show answer
+      if (!isShowingAnswer) {
+        isShowingAnswer = true;
+        answerEl.textContent = currentBackText;
+        cardEl.classList.add("flipped");
+        showAnswerBtn.textContent = "Hide answer";
+        correctBtn.disabled = false;
+        incorrectBtn.disabled = false;
+      } else {
+        // Hide answer and show question again
+        isShowingAnswer = false;
+        cardEl.classList.remove("flipped");
+        answerEl.textContent = "";
+        showAnswerBtn.textContent = "Show answer";
+        correctBtn.disabled = true;
+        incorrectBtn.disabled = true;
+      }
     }
 
     function goToNextCard() {
@@ -3161,14 +3168,14 @@
     }
 
     // === EVENT LISTENERS =======================================
-    showAnswerBtn.addEventListener("click", showAnswer);
+    showAnswerBtn.addEventListener("click", toggleAnswer);
     correctBtn.addEventListener("click", () => handleResult(true));
     incorrectBtn.addEventListener("click", () => handleResult(false));
 
     document.addEventListener("keydown", (e) => {
       if (e.key === " " || e.code === "Space") {
         e.preventDefault();
-        if (!isShowingAnswer) showAnswer();
+        toggleAnswer();
       } else if (e.key === "ArrowRight") {
         handleResult(true);
       } else if (e.key === "ArrowLeft") {
