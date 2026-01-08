@@ -15,24 +15,25 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
       background: #f4f4f4;
       color: #222;
     }
 
     .app {
       width: 100%;
-      max-width: 600px;
+      max-width: 520px;
       padding: 1.5rem;
     }
 
     .app-header {
       text-align: center;
-      margin-bottom: 0.75rem;
+      margin-bottom: 1rem;
     }
 
     .app-header h1 {
-      font-size: 1.6rem;
+      font-size: 1.4rem;
       margin: 0 0 0.25rem;
       font-weight: 600;
     }
@@ -43,80 +44,70 @@
       color: #666;
     }
 
-    .controls-row {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      margin: 0.5rem 0;
-      font-size: 0.85rem;
-    }
-
-    .control-group {
+    /* Deck selector */
+    .deck-select {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
+      justify-content: center;
       align-items: center;
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
     }
 
-    .control-group label,
-    .control-group span {
+    .deck-select label {
       font-weight: 500;
-      white-space: nowrap;
     }
 
-    select {
-      padding: 0.35rem 0.7rem;
+    .deck-select select {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.4rem 0.8rem;
       border-radius: 999px;
       border: 1px solid #ddd;
       font-size: 0.9rem;
       background: #fff;
-      flex: 1;
-      min-width: 170px;
     }
 
-    .pill-group {
-      display: inline-flex;
+    /* Difficulty pills */
+    .difficulty-select {
+      display: flex;
       flex-wrap: wrap;
-      gap: 0.35rem;
-    }
-
-    .pill-group button {
-      border-radius: 999px;
-      border: none;
-      padding: 0.3rem 0.8rem;
+      gap: 0.4rem;
+      justify-content: center;
+      margin-bottom: 0.5rem;
       font-size: 0.8rem;
-      cursor: pointer;
-      background: #eee;
-      color: #444;
-      transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
     }
 
-    .pill-group button.active {
-      background: #222;
-      color: #fff;
+    .difficulty-select button {
+      padding: 0.3rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      background: #fff;
+      box-shadow: none;
+      font-size: 0.8rem;
     }
 
-    .pill-group button:active {
-      transform: translateY(1px) scale(0.98);
+    .difficulty-select button.active {
+      background: #e3f2fd;
+      border-color: #90caf9;
+      font-weight: 600;
     }
 
     .mode-select {
       display: flex;
-      justify-content: center;
+      flex-wrap: wrap;
       gap: 0.75rem;
+      justify-content: center;
+      align-items: center;
       font-size: 0.85rem;
-      margin: 0.35rem 0 0.8rem;
+      margin-bottom: 0.75rem;
     }
 
     .mode-select label {
       display: inline-flex;
       align-items: center;
       gap: 0.25rem;
-      cursor: pointer;
-    }
-
-    .mode-select input {
-      accent-color: #ff9800;
     }
 
     .card-wrapper {
@@ -128,7 +119,7 @@
       position: relative;
       width: 100%;
       height: 220px;
-      border-radius: 18px;
+      border-radius: 16px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
       overflow: hidden;
       transform-style: preserve-3d;
@@ -166,6 +157,11 @@
       transform: rotateY(180deg);
     }
 
+    /* Review (missed cards) mode: front turns washed-out red */
+    .card.review-mode .card-face.front {
+      background: #ffebee;
+    }
+
     .card-text {
       font-size: 1.5rem;
       text-align: center;
@@ -183,9 +179,8 @@
     .controls {
       display: flex;
       flex-direction: column;
-      gap: 0.6rem;
+      gap: 0.5rem;
       align-items: center;
-      margin-top: 0.25rem;
     }
 
     .primary-actions {
@@ -271,10 +266,11 @@
       font-weight: 600;
     }
 
-    .card-counter {
+    .remaining {
       font-size: 0.8rem;
       color: #777;
       text-align: center;
+      min-height: 1.1em;
     }
 
     .message {
@@ -289,6 +285,7 @@
       .card {
         height: 200px;
       }
+
       .card-text {
         font-size: 1.3rem;
       }
@@ -302,80 +299,51 @@
       <p>Flip the card, then mark if you got it right or wrong.</p>
     </header>
 
-    <!-- Topic selector -->
-    <div class="controls-row">
-      <div class="control-group">
-        <label for="topic-select">Topic:</label>
-        <select id="topic-select">
-          <option value="all">All topics (mixed)</option>
-          <option value="greetings">Greetings &amp; small talk</option>
-          <option value="introductions">Introductions &amp; personal info</option>
-          <option value="family">Family &amp; relatives</option>
-          <option value="numbers">Numbers &amp; decimals</option>
-          <option value="foodDrink">Food &amp; drink</option>
-          <option value="placesTravel">Places &amp; travel</option>
-          <option value="pets">Pets</option>
-          <option value="jobs">Jobs</option>
-          <option value="monthsDays">Months &amp; days</option>
-          <option value="gender">Gender &amp; plurals</option>
-
-          <option value="verbs_all">All verbs (mixed)</option>
-          <option value="verb_ser">Verb: ser</option>
-          <option value="verb_estar">Verb: estar</option>
-          <option value="verb_tener">Verb: tener</option>
-          <option value="verb_llamarse">Verb: llamarse</option>
-          <option value="verb_comer">Verb: comer</option>
-          <option value="verb_beber">Verb: beber</option>
-          <option value="verb_necesitar">Verb: necesitar</option>
-          <option value="verb_gustar">Verb: gustar</option>
-
-          <option value="challenges">Challenge mix (hard)</option>
-        </select>
-      </div>
+    <!-- Deck selection -->
+    <div class="deck-select">
+      <label for="deck-select">Deck:</label>
+      <select id="deck-select">
+        <option value="all">All topics (mixed)</option>
+        <option value="introductions">Introductions &amp; greetings</option>
+        <option value="origins">Countries &amp; origin</option>
+        <option value="jobs">Jobs &amp; work</option>
+        <option value="numbers">Numbers &amp; age</option>
+        <option value="months">Months &amp; dates</option>
+        <option value="days">Days of the week</option>
+        <option value="ser">Verb: ser (to be)</option>
+        <option value="tener">Verb: tener (to have)</option>
+        <option value="llamarse">Verb: llamarse (to be called)</option>
+        <option value="family">Family</option>
+        <option value="pets">Pets &amp; animals</option>
+        <option value="gustar">Verb: gustar (to like)</option>
+        <option value="gender">Gender &amp; articles</option>
+      </select>
     </div>
 
-    <!-- Difficulty -->
-    <div class="controls-row">
-      <div class="control-group">
-        <span>Difficulty:</span>
-        <div class="pill-group" id="difficulty-group">
-          <button type="button" class="active" data-difficulty="all">All levels</button>
-          <button type="button" data-difficulty="easy">Easy</button>
-          <button type="button" data-difficulty="medium">Medium</button>
-          <button type="button" data-difficulty="hard">Hard</button>
-        </div>
-      </div>
+    <!-- Difficulty filter -->
+    <div class="difficulty-select">
+      <button class="diff-btn active" data-diff="all">All levels</button>
+      <button class="diff-btn" data-diff="easy">Easy</button>
+      <button class="diff-btn" data-diff="medium">Medium</button>
+      <button class="diff-btn" data-diff="hard">Hard</button>
     </div>
 
-    <!-- Card type -->
-    <div class="controls-row">
-      <div class="control-group">
-        <span>Card type:</span>
-        <div class="pill-group" id="cardtype-group">
-          <button type="button" class="active" data-cardtype="both">Words + sentences</button>
-          <button type="button" data-cardtype="words">Words only</button>
-          <button type="button" data-cardtype="sentences">Sentences only</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Direction mode -->
+    <!-- Direction selection -->
     <div class="mode-select">
       <label>
-        <input type="radio" name="direction-mode" value="es-en" checked />
+        <input type="radio" name="direction-mode" value="es-en" checked>
         🇪🇸 → 🇬🇧
       </label>
       <label>
-        <input type="radio" name="direction-mode" value="en-es" />
+        <input type="radio" name="direction-mode" value="en-es">
         🇬🇧 → 🇪🇸
       </label>
       <label>
-        <input type="radio" name="direction-mode" value="random" />
+        <input type="radio" name="direction-mode" value="random">
         🇪🇸 🎲 🇬🇧
       </label>
     </div>
 
-    <!-- Card -->
     <div class="card-wrapper" aria-live="polite">
       <div class="card" id="card">
         <div class="card-inner">
@@ -391,13 +359,14 @@
 
     <div class="direction-hint" id="direction-hint"></div>
 
-    <!-- Controls under card -->
     <div class="controls">
       <div class="primary-actions">
-        <button id="show-answer-btn" class="btn-show">Show answer</button>
+        <button id="show-answer-btn" class="btn-show">
+          Show answer
+        </button>
       </div>
 
-      <div class="rating">
+      <div class="rating" id="rating-buttons">
         <button id="correct-btn" class="btn-correct">
           <span>I got it</span>
         </button>
@@ -409,449 +378,2541 @@
       <div class="score" id="score">
         Correct: <strong>0</strong> · Incorrect: <strong>0</strong>
       </div>
-      <div class="card-counter" id="card-counter">Card 0 of 0</div>
+      <div class="remaining" id="remaining"></div>
       <div class="message" id="message"></div>
     </div>
   </div>
 
   <script>
-    // ================== DATA ====================================
-    // type: "word" | "sentence" | "challenge"
-    // difficulty: "easy" | "medium" | "hard"
-    // topics: array of strings like "greetings", "verbs", "verb_ser", etc.
+    // === MASTER FLASHCARD DATA =================================
 
     const flashcards = [
-      // --- GREETINGS & SMALL TALK --------------------------------
-      { es: "Hola", en: "Hello", topics: ["greetings"], type: "word", difficulty: "easy" },
-      { es: "Buenos días", en: "Good morning", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "Buenas tardes", en: "Good afternoon", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "Buenas noches", en: "Good night", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "¿Qué tal?", en: "How's it going?", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "¿Cómo estás?", en: "How are you?", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "Estoy bien", en: "I'm fine", topics: ["greetings", "verbs", "verb_estar"], type: "sentence", difficulty: "easy" },
-      { es: "Más o menos", en: "So-so", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "Gracias", en: "Thank you", topics: ["greetings"], type: "word", difficulty: "easy" },
-      { es: "Muchas gracias", en: "Thank you very much", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "De nada", en: "You're welcome", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "Por favor", en: "Please", topics: ["greetings"], type: "word", difficulty: "easy" },
-      { es: "Perdón", en: "Sorry / excuse me", topics: ["greetings"], type: "word", difficulty: "easy" },
-      { es: "Lo siento", en: "I'm sorry", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "Hasta luego", en: "See you later", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "Hasta mañana", en: "See you tomorrow", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "Adiós", en: "Goodbye", topics: ["greetings"], type: "word", difficulty: "easy" },
-      { es: "Está bien", en: "It's okay", topics: ["greetings", "verbs", "verb_estar"], type: "sentence", difficulty: "easy" },
-      { es: "Muy bien", en: "Very good", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "¡Qué bien!", en: "Great!", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "Mucho gusto", en: "Nice to meet you", topics: ["greetings"], type: "sentence", difficulty: "easy" },
-      { es: "disculpe", en: "excuse me", topics: ["greetings"], type: "word", difficulty: "easy" },
-
-      // --- INTRODUCTIONS & PERSONAL INFO -------------------------
-      { es: "¿Cómo te llamas?", en: "What is your name?", topics: ["introductions", "verbs", "verb_llamarse"], type: "sentence", difficulty: "easy" },
-      { es: "Me llamo Jason", en: "My name is Jason", topics: ["introductions", "verbs", "verb_llamarse"], type: "sentence", difficulty: "easy" },
-      { es: "Me llamo Laura", en: "My name is Laura", topics: ["introductions", "verbs", "verb_llamarse"], type: "sentence", difficulty: "easy" },
-      { es: "Me llamo Ben", en: "My name is Ben", topics: ["introductions", "verbs", "verb_llamarse"], type: "sentence", difficulty: "easy" },
-      { es: "Soy Jason", en: "I am Jason", topics: ["introductions", "verbs", "verb_ser"], type: "sentence", difficulty: "easy" },
-      { es: "Soy de Inglaterra", en: "I am from England", topics: ["introductions", "verbs", "verb_ser"], type: "sentence", difficulty: "easy" },
-      { es: "Soy de Irlanda", en: "I am from Ireland", topics: ["introductions", "verbs", "verb_ser"], type: "sentence", difficulty: "easy" },
-      { es: "Soy de Escocia", en: "I am from Scotland", topics: ["introductions", "verbs", "verb_ser"], type: "sentence", difficulty: "easy" },
-      { es: "¿De dónde eres?", en: "Where are you from?", topics: ["introductions"], type: "sentence", difficulty: "easy" },
-      { es: "¿Dónde vives?", en: "Where do you live?", topics: ["introductions", "places"], type: "sentence", difficulty: "medium" },
-      { es: "Vivo en Milton Keynes", en: "I live in Milton Keynes", topics: ["introductions", "places"], type: "sentence", difficulty: "medium" },
-      { es: "Vivo en Londres", en: "I live in London", topics: ["introductions", "places"], type: "sentence", difficulty: "medium" },
-      { es: "Hablo un poco de español", en: "I speak a little Spanish", topics: ["introductions"], type: "sentence", difficulty: "medium" },
-      { es: "¿Hablas inglés?", en: "Do you speak English?", topics: ["introductions"], type: "sentence", difficulty: "medium" },
-      { es: "No entiendo", en: "I don't understand", topics: ["introductions"], type: "sentence", difficulty: "easy" },
-      { es: "Entiendo", en: "I understand", topics: ["introductions"], type: "sentence", difficulty: "easy" },
-      { es: "¿Puedes repetir, por favor?", en: "Can you repeat, please?", topics: ["introductions"], type: "sentence", difficulty: "medium" },
-      { es: "¿Por qué no?", en: "Why not?", topics: ["introductions"], type: "sentence", difficulty: "medium" },
-
-      // --- FAMILY ------------------------------------------------
-      { es: "madre", en: "mother", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "padre", en: "father", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "hijo", en: "son", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "hija", en: "daughter", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "hermano", en: "brother", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "hermana", en: "sister", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "abuelo", en: "grandfather", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "abuela", en: "grandmother", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "tío", en: "uncle", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "tía", en: "aunt", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "primo", en: "cousin (male)", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "prima", en: "cousin (female)", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "esposo", en: "husband", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "esposa", en: "wife", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "novio", en: "boyfriend", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "novia", en: "girlfriend", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "padres", en: "parents", topics: ["family"], type: "word", difficulty: "easy" },
-      { es: "familia", en: "family", topics: ["family"], type: "word", difficulty: "easy" },
-
-      { es: "Mi madre se llama Laura", en: "My mother's name is Laura", topics: ["family", "verbs", "verb_llamarse"], type: "sentence", difficulty: "medium" },
-      { es: "Mi padre se llama Ben", en: "My father's name is Ben", topics: ["family", "verbs", "verb_llamarse"], type: "sentence", difficulty: "medium" },
-      { es: "Tengo un hermano menor", en: "I have a younger brother", topics: ["family", "verbs", "verb_tener"], type: "sentence", difficulty: "medium" },
-      { es: "Tengo una hermana mayor", en: "I have an older sister", topics: ["family", "verbs", "verb_tener"], type: "sentence", difficulty: "medium" },
-      { es: "Mi abuela vive en España", en: "My grandmother lives in Spain", topics: ["family"], type: "sentence", difficulty: "medium" },
-      { es: "Mi familia es pequeña", en: "My family is small", topics: ["family", "verbs", "verb_ser"], type: "sentence", difficulty: "medium" },
-      { es: "Mi familia es grande", en: "My family is big", topics: ["family", "verbs", "verb_ser"], type: "sentence", difficulty: "medium" },
-
-      // --- NUMBERS & DECIMALS -----------------------------------
-      { es: "uno", en: "one", topics: ["numbers"], type: "word", difficulty: "easy" },
-      { es: "dos", en: "two", topics: ["numbers"], type: "word", difficulty: "easy" },
-      { es: "tres", en: "three", topics: ["numbers"], type: "word", difficulty: "easy" },
-      { es: "diez", en: "ten", topics: ["numbers"], type: "word", difficulty: "easy" },
-      { es: "veinte", en: "twenty", topics: ["numbers"], type: "word", difficulty: "easy" },
-      { es: "treinta", en: "thirty", topics: ["numbers"], type: "word", difficulty: "easy" },
-      { es: "cuarenta", en: "forty", topics: ["numbers"], type: "word", difficulty: "easy" },
-      { es: "cincuenta", en: "fifty", topics: ["numbers"], type: "word", difficulty: "easy" },
-      { es: "sesenta", en: "sixty", topics: ["numbers"], type: "word", difficulty: "easy" },
-      { es: "sesenta y cinco", en: "sixty-five", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "cien", en: "one hundred", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "mil", en: "one thousand", topics: ["numbers"], type: "word", difficulty: "medium" },
-
-      { es: "cero coma cinco", en: "zero point five", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "uno coma cinco", en: "one point five", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "cero coma uno", en: "zero point one", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "cero coma dos", en: "zero point two", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "cero coma tres", en: "zero point three", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "uno coma dos", en: "one point two", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "uno coma tres", en: "one point three", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "dos coma cinco", en: "two point five", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "tres coma cinco", en: "three point five", topics: ["numbers"], type: "word", difficulty: "medium" },
-      { es: "diez coma cinco", en: "ten point five", topics: ["numbers"], type: "word", difficulty: "medium" },
-
-      // --- FOOD & DRINK -----------------------------------------
-      { es: "carne", en: "meat", topics: ["foodDrink"], type: "word", difficulty: "easy" },
-      { es: "queso", en: "cheese", topics: ["foodDrink"], type: "word", difficulty: "easy" },
-      { es: "pescado", en: "fish", topics: ["foodDrink"], type: "word", difficulty: "easy" },
-      { es: "sándwich", en: "sandwich", topics: ["foodDrink"], type: "word", difficulty: "easy" },
-      { es: "hamburguesa", en: "hamburger", topics: ["foodDrink"], type: "word", difficulty: "easy" },
-      { es: "agua", en: "water", topics: ["foodDrink"], type: "word", difficulty: "easy" },
-      { es: "leche", en: "milk", topics: ["foodDrink"], type: "word", difficulty: "easy" },
-      { es: "pan", en: "bread", topics: ["foodDrink"], type: "word", difficulty: "easy" },
-      { es: "manzana", en: "apple", topics: ["foodDrink"], type: "word", difficulty: "easy" },
-
-      { es: "Como carne", en: "I eat meat", topics: ["foodDrink", "verbs", "verb_comer"], type: "sentence", difficulty: "easy" },
-      { es: "Como queso", en: "I eat cheese", topics: ["foodDrink", "verbs", "verb_comer"], type: "sentence", difficulty: "easy" },
-      { es: "Como un sándwich", en: "I eat a sandwich", topics: ["foodDrink", "verbs", "verb_comer"], type: "sentence", difficulty: "easy" },
-      { es: "Como una hamburguesa", en: "I eat a hamburger", topics: ["foodDrink", "verbs", "verb_comer"], type: "sentence", difficulty: "easy" },
-      { es: "Bebo agua", en: "I drink water", topics: ["foodDrink", "verbs", "verb_beber"], type: "sentence", difficulty: "easy" },
-      { es: "Bebo leche", en: "I drink milk", topics: ["foodDrink", "verbs", "verb_beber"], type: "sentence", difficulty: "easy" },
-      { es: "Bebes agua", en: "You drink water", topics: ["foodDrink", "verbs", "verb_beber"], type: "sentence", difficulty: "easy" },
-      { es: "Bebe agua", en: "He / she drinks water", topics: ["foodDrink", "verbs", "verb_beber"], type: "sentence", difficulty: "easy" },
-
-      // --- PLACES & TRAVEL --------------------------------------
-      { es: "restaurante", en: "restaurant", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "supermercado", en: "supermarket", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "banco", en: "bank", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "calle", en: "street", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "baño", en: "bathroom", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "hospital", en: "hospital", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "museo", en: "museum", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "tren", en: "train", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "autobús", en: "bus", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "aeropuerto", en: "airport", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "hotel", en: "hotel", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "mesa", en: "table", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "persona", en: "person", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "personas", en: "people", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "maleta", en: "suitcase", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "pasaporte", en: "passport", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "boleto", en: "ticket", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "dinero", en: "money", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "taxi", en: "taxi", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "reserva", en: "reservation", topics: ["places"], type: "word", difficulty: "easy" },
-      { es: "ciudad", en: "city", topics: ["places"], type: "word", difficulty: "easy" },
-
-      { es: "Necesito un taxi", en: "I need a taxi", topics: ["places", "verbs", "verb_necesitar"], type: "sentence", difficulty: "easy" },
-      { es: "Necesito una mesa para dos personas", en: "I need a table for two people", topics: ["places", "foodDrink", "verbs", "verb_necesitar"], type: "sentence", difficulty: "medium" },
-      { es: "Necesito un boleto", en: "I need a ticket", topics: ["places", "verbs", "verb_necesitar"], type: "sentence", difficulty: "medium" },
-      { es: "Tengo un boleto", en: "I have a ticket", topics: ["places", "verbs", "verb_tener"], type: "sentence", difficulty: "easy" },
-      { es: "Tengo dinero", en: "I have money", topics: ["places", "verbs", "verb_tener"], type: "sentence", difficulty: "easy" },
-
-      // --- ESTAR: location sentences (now correctly tagged) -----
-      { es: "El restaurante está aquí", en: "The restaurant is here", topics: ["places", "verbs", "verb_estar"], type: "sentence", difficulty: "medium" },
-      { es: "El hotel está en esta calle", en: "The hotel is on this street", topics: ["places", "verbs", "verb_estar"], type: "sentence", difficulty: "medium" },
-      { es: "El supermercado está aquí", en: "The supermarket is here", topics: ["places", "verbs", "verb_estar"], type: "sentence", difficulty: "medium" },
-      { es: "El baño está en el restaurante", en: "The bathroom is in the restaurant", topics: ["places", "verbs", "verb_estar"], type: "sentence", difficulty: "medium" },
-      { es: "El museo está aquí", en: "The museum is here", topics: ["places", "verbs", "verb_estar"], type: "sentence", difficulty: "medium" },
-      { es: "El aeropuerto está aquí", en: "The airport is here", topics: ["places", "verbs", "verb_estar"], type: "sentence", difficulty: "medium" },
-      { es: "Mi maleta está en el hotel", en: "My suitcase is in the hotel", topics: ["places", "verbs", "verb_estar"], type: "sentence", difficulty: "medium" },
-      { es: "Mi pasaporte está en la maleta", en: "My passport is in the suitcase", topics: ["places", "verbs", "verb_estar"], type: "sentence", difficulty: "medium" },
-      { es: "Mi teléfono está en la maleta", en: "My phone is in the suitcase", topics: ["places", "verbs", "verb_estar"], type: "sentence", difficulty: "medium" },
-
-      // --- LITTLE CONNECTORS & PRONOUNS ------------------------
-      { es: "de", en: "of / from", topics: ["words"], type: "word", difficulty: "easy" },
-      { es: "con", en: "with", topics: ["words"], type: "word", difficulty: "easy" },
-      { es: "para", en: "for", topics: ["words"], type: "word", difficulty: "easy" },
-      { es: "en", en: "in / at", topics: ["words"], type: "word", difficulty: "easy" },
-      { es: "dónde", en: "where", topics: ["words"], type: "word", difficulty: "easy" },
-      { es: "aquí", en: "here", topics: ["words"], type: "word", difficulty: "easy" },
-      { es: "mi", en: "my", topics: ["words"], type: "word", difficulty: "easy" },
-      { es: "me", en: "me", topics: ["words"], type: "word", difficulty: "easy" },
-      { es: "teléfono", en: "telephone / phone", topics: ["words"], type: "word", difficulty: "easy" },
-
-      // --- PETS --------------------------------------------------
-      { es: "gato", en: "cat", topics: ["pets"], type: "word", difficulty: "easy" },
-      { es: "perro", en: "dog", topics: ["pets"], type: "word", difficulty: "easy" },
-      { es: "pez", en: "fish", topics: ["pets"], type: "word", difficulty: "easy" },
-      { es: "pájaro", en: "bird", topics: ["pets"], type: "word", difficulty: "easy" },
-      { es: "conejo", en: "rabbit", topics: ["pets"], type: "word", difficulty: "easy" },
-      { es: "serpiente", en: "snake", topics: ["pets"], type: "word", difficulty: "easy" },
-      { es: "hámster", en: "hamster", topics: ["pets"], type: "word", difficulty: "easy" },
-      { es: "cobaya", en: "guinea pig", topics: ["pets"], type: "word", difficulty: "easy" },
-      { es: "tortuga", en: "turtle", topics: ["pets"], type: "word", difficulty: "easy" },
-
-      { es: "¿Tienes mascotas?", en: "Do you have pets?", topics: ["pets", "verbs", "verb_tener"], type: "sentence", difficulty: "medium" },
-      { es: "Tengo un perro", en: "I have a dog", topics: ["pets", "verbs", "verb_tener"], type: "sentence", difficulty: "medium" },
-      { es: "Tengo un gato", en: "I have a cat", topics: ["pets", "verbs", "verb_tener"], type: "sentence", difficulty: "medium" },
-      { es: "Tengo una tortuga", en: "I have a turtle", topics: ["pets", "verbs", "verb_tener"], type: "sentence", difficulty: "medium" },
-
-      // --- JOBS --------------------------------------------------
-      { es: "gerente de IT", en: "IT manager", topics: ["jobs"], type: "word", difficulty: "medium" },
-      { es: "profesor de español", en: "Spanish teacher", topics: ["jobs"], type: "word", difficulty: "medium" },
-      { es: "enfermera", en: "nurse", topics: ["jobs"], type: "word", difficulty: "medium" },
-      { es: "cocinero", en: "cook / chef", topics: ["jobs"], type: "word", difficulty: "medium" },
-      { es: "panadero", en: "baker", topics: ["jobs"], type: "word", difficulty: "medium" },
-      { es: "camarero", en: "waiter", topics: ["jobs"], type: "word", difficulty: "medium" },
-      { es: "bombero", en: "firefighter", topics: ["jobs"], type: "word", difficulty: "medium" },
-      { es: "abogado", en: "lawyer", topics: ["jobs"], type: "word", difficulty: "medium" },
-      { es: "ingeniero", en: "engineer", topics: ["jobs"], type: "word", difficulty: "medium" },
-      { es: "conductor de autobús", en: "bus driver", topics: ["jobs"], type: "word", difficulty: "medium" },
-
-      { es: "Soy gerente de IT", en: "I am an IT manager", topics: ["jobs", "verbs", "verb_ser"], type: "sentence", difficulty: "medium" },
-      { es: "Soy profesor de español", en: "I am a Spanish teacher", topics: ["jobs", "verbs", "verb_ser"], type: "sentence", difficulty: "medium" },
-      { es: "Soy enfermera", en: "I am a nurse", topics: ["jobs", "verbs", "verb_ser"], type: "sentence", difficulty: "medium" },
-      { es: "Mi madre es enfermera", en: "My mother is a nurse", topics: ["family", "jobs", "verbs", "verb_ser"], type: "sentence", difficulty: "medium" },
-      { es: "Mi padre es cocinero", en: "My father is a cook", topics: ["family", "jobs", "verbs", "verb_ser"], type: "sentence", difficulty: "medium" },
-
-      // --- GENDER & PLURALS -------------------------------------
-      { es: "la silla", en: "the chair", topics: ["gender"], type: "word", difficulty: "easy" },
-      { es: "el vaso", en: "the glass", topics: ["gender"], type: "word", difficulty: "easy" },
-      { es: "la cama", en: "the bed", topics: ["gender"], type: "word", difficulty: "easy" },
-      { es: "el reloj", en: "the clock / watch", topics: ["gender"], type: "word", difficulty: "easy" },
-      { es: "el cajón", en: "the drawer", topics: ["gender"], type: "word", difficulty: "easy" },
-      { es: "la actualidad", en: "the present time / current events", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "el lápiz", en: "the pencil", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "la manzana", en: "the apple", topics: ["gender", "foodDrink"], type: "word", difficulty: "easy" },
-      { es: "la región", en: "the region", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "el hombre", en: "the man", topics: ["gender", "family"], type: "word", difficulty: "easy" },
-
-      { es: "los árboles", en: "the trees", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "las paredes", en: "the walls", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "los zapatos", en: "the shoes", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "los coches", en: "the cars", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "las casas", en: "the houses", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "los relojes", en: "the clocks / watches", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "los lápices", en: "the pencils", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "los limones", en: "the lemons", topics: ["gender"], type: "word", difficulty: "medium" },
-      { es: "las narices", en: "the noses", topics: ["gender"], type: "word", difficulty: "hard" },
-
-      // --- MONTHS & DAYS ----------------------------------------
-      { es: "enero", en: "January", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "febrero", en: "February", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "marzo", en: "March", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "abril", en: "April", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "mayo", en: "May", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "junio", en: "June", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "julio", en: "July", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "agosto", en: "August", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "septiembre", en: "September", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "octubre", en: "October", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "noviembre", en: "November", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "diciembre", en: "December", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-
-      { es: "lunes", en: "Monday", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "martes", en: "Tuesday", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "miércoles", en: "Wednesday", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "jueves", en: "Thursday", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "viernes", en: "Friday", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "sábado", en: "Saturday", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-      { es: "domingo", en: "Sunday", topics: ["monthsDays"], type: "word", difficulty: "easy" },
-
-      // --- VERB: SER --------------------------------------------
-      { es: "ser", en: "to be (identity / description)", topics: ["verbs", "verb_ser"], type: "word", difficulty: "medium" },
-      { es: "soy", en: "I am (ser)", topics: ["verbs", "verb_ser"], type: "word", difficulty: "easy" },
-      { es: "eres", en: "you are (ser)", topics: ["verbs", "verb_ser"], type: "word", difficulty: "easy" },
-      { es: "es", en: "he / she / it is (ser)", topics: ["verbs", "verb_ser"], type: "word", difficulty: "easy" },
-      { es: "somos", en: "we are (ser)", topics: ["verbs", "verb_ser"], type: "word", difficulty: "medium" },
-      { es: "sois", en: "you (plural) are (ser)", topics: ["verbs", "verb_ser"], type: "word", difficulty: "medium" },
-      { es: "son", en: "they are (ser)", topics: ["verbs", "verb_ser"], type: "word", difficulty: "medium" },
-
-      { es: "Soy un hombre", en: "I am a man", topics: ["verbs", "verb_ser", "family"], type: "sentence", difficulty: "easy" },
-      { es: "Soy una mujer", en: "I am a woman", topics: ["verbs", "verb_ser", "family"], type: "sentence", difficulty: "easy" },
-      { es: "Ella es enfermera", en: "She is a nurse", topics: ["verbs", "verb_ser", "jobs"], type: "sentence", difficulty: "medium" },
-
-      // --- VERB: ESTAR ------------------------------------------
-      { es: "estar", en: "to be (location / temporary state)", topics: ["verbs", "verb_estar"], type: "word", difficulty: "medium" },
-      { es: "estoy", en: "I am (estar)", topics: ["verbs", "verb_estar"], type: "word", difficulty: "easy" },
-      { es: "estás", en: "you are (estar)", topics: ["verbs", "verb_estar"], type: "word", difficulty: "easy" },
-      { es: "está", en: "he / she / it is (estar)", topics: ["verbs", "verb_estar"], type: "word", difficulty: "easy" },
-      { es: "estamos", en: "we are (estar)", topics: ["verbs", "verb_estar"], type: "word", difficulty: "medium" },
-      { es: "estáis", en: "you (plural) are (estar)", topics: ["verbs", "verb_estar"], type: "word", difficulty: "medium" },
-      { es: "están", en: "they are (estar)", topics: ["verbs", "verb_estar"], type: "word", difficulty: "medium" },
-
-      { es: "Estoy en el hotel", en: "I am in the hotel", topics: ["verbs", "verb_estar", "places"], type: "sentence", difficulty: "medium" },
-      { es: "Estás en el restaurante", en: "You are in the restaurant", topics: ["verbs", "verb_estar", "places"], type: "sentence", difficulty: "medium" },
-      { es: "Estamos en el supermercado", en: "We are in the supermarket", topics: ["verbs", "verb_estar", "places"], type: "sentence", difficulty: "medium" },
-      { es: "Mi familia está en Inglaterra", en: "My family is in England", topics: ["verbs", "verb_estar", "family", "places"], type: "sentence", difficulty: "medium" },
-
-      // --- VERB: TENER ------------------------------------------
-      { es: "tener", en: "to have", topics: ["verbs", "verb_tener"], type: "word", difficulty: "medium" },
-      { es: "tengo", en: "I have", topics: ["verbs", "verb_tener"], type: "word", difficulty: "easy" },
-      { es: "tienes", en: "you have", topics: ["verbs", "verb_tener"], type: "word", difficulty: "easy" },
-      { es: "tiene", en: "he / she / it has", topics: ["verbs", "verb_tener"], type: "word", difficulty: "easy" },
-      { es: "tenemos", en: "we have", topics: ["verbs", "verb_tener"], type: "word", difficulty: "medium" },
-      { es: "tenéis", en: "you (plural) have", topics: ["verbs", "verb_tener"], type: "word", difficulty: "medium" },
-      { es: "tienen", en: "they have", topics: ["verbs", "verb_tener"], type: "word", difficulty: "medium" },
-
-      { es: "Tengo un coche", en: "I have a car", topics: ["verbs", "verb_tener"], type: "sentence", difficulty: "easy" },
-      { es: "No tengo coche", en: "I don't have a car", topics: ["verbs", "verb_tener"], type: "sentence", difficulty: "easy" },
-      { es: "Tengo una casa", en: "I have a house", topics: ["verbs", "verb_tener"], type: "sentence", difficulty: "easy" },
-      { es: "Tengo dos amigos", en: "I have two friends", topics: ["verbs", "verb_tener", "family"], type: "sentence", difficulty: "medium" },
-      { es: "Tengo hambre", en: "I am hungry", topics: ["verbs", "verb_tener"], type: "sentence", difficulty: "easy" },
-      { es: "Tengo sed", en: "I am thirsty", topics: ["verbs", "verb_tener"], type: "sentence", difficulty: "easy" },
-      { es: "Tengo frío", en: "I am cold", topics: ["verbs", "verb_tener"], type: "sentence", difficulty: "easy" },
-      { es: "Tengo calor", en: "I am hot", topics: ["verbs", "verb_tener"], type: "sentence", difficulty: "easy" },
-      { es: "Tengo sueño", en: "I am sleepy", topics: ["verbs", "verb_tener"], type: "sentence", difficulty: "easy" },
-      { es: "Tengo miedo de las arañas", en: "I am afraid of spiders", topics: ["verbs", "verb_tener"], type: "sentence", difficulty: "medium" },
-      { es: "Tengo treinta y nueve años", en: "I am thirty-nine years old", topics: ["verbs", "verb_tener"], type: "sentence", difficulty: "medium" },
-
-      // --- VERB: LLAMARSE ---------------------------------------
-      { es: "llamarse", en: "to be called (name)", topics: ["verbs", "verb_llamarse"], type: "word", difficulty: "medium" },
-      { es: "me llamo", en: "my name is / I am called", topics: ["verbs", "verb_llamarse"], type: "word", difficulty: "easy" },
-      { es: "te llamas", en: "your name is / you are called", topics: ["verbs", "verb_llamarse"], type: "word", difficulty: "easy" },
-      { es: "se llama", en: "his / her name is / he / she is called", topics: ["verbs", "verb_llamarse"], type: "word", difficulty: "easy" },
-      { es: "nos llamamos", en: "our name is / we are called", topics: ["verbs", "verb_llamarse"], type: "word", difficulty: "medium" },
-      { es: "os llamáis", en: "your (plural) name is / you are called", topics: ["verbs", "verb_llamarse"], type: "word", difficulty: "medium" },
-      { es: "se llaman", en: "their name is / they are called", topics: ["verbs", "verb_llamarse"], type: "word", difficulty: "medium" },
-
-      // --- VERB: COMER -------------------------------------------
-      { es: "comer", en: "to eat", topics: ["verbs", "verb_comer"], type: "word", difficulty: "medium" },
-      { es: "como", en: "I eat", topics: ["verbs", "verb_comer"], type: "word", difficulty: "easy" },
-      { es: "comes", en: "you eat", topics: ["verbs", "verb_comer"], type: "word", difficulty: "easy" },
-      { es: "come", en: "he / she / it eats", topics: ["verbs", "verb_comer"], type: "word", difficulty: "easy" },
-
-      // --- VERB: BEBER -------------------------------------------
-      { es: "beber", en: "to drink", topics: ["verbs", "verb_beber"], type: "word", difficulty: "medium" },
-      { es: "bebo", en: "I drink", topics: ["verbs", "verb_beber"], type: "word", difficulty: "easy" },
-      { es: "bebes", en: "you drink", topics: ["verbs", "verb_beber"], type: "word", difficulty: "easy" },
-      { es: "bebe", en: "he / she / it drinks", topics: ["verbs", "verb_beber"], type: "word", difficulty: "easy" },
-
-      // --- VERB: NECESITAR --------------------------------------
-      { es: "necesitar", en: "to need", topics: ["verbs", "verb_necesitar"], type: "word", difficulty: "medium" },
-      { es: "necesito", en: "I need", topics: ["verbs", "verb_necesitar"], type: "word", difficulty: "easy" },
-      { es: "necesitas", en: "you need", topics: ["verbs", "verb_necesitar"], type: "word", difficulty: "easy" },
-      { es: "necesita", en: "he / she / it needs", topics: ["verbs", "verb_necesitar"], type: "word", difficulty: "easy" },
-
-      // --- VERB: GUSTAR -----------------------------------------
-      { es: "gustar", en: "to like", topics: ["verbs", "verb_gustar"], type: "word", difficulty: "medium" },
-      { es: "me gusta", en: "I like (singular)", topics: ["verbs", "verb_gustar"], type: "word", difficulty: "medium" },
-      { es: "me gustan", en: "I like (plural)", topics: ["verbs", "verb_gustar"], type: "word", difficulty: "medium" },
-      { es: "no me gusta", en: "I don't like (singular)", topics: ["verbs", "verb_gustar"], type: "word", difficulty: "medium" },
-      { es: "no me gustan", en: "I don't like (plural)", topics: ["verbs", "verb_gustar"], type: "word", difficulty: "medium" },
-
-      { es: "Me gusta el chocolate", en: "I like chocolate", topics: ["verbs", "verb_gustar", "foodDrink"], type: "sentence", difficulty: "medium" },
-      { es: "Me gusta el vino tinto", en: "I like red wine", topics: ["verbs", "verb_gustar", "foodDrink"], type: "sentence", difficulty: "medium" },
-      { es: "Me gusta mi coche amarillo", en: "I like my yellow car", topics: ["verbs", "verb_gustar"], type: "sentence", difficulty: "medium" },
-      { es: "Me gustan los animales", en: "I like animals", topics: ["verbs", "verb_gustar", "pets"], type: "sentence", difficulty: "medium" },
-      { es: "No me gustan las arañas", en: "I don't like spiders", topics: ["verbs", "verb_gustar"], type: "sentence", difficulty: "medium" },
-      { es: "No me gusta conducir en la ciudad", en: "I don't like driving in the city", topics: ["verbs", "verb_gustar"], type: "sentence", difficulty: "hard" },
-
-      // --- CHALLENGE CARDS (multi-verb, cross-topic) ------------
+      // --- INTRODUCTIONS & GREETINGS --------------------------
       {
-        es: "Tengo un hijo y una hija y somos una familia",
-        en: "I have a son and a daughter and we are a family",
-        topics: ["challenge", "family", "verbs"],
-        type: "challenge",
+        es: "Buenos días",
+        en: "Good morning",
+        topic: "introductions",
+        subtopic: "greetings",
+        difficulty: "easy"
+      },
+      {
+        es: "Buenas tardes",
+        en: "Good afternoon",
+        topic: "introductions",
+        subtopic: "greetings",
+        difficulty: "easy"
+      },
+      {
+        es: "Buenas noches",
+        en: "Good evening / good night",
+        topic: "introductions",
+        subtopic: "greetings",
+        difficulty: "easy"
+      },
+      {
+        es: "Hola",
+        en: "Hello",
+        topic: "introductions",
+        subtopic: "greetings",
+        difficulty: "easy"
+      },
+      {
+        es: "¿Cómo estás?",
+        en: "How are you?",
+        topic: "introductions",
+        subtopic: "smalltalk",
+        difficulty: "easy"
+      },
+      {
+        es: "¿Qué tal?",
+        en: "How are you? (informal)",
+        topic: "introductions",
+        subtopic: "smalltalk",
+        difficulty: "easy"
+      },
+      {
+        es: "Bien",
+        en: "Good",
+        topic: "introductions",
+        subtopic: "smalltalk",
+        difficulty: "easy"
+      },
+      {
+        es: "Más o menos",
+        en: "So-so",
+        topic: "introductions",
+        subtopic: "smalltalk",
+        difficulty: "easy"
+      },
+      {
+        es: "Muy bien, gracias",
+        en: "Very well, thanks",
+        topic: "introductions",
+        subtopic: "smalltalk",
+        difficulty: "easy"
+      },
+      {
+        es: "¿Y tú?",
+        en: "And you?",
+        topic: "introductions",
+        subtopic: "smalltalk",
+        difficulty: "easy"
+      },
+      {
+        es: "¿Cómo te llamas?",
+        en: "What are you called? / What is your name?",
+        topic: "introductions",
+        subtopic: "name",
+        difficulty: "medium"
+      },
+      {
+        es: "Me llamo Jason",
+        en: "My name is Jason",
+        topic: "introductions",
+        subtopic: "name",
+        difficulty: "easy"
+      },
+      {
+        es: "Me llamo Laura",
+        en: "My name is Laura",
+        topic: "introductions",
+        subtopic: "name",
+        difficulty: "easy"
+      },
+      {
+        es: "Mucho gusto",
+        en: "Nice to meet you",
+        topic: "introductions",
+        subtopic: "meeting",
+        difficulty: "easy"
+      },
+      {
+        es: "Es un placer",
+        en: "It's a pleasure / Nice to meet you",
+        topic: "introductions",
+        subtopic: "meeting",
+        difficulty: "medium"
+      },
+      {
+        es: "Encantado",
+        en: "Pleased to meet you (said by a man)",
+        topic: "introductions",
+        subtopic: "meeting",
+        difficulty: "medium"
+      },
+      {
+        es: "Encantada",
+        en: "Pleased to meet you (said by a woman)",
+        topic: "introductions",
+        subtopic: "meeting",
+        difficulty: "medium"
+      },
+      {
+        es: "Adiós",
+        en: "Goodbye",
+        topic: "introductions",
+        subtopic: "goodbye",
+        difficulty: "easy"
+      },
+      {
+        es: "Hasta luego",
+        en: "See you later",
+        topic: "introductions",
+        subtopic: "goodbye",
+        difficulty: "easy"
+      },
+      {
+        es: "Hasta pronto",
+        en: "See you soon",
+        topic: "introductions",
+        subtopic: "goodbye",
+        difficulty: "easy"
+      },
+      {
+        es: "Nos vemos",
+        en: "See you",
+        topic: "introductions",
+        subtopic: "goodbye",
+        difficulty: "easy"
+      },
+      {
+        es: "Ten buen día",
+        en: "Have a good day",
+        topic: "introductions",
+        subtopic: "goodbye",
+        difficulty: "medium"
+      },
+      {
+        es: "Buenos días, ¿cómo estás?",
+        en: "Good morning, how are you?",
+        topic: "introductions",
+        subtopic: "greetings",
+        difficulty: "medium"
+      },
+      {
+        es: "Me llamo Jason, ¿y tú?",
+        en: "My name is Jason, and you?",
+        topic: "introductions",
+        subtopic: "name",
+        difficulty: "medium"
+      },
+
+      // --- COUNTRIES & ORIGIN ---------------------------------
+      {
+        es: "¿De dónde eres?",
+        en: "Where are you from?",
+        topic: "origins",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy de Inglaterra",
+        en: "I am from England",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "easy"
+      },
+      {
+        es: "Soy de Irlanda",
+        en: "I am from Ireland",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "easy"
+      },
+      {
+        es: "Soy de España",
+        en: "I am from Spain",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "easy"
+      },
+      {
+        es: "Soy de Francia",
+        en: "I am from France",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "easy"
+      },
+      {
+        es: "Soy de Italia",
+        en: "I am from Italy",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "easy"
+      },
+      {
+        es: "Soy de Alemania",
+        en: "I am from Germany",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "easy"
+      },
+      {
+        es: "Soy de Portugal",
+        en: "I am from Portugal",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "easy"
+      },
+      {
+        es: "Soy de Escocia",
+        en: "I am from Scotland",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "easy"
+      },
+      {
+        es: "Soy de Suecia",
+        en: "I am from Sweden",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy de Noruega",
+        en: "I am from Norway",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy de Suiza",
+        en: "I am from Switzerland",
+        topic: "origins",
+        subtopic: "countries",
+        difficulty: "medium"
+      },
+      {
+        es: "¿Dónde vives?",
+        en: "Where do you live?",
+        topic: "origins",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "Vivo en Inglaterra",
+        en: "I live in England",
+        topic: "origins",
+        subtopic: "residence",
+        difficulty: "easy"
+      },
+      {
+        es: "Vivo en Irlanda",
+        en: "I live in Ireland",
+        topic: "origins",
+        subtopic: "residence",
+        difficulty: "easy"
+      },
+      {
+        es: "Vivo en España",
+        en: "I live in Spain",
+        topic: "origins",
+        subtopic: "residence",
+        difficulty: "easy"
+      },
+      {
+        es: "Vivo en Francia",
+        en: "I live in France",
+        topic: "origins",
+        subtopic: "residence",
+        difficulty: "easy"
+      },
+      {
+        es: "Vivo en Italia",
+        en: "I live in Italy",
+        topic: "origins",
+        subtopic: "residence",
+        difficulty: "easy"
+      },
+      {
+        es: "Vivo en Alemania",
+        en: "I live in Germany",
+        topic: "origins",
+        subtopic: "residence",
+        difficulty: "easy"
+      },
+      {
+        es: "Vivo en Portugal",
+        en: "I live in Portugal",
+        topic: "origins",
+        subtopic: "residence",
+        difficulty: "medium"
+      },
+      {
+        es: "Vivo en Escocia",
+        en: "I live in Scotland",
+        topic: "origins",
+        subtopic: "residence",
+        difficulty: "medium"
+      },
+      {
+        es: "Vivo en Suecia",
+        en: "I live in Sweden",
+        topic: "origins",
+        subtopic: "residence",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy de España y soy español",
+        en: "I am from Spain and I am Spanish (male)",
+        topic: "origins",
+        subtopic: "nationalities",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy de España y soy española",
+        en: "I am from Spain and I am Spanish (female)",
+        topic: "origins",
+        subtopic: "nationalities",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy de Francia y soy francés",
+        en: "I am from France and I am French (male)",
+        topic: "origins",
+        subtopic: "nationalities",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy de Francia y soy francesa",
+        en: "I am from France and I am French (female)",
+        topic: "origins",
+        subtopic: "nationalities",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy de Inglaterra y soy inglés",
+        en: "I am from England and I am English (male)",
+        topic: "origins",
+        subtopic: "nationalities",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy de Inglaterra y soy inglesa",
+        en: "I am from England and I am English (female)",
+        topic: "origins",
+        subtopic: "nationalities",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy portugués",
+        en: "I am Portuguese (male)",
+        topic: "origins",
+        subtopic: "nationalities",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy portuguesa",
+        en: "I am Portuguese (female)",
+        topic: "origins",
+        subtopic: "nationalities",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy escocés",
+        en: "I am Scottish (male)",
+        topic: "origins",
+        subtopic: "nationalities",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy escocesa",
+        en: "I am Scottish (female)",
+        topic: "origins",
+        subtopic: "nationalities",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy sueco",
+        en: "I am Swedish (male)",
+        topic: "origins",
+        subtopic: "nationalities",
         difficulty: "hard"
       },
       {
-        es: "Mi tío se llama Dave, es conductor de autobús y tiene tres hijos",
-        en: "My uncle is called Dave, he is a bus driver and has three children",
-        topics: ["challenge", "family", "jobs", "verbs"],
-        type: "challenge",
+        es: "Soy sueca",
+        en: "I am Swedish (female)",
+        topic: "origins",
+        subtopic: "nationalities",
         difficulty: "hard"
       },
       {
-        es: "Somos amigos y tenemos una casa en Inglaterra",
-        en: "We are friends and we have a house in England",
-        topics: ["challenge", "family", "verbs"],
-        type: "challenge",
+        es: "Soy noruego",
+        en: "I am Norwegian (male)",
+        topic: "origins",
+        subtopic: "nationalities",
         difficulty: "hard"
       },
       {
-        es: "No me gustan los lunes pero me gusta mi trabajo",
-        en: "I don't like Mondays but I like my job",
-        topics: ["challenge", "verbs"],
-        type: "challenge",
+        es: "Soy noruega",
+        en: "I am Norwegian (female)",
+        topic: "origins",
+        subtopic: "nationalities",
         difficulty: "hard"
       },
       {
-        es: "Mi pasaporte está en la maleta y la maleta está en el hotel",
-        en: "My passport is in the suitcase and the suitcase is in the hotel",
-        topics: ["challenge", "places", "verbs"],
-        type: "challenge",
+        es: "Soy de Italia y vivo en Irlanda",
+        en: "I am from Italy and I live in Ireland",
+        topic: "origins",
+        subtopic: "mixed",
         difficulty: "hard"
+      },
+      {
+        es: "Soy sueco pero vivo en Inglaterra",
+        en: "I am Swedish but I live in England",
+        topic: "origins",
+        subtopic: "mixed",
+        difficulty: "hard"
+      },
+      {
+        es: "Soy portuguesa y vivo en España",
+        en: "I am Portuguese (female) and I live in Spain",
+        topic: "origins",
+        subtopic: "mixed",
+        difficulty: "hard"
+      },
+
+      // --- JOBS & WORK ----------------------------------------
+      {
+        es: "gerente de IT",
+        en: "IT manager",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "profesor de español",
+        en: "Spanish teacher (male)",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "profesora de español",
+        en: "Spanish teacher (female)",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "panadero",
+        en: "baker (male)",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "panadera",
+        en: "baker (female)",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "contador",
+        en: "accountant",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "enfermera",
+        en: "nurse (female)",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "enfermero",
+        en: "nurse (male)",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "conductor de autobús",
+        en: "bus driver",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "limpiador",
+        en: "cleaner",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "cocinero",
+        en: "chef / cook (male)",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "cocinera",
+        en: "chef / cook (female)",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "cajero",
+        en: "cashier",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "camarero",
+        en: "waiter",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "camarera",
+        en: "waitress",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "bombero",
+        en: "firefighter",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "médico",
+        en: "doctor",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "constructor",
+        en: "builder",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "ingeniero",
+        en: "engineer",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "medium"
+      },
+      {
+        es: "programador",
+        en: "programmer",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "medium"
+      },
+      {
+        es: "recepcionista",
+        en: "receptionist",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "abogado",
+        en: "lawyer (male)",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "medium"
+      },
+      {
+        es: "abogada",
+        en: "lawyer (female)",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "medium"
+      },
+      {
+        es: "policía",
+        en: "police officer",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "mecánico",
+        en: "mechanic",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "medium"
+      },
+      {
+        es: "dentista",
+        en: "dentist",
+        topic: "jobs",
+        subtopic: "nouns",
+        difficulty: "medium"
+      },
+      {
+        es: "¿Qué haces por trabajo?",
+        en: "What do you do for work?",
+        topic: "jobs",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy gerente de IT",
+        en: "I am an IT manager",
+        topic: "jobs",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy panadero",
+        en: "I am a baker (male)",
+        topic: "jobs",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Ella es enfermera",
+        en: "She is a nurse",
+        topic: "jobs",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Él es conductor de autobús",
+        en: "He is a bus driver",
+        topic: "jobs",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Mi padre es ingeniero",
+        en: "My father is an engineer",
+        topic: "jobs",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Mi madre es abogada",
+        en: "My mother is a lawyer",
+        topic: "jobs",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Mi hermana es camarera en un restaurante",
+        en: "My sister is a waitress in a restaurant",
+        topic: "jobs",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+      {
+        es: "Su tío es bombero",
+        en: "Their uncle is a firefighter",
+        topic: "jobs",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+      {
+        es: "Soy programador y trabajo desde casa",
+        en: "I am a programmer and I work from home",
+        topic: "jobs",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+
+      // --- NUMBERS & AGE --------------------------------------
+      // 1–20
+      {
+        es: "uno",
+        en: "one",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "dos",
+        en: "two",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "tres",
+        en: "three",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "cuatro",
+        en: "four",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "cinco",
+        en: "five",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "seis",
+        en: "six",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "siete",
+        en: "seven",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "ocho",
+        en: "eight",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "nueve",
+        en: "nine",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "diez",
+        en: "ten",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "once",
+        en: "eleven",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "doce",
+        en: "twelve",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "trece",
+        en: "thirteen",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "catorce",
+        en: "fourteen",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "quince",
+        en: "fifteen",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "dieciséis",
+        en: "sixteen",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "diecisiete",
+        en: "seventeen",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "dieciocho",
+        en: "eighteen",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "diecinueve",
+        en: "nineteen",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+      {
+        es: "veinte",
+        en: "twenty",
+        topic: "numbers",
+        subtopic: "numbers",
+        difficulty: "easy"
+      },
+
+      // Tens 10–100
+      {
+        es: "treinta",
+        en: "thirty",
+        topic: "numbers",
+        subtopic: "tens",
+        difficulty: "easy"
+      },
+      {
+        es: "cuarenta",
+        en: "forty",
+        topic: "numbers",
+        subtopic: "tens",
+        difficulty: "easy"
+      },
+      {
+        es: "cincuenta",
+        en: "fifty",
+        topic: "numbers",
+        subtopic: "tens",
+        difficulty: "easy"
+      },
+      {
+        es: "sesenta",
+        en: "sixty",
+        topic: "numbers",
+        subtopic: "tens",
+        difficulty: "easy"
+      },
+      {
+        es: "setenta",
+        en: "seventy",
+        topic: "numbers",
+        subtopic: "tens",
+        difficulty: "easy"
+      },
+      {
+        es: "ochenta",
+        en: "eighty",
+        topic: "numbers",
+        subtopic: "tens",
+        difficulty: "easy"
+      },
+      {
+        es: "noventa",
+        en: "ninety",
+        topic: "numbers",
+        subtopic: "tens",
+        difficulty: "easy"
+      },
+      {
+        es: "cien",
+        en: "one hundred",
+        topic: "numbers",
+        subtopic: "tens",
+        difficulty: "easy"
+      },
+
+      // Tens + units examples
+      {
+        es: "veintidós",
+        en: "twenty-two",
+        topic: "numbers",
+        subtopic: "combined",
+        difficulty: "medium"
+      },
+      {
+        es: "treinta y cuatro",
+        en: "thirty-four",
+        topic: "numbers",
+        subtopic: "combined",
+        difficulty: "medium"
+      },
+      {
+        es: "cuarenta y tres",
+        en: "forty-three",
+        topic: "numbers",
+        subtopic: "combined",
+        difficulty: "medium"
+      },
+      {
+        es: "cincuenta y dos",
+        en: "fifty-two",
+        topic: "numbers",
+        subtopic: "combined",
+        difficulty: "medium"
+      },
+      {
+        es: "sesenta y siete",
+        en: "sixty-seven",
+        topic: "numbers",
+        subtopic: "combined",
+        difficulty: "medium"
+      },
+      {
+        es: "setenta y ocho",
+        en: "seventy-eight",
+        topic: "numbers",
+        subtopic: "combined",
+        difficulty: "medium"
+      },
+      {
+        es: "noventa y uno",
+        en: "ninety-one",
+        topic: "numbers",
+        subtopic: "combined",
+        difficulty: "medium"
+      },
+
+      // Age sentences
+      {
+        es: "¿Cuántos años tienes?",
+        en: "How old are you?",
+        topic: "numbers",
+        subtopic: "age",
+        difficulty: "medium"
+      },
+      {
+        es: "Tengo treinta y nueve años",
+        en: "I am thirty-nine years old",
+        topic: "numbers",
+        subtopic: "age",
+        difficulty: "medium"
+      },
+      {
+        es: "Tengo veintisiete años",
+        en: "I am twenty-seven years old",
+        topic: "numbers",
+        subtopic: "age",
+        difficulty: "medium"
+      },
+      {
+        es: "Tengo diecinueve años",
+        en: "I am nineteen years old",
+        topic: "numbers",
+        subtopic: "age",
+        difficulty: "medium"
+      },
+      {
+        es: "Su hijo tiene ocho años",
+        en: "Their son is eight years old",
+        topic: "numbers",
+        subtopic: "age",
+        difficulty: "hard"
+      },
+      {
+        es: "Su hija tiene doce años",
+        en: "Their daughter is twelve years old",
+        topic: "numbers",
+        subtopic: "age",
+        difficulty: "hard"
+      },
+
+      // --- MONTHS & DATES -------------------------------------
+      {
+        es: "enero",
+        en: "January",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "febrero",
+        en: "February",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "marzo",
+        en: "March",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "abril",
+        en: "April",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "mayo",
+        en: "May",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "junio",
+        en: "June",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "julio",
+        en: "July",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "agosto",
+        en: "August",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "septiembre",
+        en: "September",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "octubre",
+        en: "October",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "noviembre",
+        en: "November",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "diciembre",
+        en: "December",
+        topic: "months",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "Mi cumpleaños es en marzo",
+        en: "My birthday is in March",
+        topic: "months",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Su cumpleaños es en julio",
+        en: "Their birthday is in July",
+        topic: "months",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "En diciembre hace frío",
+        en: "In December it is cold",
+        topic: "months",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "En agosto me gusta ir a la playa",
+        en: "In August I like to go to the beach",
+        topic: "months",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "En abril trabajo mucho",
+        en: "In April I work a lot",
+        topic: "months",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Su reunión es en septiembre",
+        en: "Their meeting is in September",
+        topic: "months",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+      {
+        es: "En noviembre visitamos a su familia",
+        en: "In November we visit their family",
+        topic: "months",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+
+      // --- DAYS OF THE WEEK -----------------------------------
+      {
+        es: "lunes",
+        en: "Monday",
+        topic: "days",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "martes",
+        en: "Tuesday",
+        topic: "days",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "miércoles",
+        en: "Wednesday",
+        topic: "days",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "jueves",
+        en: "Thursday",
+        topic: "days",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "viernes",
+        en: "Friday",
+        topic: "days",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "sábado",
+        en: "Saturday",
+        topic: "days",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "domingo",
+        en: "Sunday",
+        topic: "days",
+        subtopic: "words",
+        difficulty: "easy"
+      },
+      {
+        es: "El lunes trabajo en la oficina",
+        en: "On Monday I work in the office",
+        topic: "days",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "El martes tengo clase de español",
+        en: "On Tuesday I have Spanish class",
+        topic: "days",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "El miércoles mi hermana trabaja en el hospital",
+        en: "On Wednesday my sister works in the hospital",
+        topic: "days",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+      {
+        es: "El jueves descansamos en casa",
+        en: "On Thursday we rest at home",
+        topic: "days",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "El viernes salgo con mis amigos",
+        en: "On Friday I go out with my friends",
+        topic: "days",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "El sábado juego con su perro",
+        en: "On Saturday I play with their dog",
+        topic: "days",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "El domingo visitamos a su familia",
+        en: "On Sunday we visit their family",
+        topic: "days",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+      {
+        es: "No me gustan los lunes",
+        en: "I don't like Mondays",
+        topic: "days",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+
+      // --- SER (TO BE) ----------------------------------------
+      {
+        es: "ser",
+        en: "to be (identity)",
+        topic: "ser",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "Yo soy",
+        en: "I am",
+        topic: "ser",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Tú eres",
+        en: "You are (singular)",
+        topic: "ser",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Él es",
+        en: "He is",
+        topic: "ser",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Ella es",
+        en: "She is",
+        topic: "ser",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Nosotros somos",
+        en: "We are",
+        topic: "ser",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Vosotros sois",
+        en: "You (plural) are",
+        topic: "ser",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Ellos son",
+        en: "They are",
+        topic: "ser",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Ellas son",
+        en: "They (feminine) are",
+        topic: "ser",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Soy inglés",
+        en: "I am English (male)",
+        topic: "ser",
+        subtopic: "nationality",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy inglesa",
+        en: "I am English (female)",
+        topic: "ser",
+        subtopic: "nationality",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy francés",
+        en: "I am French (male)",
+        topic: "ser",
+        subtopic: "nationality",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy francesa",
+        en: "I am French (female)",
+        topic: "ser",
+        subtopic: "nationality",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy español",
+        en: "I am Spanish (male)",
+        topic: "ser",
+        subtopic: "nationality",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy española",
+        en: "I am Spanish (female)",
+        topic: "ser",
+        subtopic: "nationality",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy italiano",
+        en: "I am Italian (male)",
+        topic: "ser",
+        subtopic: "nationality",
+        difficulty: "medium"
+      },
+      {
+        es: "Soy italiana",
+        en: "I am Italian (female)",
+        topic: "ser",
+        subtopic: "nationality",
+        difficulty: "medium"
+      },
+      {
+        es: "Él es inglés",
+        en: "He is English",
+        topic: "ser",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Ella es francesa",
+        en: "She is French",
+        topic: "ser",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Yo soy de Francia",
+        en: "I am from France",
+        topic: "ser",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Ellos son panaderos",
+        en: "They are bakers",
+        topic: "ser",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Tú eres profesor de español",
+        en: "You are a Spanish teacher",
+        topic: "ser",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Nosotros somos de Inglaterra",
+        en: "We are from England",
+        topic: "ser",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Ella es enfermera",
+        en: "She is a nurse",
+        topic: "ser",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Vosotros sois de Francia",
+        en: "You (plural) are from France",
+        topic: "ser",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Ellas son de Alemania",
+        en: "They (fem.) are from Germany",
+        topic: "ser",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Él es mi amigo",
+        en: "He is my friend",
+        topic: "ser",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+
+      // --- TENER (TO HAVE) ------------------------------------
+      {
+        es: "tener",
+        en: "to have",
+        topic: "tener",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "Yo tengo",
+        en: "I have",
+        topic: "tener",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Tú tienes",
+        en: "You have (singular)",
+        topic: "tener",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Él tiene",
+        en: "He has",
+        topic: "tener",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Ella tiene",
+        en: "She has",
+        topic: "tener",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Nosotros tenemos",
+        en: "We have",
+        topic: "tener",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Vosotros tenéis",
+        en: "You (plural) have",
+        topic: "tener",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Ellos tienen",
+        en: "They have",
+        topic: "tener",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Ellos tienen una profesora muy simpática",
+        en: "They have a very friendly teacher",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Tú tienes sed después del deporte",
+        en: "You are thirsty after sport",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Nosotros tenemos clase de español los lunes",
+        en: "We have Spanish class on Mondays",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Ella tiene miedo de las arañas",
+        en: "She is afraid of spiders",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Vosotros tenéis hambre después de correr",
+        en: "You (plural) are hungry after running",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Yo tengo que estudiar para el examen",
+        en: "I have to study for the exam",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Él tiene una bicicleta roja",
+        en: "He has a red bicycle",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Yo tengo un gato muy simpático",
+        en: "I have a very friendly cat",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Tengo dos hermanos",
+        en: "I have two brothers",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "No tengo coche",
+        en: "I don't have a car",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "¿Tienes mascotas?",
+        en: "Do you have pets?",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Tenemos tres hijos",
+        en: "We have three children",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Ellos tienen un perro y un gato",
+        en: "They have a dog and a cat",
+        topic: "tener",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+
+      // --- LLAMARSE (TO BE CALLED) ----------------------------
+      {
+        es: "llamarse",
+        en: "to be called (name)",
+        topic: "llamarse",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "Me llamo",
+        en: "My name is / I am called",
+        topic: "llamarse",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Te llamas",
+        en: "Your name is / you are called",
+        topic: "llamarse",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Se llama",
+        en: "His / her name is / he / she is called",
+        topic: "llamarse",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Nos llamamos",
+        en: "Our name is / we are called",
+        topic: "llamarse",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Os llamáis",
+        en: "Your (plural) name is / you are called",
+        topic: "llamarse",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Se llaman",
+        en: "Their name is / they are called",
+        topic: "llamarse",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Me llamo Clara",
+        en: "My name is Clara",
+        topic: "llamarse",
+        subtopic: "sentences",
+        difficulty: "easy"
+      },
+      {
+        es: "Me llamo Álvaro",
+        en: "My name is Álvaro",
+        topic: "llamarse",
+        subtopic: "sentences",
+        difficulty: "easy"
+      },
+      {
+        es: "Él se llama Sergio",
+        en: "His name is Sergio",
+        topic: "llamarse",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Ella se llama Irene",
+        en: "Her name is Irene",
+        topic: "llamarse",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Nos llamamos Ana y Mario",
+        en: "We are called Ana and Mario",
+        topic: "llamarse",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Vosotros os llamáis Pablo y Luis",
+        en: "You (plural) are called Pablo and Luis",
+        topic: "llamarse",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Ellos se llaman Diego y Andrés",
+        en: "They are called Diego and Andrés",
+        topic: "llamarse",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Ellas se llaman Lucía y Alba",
+        en: "They (fem.) are called Lucía and Alba",
+        topic: "llamarse",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Él se llama Roberto",
+        en: "His name is Roberto",
+        topic: "llamarse",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "¿Cómo te llamas?",
+        en: "What is your name?",
+        topic: "llamarse",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "¿Cómo se llama tu madre?",
+        en: "What is your mother's name?",
+        topic: "llamarse",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "¿Cómo se llama tu padre?",
+        en: "What is your father's name?",
+        topic: "llamarse",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+
+      // --- FAMILY ---------------------------------------------
+      {
+        es: "madre",
+        en: "mother",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "padre",
+        en: "father",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "marido",
+        en: "husband",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "esposa",
+        en: "wife",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "pareja",
+        en: "partner",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "novio",
+        en: "boyfriend",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "novia",
+        en: "girlfriend",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "hijo",
+        en: "son",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "hija",
+        en: "daughter",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "hermano",
+        en: "brother",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "hermana",
+        en: "sister",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "tío",
+        en: "uncle",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "tía",
+        en: "aunt",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "sobrino",
+        en: "nephew",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "sobrina",
+        en: "niece",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "abuelo",
+        en: "grandfather",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "abuela",
+        en: "grandmother",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "primo",
+        en: "cousin (male)",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "prima",
+        en: "cousin (female)",
+        topic: "family",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "¿Tienes familia?",
+        en: "Do you have a family?",
+        topic: "family",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "Mi madre se llama Ana",
+        en: "My mother's name is Ana",
+        topic: "family",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Mis padres se llaman Ana y Jorge",
+        en: "My parents are called Ana and Jorge",
+        topic: "family",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+      {
+        es: "Soy soltero pero vivo con mi madre",
+        en: "I am single but I live with my mother",
+        topic: "family",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+      {
+        es: "Este es el tío de mi madre",
+        en: "This is my mother's uncle",
+        topic: "family",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+
+      // --- PETS & ANIMALS -------------------------------------
+      {
+        es: "¿Tienes mascotas?",
+        en: "Do you have pets?",
+        topic: "pets",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "¿Cómo se llama tu mascota?",
+        en: "What is your pet's name?",
+        topic: "pets",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "¿Qué tipo de mascota tienes?",
+        en: "What kind of pet do you have?",
+        topic: "pets",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "gato",
+        en: "cat",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "perro",
+        en: "dog",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "pez",
+        en: "fish",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "pájaro",
+        en: "bird",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "conejo",
+        en: "rabbit",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "serpiente",
+        en: "snake",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "hámster",
+        en: "hamster",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "cobaya",
+        en: "guinea pig",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "tortuga",
+        en: "turtle",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "easy"
+      },
+      {
+        es: "caballo",
+        en: "horse",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "medium"
+      },
+      {
+        es: "loro",
+        en: "parrot",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "medium"
+      },
+      {
+        es: "ratón",
+        en: "mouse",
+        topic: "pets",
+        subtopic: "nouns",
+        difficulty: "medium"
+      },
+      {
+        es: "Por supuesto",
+        en: "Of course",
+        topic: "pets",
+        subtopic: "phrases",
+        difficulty: "easy"
+      },
+      {
+        es: "Tengo un perro",
+        en: "I have a dog",
+        topic: "pets",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Tengo dos gatos",
+        en: "I have two cats",
+        topic: "pets",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Mi conejo es muy suave",
+        en: "My rabbit is very soft",
+        topic: "pets",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Mi tortuga es muy lenta",
+        en: "My turtle is very slow",
+        topic: "pets",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Mi gato se llama Luna",
+        en: "My cat is called Luna",
+        topic: "pets",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Su perro se llama Max",
+        en: "Their dog is called Max",
+        topic: "pets",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "No tenemos mascotas",
+        en: "We don't have pets",
+        topic: "pets",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+
+      // --- GUSTAR (TO LIKE) -----------------------------------
+      {
+        es: "gustar",
+        en: "to like",
+        topic: "gustar",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "Me gusta",
+        en: "I like",
+        topic: "gustar",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Me gustan",
+        en: "I like (plural things)",
+        topic: "gustar",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "No me gusta",
+        en: "I don't like",
+        topic: "gustar",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "No me gustan",
+        en: "I don't like (plural things)",
+        topic: "gustar",
+        subtopic: "forms",
+        difficulty: "easy"
+      },
+      {
+        es: "Me encanta",
+        en: "I love",
+        topic: "gustar",
+        subtopic: "variations",
+        difficulty: "easy"
+      },
+      {
+        es: "Me gusta mucho",
+        en: "I really like",
+        topic: "gustar",
+        subtopic: "variations",
+        difficulty: "easy"
+      },
+      {
+        es: "No me importa",
+        en: "I don't mind",
+        topic: "gustar",
+        subtopic: "variations",
+        difficulty: "easy"
+      },
+      {
+        es: "No me gusta mucho",
+        en: "I really don't like",
+        topic: "gustar",
+        subtopic: "variations",
+        difficulty: "easy"
+      },
+      {
+        es: "Odio",
+        en: "I hate",
+        topic: "gustar",
+        subtopic: "variations",
+        difficulty: "easy"
+      },
+      {
+        es: "Me gusta el chocolate",
+        en: "I like chocolate",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "easy"
+      },
+      {
+        es: "Nos gustan los animales",
+        en: "We like animals",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "easy"
+      },
+      {
+        es: "No te gusta cantar",
+        en: "You don't like to sing",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "No les gustan las arañas",
+        en: "They don't like spiders",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Me gusta el libro de francés",
+        en: "I like the French book",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Me gusta el té verde",
+        en: "I like green tea",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "A los niños no les gustan tus pasteles",
+        en: "Children don't like your cakes",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+      {
+        es: "Me gustan las películas de aventura",
+        en: "I like adventure films",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "¿A ti te gustan los libros?",
+        en: "Do you like books?",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "A nosotros nos gustan los viajes largos",
+        en: "We like long trips",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "hard"
+      },
+      {
+        es: "A ellos les gusta montar en bici",
+        en: "They like riding a bike",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "A ellos les gusta dormir mucho",
+        en: "They like sleeping a lot",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Me gustan los perros",
+        en: "I like dogs",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "easy"
+      },
+      {
+        es: "A él le gusta el pescado",
+        en: "He likes fish",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "No nos gustan las serpientes",
+        en: "We don't like snakes",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Al gato le gusta dormir",
+        en: "The cat likes to sleep",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "No te gustan las manzanas",
+        en: "You don't like apples",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Nos gusta bailar",
+        en: "We like to dance",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Me encanta la pizza",
+        en: "I love pizza",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "easy"
+      },
+      {
+        es: "Me gusta mucho el café",
+        en: "I really like coffee",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+      {
+        es: "Viajar me encanta",
+        en: "I love travelling",
+        topic: "gustar",
+        subtopic: "sentences",
+        difficulty: "medium"
+      },
+
+      // --- GENDER & ARTICLES ----------------------------------
+      {
+        es: "el coche",
+        en: "the car",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "la mariposa",
+        en: "the butterfly",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "la universidad",
+        en: "the university",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "la silla",
+        en: "the chair",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "el vaso",
+        en: "the glass",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "la cama",
+        en: "the bed",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "el reloj",
+        en: "the clock / watch",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "el cajón",
+        en: "the drawer",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "la actualidad",
+        en: "current events / the present",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "medium"
+      },
+      {
+        es: "el lápiz",
+        en: "the pencil",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "la manzana",
+        en: "the apple",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "la región",
+        en: "the region",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "el hombre",
+        en: "the man",
+        topic: "gender",
+        subtopic: "singular",
+        difficulty: "easy"
+      },
+      {
+        es: "los coches",
+        en: "the cars",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "easy"
+      },
+      {
+        es: "las mariposas",
+        en: "the butterflies",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "easy"
+      },
+      {
+        es: "los árboles",
+        en: "the trees",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "medium"
+      },
+      {
+        es: "las paredes",
+        en: "the walls",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "medium"
+      },
+      {
+        es: "los zapatos",
+        en: "the shoes",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "easy"
+      },
+      {
+        es: "los melones",
+        en: "the melons",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "medium"
+      },
+      {
+        es: "las casas",
+        en: "the houses",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "easy"
+      },
+      {
+        es: "los relojes",
+        en: "the clocks / watches",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "medium"
+      },
+      {
+        es: "los limones",
+        en: "the lemons",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "medium"
+      },
+      {
+        es: "las narices",
+        en: "the noses",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "medium"
+      },
+      {
+        es: "las plantas",
+        en: "the plants",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "easy"
+      },
+      {
+        es: "las reuniones",
+        en: "the meetings",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "medium"
+      },
+      {
+        es: "los lápices",
+        en: "the pencils",
+        topic: "gender",
+        subtopic: "plural",
+        difficulty: "medium"
       }
     ];
 
-    // ================== FILTERS ================================
-    const topicFilters = {
-      all: (c) => c.type !== "challenge",
-      greetings: (c) => c.topics.includes("greetings") && c.type !== "challenge",
-      introductions: (c) => c.topics.includes("introductions") && c.type !== "challenge",
-      family: (c) => c.topics.includes("family") && c.type !== "challenge",
-      numbers: (c) => c.topics.includes("numbers") && c.type !== "challenge",
-      foodDrink: (c) => c.topics.includes("foodDrink") && c.type !== "challenge",
-      placesTravel: (c) => c.topics.includes("places") && c.type !== "challenge",
-      pets: (c) => c.topics.includes("pets") && c.type !== "challenge",
-      jobs: (c) => c.topics.includes("jobs") && c.type !== "challenge",
-      monthsDays: (c) => c.topics.includes("monthsDays") && c.type !== "challenge",
-      gender: (c) => c.topics.includes("gender") && c.type !== "challenge",
-
-      verbs_all: (c) => c.topics.includes("verbs") && c.type !== "challenge",
-      verb_ser: (c) => c.topics.includes("verb_ser") && c.type !== "challenge",
-      verb_estar: (c) => c.topics.includes("verb_estar") && c.type !== "challenge",
-      verb_tener: (c) => c.topics.includes("verb_tener") && c.type !== "challenge",
-      verb_llamarse: (c) => c.topics.includes("verb_llamarse") && c.type !== "challenge",
-      verb_comer: (c) => c.topics.includes("verb_comer") && c.type !== "challenge",
-      verb_beber: (c) => c.topics.includes("verb_beber") && c.type !== "challenge",
-      verb_necesitar: (c) => c.topics.includes("verb_necesitar") && c.type !== "challenge",
-      verb_gustar: (c) => c.topics.includes("verb_gustar") && c.type !== "challenge",
-
-      challenges: (c) => c.type === "challenge"
+    // === DECK DEFINITIONS ======================================
+    const decks = {
+      all: {
+        label: "All topics (mixed)",
+        filter: () => true
+      },
+      introductions: {
+        label: "Introductions & greetings",
+        filter: (card) => card.topic === "introductions"
+      },
+      origins: {
+        label: "Countries & origin",
+        filter: (card) => card.topic === "origins"
+      },
+      jobs: {
+        label: "Jobs & work",
+        filter: (card) => card.topic === "jobs"
+      },
+      numbers: {
+        label: "Numbers & age",
+        filter: (card) => card.topic === "numbers"
+      },
+      months: {
+        label: "Months & dates",
+        filter: (card) => card.topic === "months"
+      },
+      days: {
+        label: "Days of the week",
+        filter: (card) => card.topic === "days"
+      },
+      ser: {
+        label: "Verb: ser",
+        filter: (card) => card.topic === "ser"
+      },
+      tener: {
+        label: "Verb: tener",
+        filter: (card) => card.topic === "tener"
+      },
+      llamarse: {
+        label: "Verb: llamarse",
+        filter: (card) => card.topic === "llamarse"
+      },
+      family: {
+        label: "Family",
+        filter: (card) => card.topic === "family"
+      },
+      pets: {
+        label: "Pets & animals",
+        filter: (card) => card.topic === "pets"
+      },
+      gustar: {
+        label: "Verb: gustar",
+        filter: (card) => card.topic === "gustar"
+      },
+      gender: {
+        label: "Gender & articles",
+        filter: (card) => card.topic === "gender"
+      }
     };
 
-    const difficultyFilters = {
-      all: () => true,
-      easy: (c) => c.difficulty === "easy",
-      medium: (c) => c.difficulty === "medium",
-      hard: (c) => c.difficulty === "hard"
-    };
-
-    const cardTypeFilters = {
-      both: (c) => c.type === "word" || c.type === "sentence" || c.type === "challenge",
-      words: (c) => c.type === "word",
-      sentences: (c) => c.type === "sentence" || c.type === "challenge"
-    };
-
-    // ================== STATE ==================================
-    let currentTopicId = "all";
-    let currentDifficulty = "all";
-    let currentCardType = "both";
-
-    let currentCards = [];
+    // === STATE ==================================================
+    let currentDeckId = "all";
+    let currentDeckCards = [];
     let currentIndex = 0;
     let correctCount = 0;
     let incorrectCount = 0;
     let isShowingAnswer = false;
 
-    let missedQueue = [];
-    let inMissedPhase = false;
-
     let currentFrontText = "";
     let currentBackText = "";
 
-    // ================== ELEMENTS ===============================
+    let missedQueue = [];      // collects misses for the *next* cycle
+    let inMissedPhase = false; // true when cycling only missed cards
+
+    let currentDifficulty = "all";
+
+    // === ELEMENTS ===============================================
     const cardEl = document.getElementById("card");
     const questionEl = document.getElementById("card-question");
     const answerEl = document.getElementById("card-answer");
@@ -861,14 +2922,12 @@
     const scoreEl = document.getElementById("score");
     const messageEl = document.getElementById("message");
     const directionHintEl = document.getElementById("direction-hint");
-    const cardCounterEl = document.getElementById("card-counter");
-
-    const topicSelectEl = document.getElementById("topic-select");
+    const remainingEl = document.getElementById("remaining");
     const modeRadios = document.querySelectorAll('input[name="direction-mode"]');
-    const difficultyButtons = document.querySelectorAll("#difficulty-group button");
-    const cardTypeButtons = document.querySelectorAll("#cardtype-group button");
+    const deckSelectEl = document.getElementById("deck-select");
+    const diffButtons = document.querySelectorAll(".diff-btn");
 
-    // ================== UTILS ==================================
+    // === UTILS ==================================================
     function shuffle(array) {
       for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -901,28 +2960,57 @@
       return checked ? checked.value : "es-en";
     }
 
-    function updateCardCounter() {
-      if (!currentCards.length) {
-        cardCounterEl.textContent = "Card 0 of 0";
-      } else {
-        cardCounterEl.textContent =
-          "Card " + (currentIndex + 1) + " of " + currentCards.length;
+    function passesDifficulty(card) {
+      if (currentDifficulty === "all") return true;
+      return card.difficulty === currentDifficulty;
+    }
+
+    function buildDeckCards(deckId) {
+      const def = decks[deckId] || decks.all;
+      return flashcards.filter((card) => def.filter(card) && passesDifficulty(card));
+    }
+
+    function updateRemaining() {
+      if (!currentDeckCards.length) {
+        remainingEl.textContent = "No cards in this deck.";
+        return;
       }
+      const left = currentDeckCards.length - currentIndex;
+      const phaseLabel = inMissedPhase ? " (reviewing missed cards)" : "";
+      remainingEl.textContent =
+        "Cards left in deck: " +
+        left +
+        "/" +
+        currentDeckCards.length +
+        phaseLabel;
     }
 
-    function buildCurrentCardList() {
-      const topicFilter = topicFilters[currentTopicId] || topicFilters.all;
-      const difficultyFilter = difficultyFilters[currentDifficulty] || difficultyFilters.all;
-      const cardTypeFilter = cardTypeFilters[currentCardType] || cardTypeFilters.both;
-      return flashcards.filter(
-        (card) => topicFilter(card) && difficultyFilter(card) && cardTypeFilter(card)
-      );
+    function finishDeck() {
+      currentDeckCards = [];
+      currentIndex = 0;
+      missedQueue = [];
+      inMissedPhase = false;
+      isShowingAnswer = false;
+
+      cardEl.classList.remove("flipped");
+      cardEl.classList.remove("review-mode");
+
+      questionEl.textContent = "Deck complete!";
+      answerEl.textContent = "";
+      directionHintEl.textContent = "";
+      remainingEl.textContent = "Cards left in deck: 0/0";
+
+      showAnswerBtn.disabled = true;
+      correctBtn.disabled = true;
+      incorrectBtn.disabled = true;
+
+      showMessage("Deck complete. All cards answered. Choose another deck or difficulty.", 4000);
     }
 
-    // ================== CARD LOGIC =============================
+    // Load current card
     function loadCard() {
-      if (!currentCards.length) {
-        questionEl.textContent = "No cards match this selection.";
+      if (!currentDeckCards.length) {
+        questionEl.textContent = "No cards in this deck.";
         answerEl.textContent = "";
         directionHintEl.textContent = "";
         showAnswerBtn.disabled = true;
@@ -930,11 +3018,12 @@
         incorrectBtn.disabled = true;
         isShowingAnswer = false;
         cardEl.classList.remove("flipped");
-        updateCardCounter();
+        cardEl.classList.remove("review-mode");
+        updateRemaining();
         return;
       }
 
-      const card = currentCards[currentIndex];
+      const card = currentDeckCards[currentIndex];
       const mode = getCurrentMode();
 
       let showSpanishOnFront;
@@ -961,124 +3050,117 @@
 
       isShowingAnswer = false;
       cardEl.classList.remove("flipped");
+
+      if (inMissedPhase) {
+        cardEl.classList.add("review-mode");
+      } else {
+        cardEl.classList.remove("review-mode");
+      }
+
       showAnswerBtn.disabled = false;
       correctBtn.disabled = true;
       incorrectBtn.disabled = true;
       messageEl.textContent = "";
 
-      updateCardCounter();
+      updateRemaining();
     }
 
     function showAnswer() {
-      if (isShowingAnswer || !currentCards.length) return;
+      if (isShowingAnswer || !currentDeckCards.length) return;
       isShowingAnswer = true;
 
       answerEl.textContent = currentBackText;
       cardEl.classList.add("flipped");
       showAnswerBtn.disabled = true;
+
       correctBtn.disabled = false;
       incorrectBtn.disabled = false;
     }
 
     function goToNextCard() {
-      if (!currentCards.length) return;
+      if (!currentDeckCards.length) return;
 
       currentIndex++;
 
-      if (currentIndex >= currentCards.length) {
-        if (!inMissedPhase && missedQueue.length > 0) {
-          currentCards = missedQueue.slice();
-          missedQueue = [];
-          inMissedPhase = true;
-          shuffle(currentCards);
-          currentIndex = 0;
-          showMessage("Reviewing missed cards from this deck.");
-          loadCard();
-          return;
+      if (currentIndex >= currentDeckCards.length) {
+        if (!inMissedPhase) {
+          // End of first pass
+          if (missedQueue.length > 0) {
+            currentDeckCards = missedQueue.slice();
+            missedQueue = [];
+            shuffle(currentDeckCards);
+            currentIndex = 0;
+            inMissedPhase = true;
+            showMessage("Reviewing missed cards from this deck.");
+            loadCard();
+            return;
+          } else {
+            finishDeck();
+            return;
+          }
+        } else {
+          // End of review pass
+          if (missedQueue.length > 0) {
+            currentDeckCards = missedQueue.slice();
+            missedQueue = [];
+            shuffle(currentDeckCards);
+            currentIndex = 0;
+            showMessage("Reviewing remaining tricky cards again.");
+            loadCard();
+            return;
+          } else {
+            finishDeck();
+            return;
+          }
         }
-
-        currentCards = buildCurrentCardList();
-        shuffle(currentCards);
-        currentIndex = 0;
-        inMissedPhase = false;
-        showMessage("You've seen all the cards in this deck. Shuffled and starting again.");
-        loadCard();
-        return;
       }
 
       loadCard();
     }
 
     function handleResult(isCorrect) {
-      if (!isShowingAnswer || !currentCards.length) return;
+      if (!isShowingAnswer || !currentDeckCards.length) return;
 
-      const currentCard = currentCards[currentIndex];
+      const currentCard = currentDeckCards[currentIndex];
 
       if (isCorrect) {
         correctCount++;
       } else {
         incorrectCount++;
-        missedQueue.push(currentCard);
+        if (!missedQueue.includes(currentCard)) {
+          missedQueue.push(currentCard);
+        }
       }
 
       updateScore();
       goToNextCard();
     }
 
-    function changeTopic(topicId) {
-      currentTopicId = topicId;
-      topicSelectEl.value = topicId;
-
-      currentCards = buildCurrentCardList();
-      shuffle(currentCards);
+    function changeDeck(deckId) {
+      currentDeckId = deckId;
+      currentDeckCards = buildDeckCards(deckId);
+      shuffle(currentDeckCards);
       currentIndex = 0;
+      correctCount = 0;
+      incorrectCount = 0;
       missedQueue = [];
       inMissedPhase = false;
-
+      updateScore();
       loadCard();
-
-      if (currentCards.length) {
+      if (currentDeckCards.length) {
         showMessage(
-          currentCards.length +
-            " card" +
-            (currentCards.length === 1 ? "" : "s") +
-            " in this deck.",
+          currentDeckCards.length +
+          " card" +
+          (currentDeckCards.length === 1 ? "" : "s") +
+          " in this deck.",
           1500
         );
       } else {
-        showMessage("This selection has no cards yet.", 2000);
+        showMessage("This deck is empty.", 3000);
       }
     }
 
-    function setDifficulty(level) {
-      currentDifficulty = level;
-      difficultyButtons.forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.difficulty === level);
-      });
-
-      currentCards = buildCurrentCardList();
-      shuffle(currentCards);
-      currentIndex = 0;
-      missedQueue = [];
-      inMissedPhase = false;
-      loadCard();
-    }
-
-    function setCardType(kind) {
-      currentCardType = kind;
-      cardTypeButtons.forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.cardtype === kind);
-      });
-
-      currentCards = buildCurrentCardList();
-      shuffle(currentCards);
-      currentIndex = 0;
-      missedQueue = [];
-      inMissedPhase = false;
-      loadCard();
-    }
-
-    // ================== EVENT LISTENERS =========================
+    // === EVENT LISTENERS =======================================
     showAnswerBtn.addEventListener("click", showAnswer);
     correctBtn.addEventListener("click", () => handleResult(true));
     incorrectBtn.addEventListener("click", () => handleResult(false));
@@ -1086,9 +3168,7 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === " " || e.code === "Space") {
         e.preventDefault();
-        if (!isShowingAnswer) {
-          showAnswer();
-        }
+        if (!isShowingAnswer) showAnswer();
       } else if (e.key === "ArrowRight") {
         handleResult(true);
       } else if (e.key === "ArrowLeft") {
@@ -1096,37 +3176,28 @@
       }
     });
 
-    topicSelectEl.addEventListener("change", (e) => {
-      changeTopic(e.target.value);
-    });
-
     modeRadios.forEach((radio) => {
       radio.addEventListener("change", () => {
-        // just reload the current card with the new direction
         loadCard();
       });
     });
 
-    difficultyButtons.forEach((btn) => {
+    deckSelectEl.addEventListener("change", (e) => {
+      changeDeck(e.target.value);
+    });
+
+    diffButtons.forEach((btn) => {
       btn.addEventListener("click", () => {
-        setDifficulty(btn.dataset.difficulty);
+        diffButtons.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentDifficulty = btn.dataset.diff || "all";
+        changeDeck(currentDeckId);
       });
     });
 
-    cardTypeButtons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        setCardType(btn.dataset.cardtype);
-      });
-    });
-
-    // ================== INIT (with topic cache fix) =============
-    updateScore();
-
-    // If the browser cached a previous selection, respect it:
-    currentTopicId = topicSelectEl.value || "all";
-    currentCards = buildCurrentCardList();
-    shuffle(currentCards);
-    loadCard();
+    // === INIT ===================================================
+    deckSelectEl.value = currentDeckId;
+    changeDeck(currentDeckId);
   </script>
 </body>
 </html>
