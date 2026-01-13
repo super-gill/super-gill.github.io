@@ -3318,9 +3318,11 @@
       updateRemaining();
     }
 
+    // Toggle card front/back
     function toggleAnswer() {
       if (!currentDeckCards.length) return;
 
+      // If currently showing front, show answer
       if (!isShowingAnswer) {
         isShowingAnswer = true;
         answerEl.textContent = currentBackText;
@@ -3329,6 +3331,7 @@
         correctBtn.disabled = false;
         incorrectBtn.disabled = false;
       } else {
+        // Hide answer and show question again
         isShowingAnswer = false;
         cardEl.classList.remove("flipped");
         answerEl.textContent = "";
