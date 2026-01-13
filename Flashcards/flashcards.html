@@ -269,7 +269,7 @@
     .remaining {
       font-size: 0.8rem;
       color: #777;
-      text-align: center;
+      text-align:center;
       min-height: 1.1em;
     }
 
@@ -310,6 +310,7 @@
         <option value="numbers">Numbers &amp; age</option>
         <option value="months">Months &amp; dates</option>
         <option value="days">Days of the week</option>
+        <option value="rutina">Daily routine</option>
         <option value="ser">Verb: ser (to be)</option>
         <option value="tener">Verb: tener (to have)</option>
         <option value="llamarse">Verb: llamarse (to be called)</option>
@@ -385,7 +386,6 @@
 
   <script>
     // === MASTER FLASHCARD DATA =================================
-
     const flashcards = [
       // --- INTRODUCTIONS & GREETINGS --------------------------
       {
@@ -1087,7 +1087,6 @@
       },
 
       // --- NUMBERS & AGE --------------------------------------
-      // 1–20
       {
         es: "uno",
         en: "one",
@@ -1228,8 +1227,6 @@
         subtopic: "numbers",
         difficulty: "easy"
       },
-
-      // Tens 10–100
       {
         es: "treinta",
         en: "thirty",
@@ -1286,8 +1283,6 @@
         subtopic: "tens",
         difficulty: "easy"
       },
-
-      // Tens + units examples
       {
         es: "veintidós",
         en: "twenty-two",
@@ -1337,8 +1332,6 @@
         subtopic: "combined",
         difficulty: "medium"
       },
-
-      // Age sentences
       {
         es: "¿Cuántos años tienes?",
         en: "How old are you?",
@@ -1622,6 +1615,260 @@
         topic: "days",
         subtopic: "sentences",
         difficulty: "medium"
+      },
+
+      // --- DAILY ROUTINE (LA RUTINA) --------------------------
+      {
+        es: "despertarse",
+        en: "to wake up",
+        topic: "rutina",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "levantarse",
+        en: "to get up / to get out of bed",
+        topic: "rutina",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "lavarse la cara",
+        en: "to wash one's face",
+        topic: "rutina",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "cepillarse los dientes",
+        en: "to brush one's teeth",
+        topic: "rutina",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "ducharse",
+        en: "to shower",
+        topic: "rutina",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "bañarse",
+        en: "to bathe / to take a bath",
+        topic: "rutina",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "vestirse",
+        en: "to get dressed",
+        topic: "rutina",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "desayunar",
+        en: "to have breakfast",
+        topic: "rutina",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "ir al trabajo",
+        en: "to go to work",
+        topic: "rutina",
+        subtopic: "infinitive",
+        difficulty: "easy"
+      },
+      {
+        es: "Me despierto",
+        en: "I wake up",
+        topic: "rutina",
+        subtopic: "yo",
+        difficulty: "easy"
+      },
+      {
+        es: "Me levanto",
+        en: "I get up",
+        topic: "rutina",
+        subtopic: "yo",
+        difficulty: "easy"
+      },
+      {
+        es: "Me lavo la cara",
+        en: "I wash my face",
+        topic: "rutina",
+        subtopic: "yo",
+        difficulty: "medium"
+      },
+      {
+        es: "Me cepillo los dientes",
+        en: "I brush my teeth",
+        topic: "rutina",
+        subtopic: "yo",
+        difficulty: "medium"
+      },
+      {
+        es: "Me ducho",
+        en: "I shower",
+        topic: "rutina",
+        subtopic: "yo",
+        difficulty: "easy"
+      },
+      {
+        es: "Me baño",
+        en: "I take a bath",
+        topic: "rutina",
+        subtopic: "yo",
+        difficulty: "easy"
+      },
+      {
+        es: "Me visto",
+        en: "I get dressed",
+        topic: "rutina",
+        subtopic: "yo",
+        difficulty: "easy"
+      },
+      {
+        es: "Desayuno a las siete",
+        en: "I have breakfast at seven",
+        topic: "rutina",
+        subtopic: "yo",
+        difficulty: "medium"
+      },
+      {
+        es: "Voy al trabajo a las ocho",
+        en: "I go to work at eight",
+        topic: "rutina",
+        subtopic: "yo",
+        difficulty: "medium"
+      },
+      {
+        es: "Te despiertas",
+        en: "You wake up",
+        topic: "rutina",
+        subtopic: "tú",
+        difficulty: "easy"
+      },
+      {
+        es: "Te levantas",
+        en: "You get up",
+        topic: "rutina",
+        subtopic: "tú",
+        difficulty: "easy"
+      },
+      {
+        es: "Te lavas la cara",
+        en: "You wash your face",
+        topic: "rutina",
+        subtopic: "tú",
+        difficulty: "medium"
+      },
+      {
+        es: "Te cepillas los dientes",
+        en: "You brush your teeth",
+        topic: "rutina",
+        subtopic: "tú",
+        difficulty: "medium"
+      },
+      {
+        es: "Te duchas",
+        en: "You shower",
+        topic: "rutina",
+        subtopic: "tú",
+        difficulty: "easy"
+      },
+      {
+        es: "Te bañas",
+        en: "You take a bath",
+        topic: "rutina",
+        subtopic: "tú",
+        difficulty: "easy"
+      },
+      {
+        es: "Te vistes",
+        en: "You get dressed",
+        topic: "rutina",
+        subtopic: "tú",
+        difficulty: "easy"
+      },
+      {
+        es: "¿Cuál es tu rutina en la mañana?",
+        en: "What is your morning routine?",
+        topic: "rutina",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "¿A qué hora te despiertas?",
+        en: "What time do you wake up?",
+        topic: "rutina",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "Me despierto a las seis",
+        en: "I wake up at six",
+        topic: "rutina",
+        subtopic: "answers",
+        difficulty: "medium"
+      },
+      {
+        es: "¿A qué hora te levantas?",
+        en: "What time do you get up?",
+        topic: "rutina",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "Me levanto a las siete",
+        en: "I get up at seven",
+        topic: "rutina",
+        subtopic: "answers",
+        difficulty: "medium"
+      },
+      {
+        es: "¿A qué hora te duchas?",
+        en: "What time do you shower?",
+        topic: "rutina",
+        subtopic: "questions",
+        difficulty: "medium"
+      },
+      {
+        es: "Me ducho a las siete y cuarto",
+        en: "I shower at quarter past seven",
+        topic: "rutina",
+        subtopic: "answers",
+        difficulty: "medium"
+      },
+      {
+        es: "Me despierto, me levanto y me ducho",
+        en: "I wake up, get up and shower",
+        topic: "rutina",
+        subtopic: "sequence",
+        difficulty: "hard"
+      },
+      {
+        es: "Me cepillo los dientes y luego me visto",
+        en: "I brush my teeth and then get dressed",
+        topic: "rutina",
+        subtopic: "sequence",
+        difficulty: "hard"
+      },
+      {
+        es: "Su rutina en la mañana es muy larga",
+        en: "Their morning routine is very long",
+        topic: "rutina",
+        subtopic: "su",
+        difficulty: "hard"
+      },
+      {
+        es: "Su hijo se despierta a las siete",
+        en: "Their son wakes up at seven",
+        topic: "rutina",
+        subtopic: "su",
+        difficulty: "hard"
       },
 
       // --- SER (TO BE) ----------------------------------------
@@ -1974,42 +2221,42 @@
       },
       {
         es: "Me llamo",
-        en: "My name is / I am called",
+        en: "my name is / I am called",
         topic: "llamarse",
         subtopic: "forms",
         difficulty: "easy"
       },
       {
         es: "Te llamas",
-        en: "Your name is / you are called",
+        en: "your name is / you are called",
         topic: "llamarse",
         subtopic: "forms",
         difficulty: "easy"
       },
       {
         es: "Se llama",
-        en: "His / her name is / he / she is called",
+        en: "his / her name is / he / she is called",
         topic: "llamarse",
         subtopic: "forms",
         difficulty: "easy"
       },
       {
         es: "Nos llamamos",
-        en: "Our name is / we are called",
+        en: "our name is / we are called",
         topic: "llamarse",
         subtopic: "forms",
         difficulty: "easy"
       },
       {
         es: "Os llamáis",
-        en: "Your (plural) name is / you are called",
+        en: "your (plural) name is / you are called",
         topic: "llamarse",
         subtopic: "forms",
         difficulty: "easy"
       },
       {
         es: "Se llaman",
-        en: "Their name is / they are called",
+        en: "their name is / they are called",
         topic: "llamarse",
         subtopic: "forms",
         difficulty: "easy"
@@ -2779,7 +3026,7 @@
         difficulty: "easy"
       },
       {
-        es: "los melones",
+        es: " los melones",
         en: "the melons",
         topic: "gender",
         subtopic: "plural",
@@ -2866,6 +3113,10 @@
         label: "Days of the week",
         filter: (card) => card.topic === "days"
       },
+      rutina: {
+        label: "Daily routine",
+        filter: (card) => card.topic === "rutina"
+      },
       ser: {
         label: "Verb: ser",
         filter: (card) => card.topic === "ser"
@@ -2907,8 +3158,8 @@
     let currentFrontText = "";
     let currentBackText = "";
 
-    let missedQueue = [];      // collects misses for the *next* cycle
-    let inMissedPhase = false; // true when cycling only missed cards
+    let missedQueue = [];
+    let inMissedPhase = false;
 
     let currentDifficulty = "all";
 
@@ -3003,11 +3254,11 @@
       showAnswerBtn.disabled = true;
       correctBtn.disabled = true;
       incorrectBtn.disabled = true;
+      showAnswerBtn.textContent = "Show answer";
 
       showMessage("Deck complete. All cards answered. Choose another deck or difficulty.", 4000);
     }
 
-    // Load current card
     function loadCard() {
       if (!currentDeckCards.length) {
         questionEl.textContent = "No cards in this deck.";
@@ -3019,6 +3270,7 @@
         isShowingAnswer = false;
         cardEl.classList.remove("flipped");
         cardEl.classList.remove("review-mode");
+        showAnswerBtn.textContent = "Show answer";
         updateRemaining();
         return;
       }
@@ -3050,6 +3302,7 @@
 
       isShowingAnswer = false;
       cardEl.classList.remove("flipped");
+      showAnswerBtn.textContent = "Show answer";
 
       if (inMissedPhase) {
         cardEl.classList.add("review-mode");
@@ -3065,16 +3318,24 @@
       updateRemaining();
     }
 
-    function showAnswer() {
-      if (isShowingAnswer || !currentDeckCards.length) return;
-      isShowingAnswer = true;
+    function toggleAnswer() {
+      if (!currentDeckCards.length) return;
 
-      answerEl.textContent = currentBackText;
-      cardEl.classList.add("flipped");
-      showAnswerBtn.disabled = true;
-
-      correctBtn.disabled = false;
-      incorrectBtn.disabled = false;
+      if (!isShowingAnswer) {
+        isShowingAnswer = true;
+        answerEl.textContent = currentBackText;
+        cardEl.classList.add("flipped");
+        showAnswerBtn.textContent = "Hide answer";
+        correctBtn.disabled = false;
+        incorrectBtn.disabled = false;
+      } else {
+        isShowingAnswer = false;
+        cardEl.classList.remove("flipped");
+        answerEl.textContent = "";
+        showAnswerBtn.textContent = "Show answer";
+        correctBtn.disabled = true;
+        incorrectBtn.disabled = true;
+      }
     }
 
     function goToNextCard() {
@@ -3084,7 +3345,6 @@
 
       if (currentIndex >= currentDeckCards.length) {
         if (!inMissedPhase) {
-          // End of first pass
           if (missedQueue.length > 0) {
             currentDeckCards = missedQueue.slice();
             missedQueue = [];
@@ -3099,7 +3359,6 @@
             return;
           }
         } else {
-          // End of review pass
           if (missedQueue.length > 0) {
             currentDeckCards = missedQueue.slice();
             missedQueue = [];
@@ -3161,14 +3420,14 @@
     }
 
     // === EVENT LISTENERS =======================================
-    showAnswerBtn.addEventListener("click", showAnswer);
+    showAnswerBtn.addEventListener("click", toggleAnswer);
     correctBtn.addEventListener("click", () => handleResult(true));
     incorrectBtn.addEventListener("click", () => handleResult(false));
 
     document.addEventListener("keydown", (e) => {
       if (e.key === " " || e.code === "Space") {
         e.preventDefault();
-        if (!isShowingAnswer) showAnswer();
+        toggleAnswer();
       } else if (e.key === "ArrowRight") {
         handleResult(true);
       } else if (e.key === "ArrowLeft") {
