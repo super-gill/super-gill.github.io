@@ -294,14 +294,29 @@
       font-weight: 600;
     }
 
+    .score-and-count {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      gap: 0.5rem;
+    }
+
     .score {
       font-size: 0.9rem;
       color: #555;
-      text-align: center;
+      text-align: left;
     }
 
     .score strong {
       font-weight: 600;
+    }
+
+    .deck-count {
+      font-size: 0.85rem;
+      color: #777;
+      text-align: right;
+      min-height: 1.2em;
     }
 
     .message {
@@ -323,6 +338,16 @@
 
       .voice-controls {
         flex-direction: column;
+      }
+
+      .score-and-count {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .score,
+      .deck-count {
+        text-align: center;
       }
     }
   </style>
@@ -347,8 +372,6 @@
         <option value="months">Months of the year</option>
         <option value="gender">Gender &amp; articles</option>
         <option value="jobs">Jobs</option>
-        <option value="routine">Daily routine</option>
-        <option value="challenge">Challenge sentences</option>
 
         <option value="verbNames">Verb list (infinitives)</option>
         <option value="allVerbs">All verb practice (all verbs)</option>
@@ -367,6 +390,7 @@
         <option value="vestirseVerb">Verb: vestirse</option>
         <option value="desayunarVerb">Verb: desayunar</option>
         <option value="irTrabajoVerb">Verb: ir (al trabajo)</option>
+
         <option value="cenarVerb">Verb: cenar</option>
         <option value="ponerseVerb">Verb: ponerse</option>
         <option value="leerVerb">Verb: leer</option>
@@ -375,6 +399,9 @@
         <option value="prepararVerb">Verb: preparar (la ropa)</option>
         <option value="irseVerb">Verb: irse (a la cama)</option>
         <option value="dormirseVerb">Verb: dormirse</option>
+
+        <option value="routine">Daily routine</option>
+        <option value="challenge">Challenge sentences</option>
       </select>
     </div>
 
@@ -451,9 +478,13 @@
         </button>
       </div>
 
-      <div class="score" id="score">
-        Correct: <strong>0</strong> · Incorrect: <strong>0</strong>
+      <div class="score-and-count">
+        <div class="score" id="score">
+          Correct: <strong>0</strong> · Incorrect: <strong>0</strong>
+        </div>
+        <div class="deck-count" id="deck-count"></div>
       </div>
+
       <div class="message" id="message"></div>
     </div>
   </div>
@@ -1911,6 +1942,7 @@
     const correctBtn = document.getElementById("correct-btn");
     const incorrectBtn = document.getElementById("incorrect-btn");
     const scoreEl = document.getElementById("score");
+    const deckCountEl = document.getElementById("deck-count");
     const messageEl = document.getElementById("message");
     const directionHintEl = document.getElementById("direction-hint");
     const modeRadios = document.querySelectorAll('input[name="direction-mode"]');
@@ -1941,6 +1973,17 @@
         "</strong> · Incorrect: <strong>" +
         incorrectCount +
         "</strong>";
+    }
+
+    function updateDeckCount() {
+      if (!deckCountEl) return;
+      const total = baseCards.length;
+      if (!total) {
+        deckCountEl.textContent = "";
+        return;
+      }
+      const remaining = baseCards.filter(c => c._status !== "correct").length;
+      deckCountEl.textContent = "Remaining: " + remaining + " of " + total;
     }
 
     function showMessage(text, timeout = 2000) {
@@ -2100,6 +2143,7 @@
       correctCount = 0;
       incorrectCount = 0;
       updateScore();
+      updateDeckCount();
 
       loadCard();
 
@@ -2135,6 +2179,7 @@
         ttsBtn.style.visibility = "hidden";
       }
 
+      updateDeckCount();
       showMessage("All cards answered correctly. Choose another deck or change mode.", 4000);
     }
 
@@ -2191,6 +2236,7 @@
 
       updateTranslateLink(card);
       updateTtsState();
+      updateDeckCount();
     }
 
     function toggleAnswer() {
@@ -2263,6 +2309,7 @@
         card._status = "incorrect";
       }
       updateScore();
+      updateDeckCount();
       goToNextCard();
     }
 
