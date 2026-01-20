@@ -157,8 +157,9 @@
       background: #fff9c4; /* washed-out yellow (main phase) */
     }
 
-    .card.review-phase .card-face.front {
-      background: #ffebee; /* washed-out red (review of missed cards) */
+    .card.review-phase .card-face.front,
+    .card.review-phase-front {
+      background: #ffebee; /* washed-out red (review phase) */
     }
 
     .card-face.back {
@@ -346,6 +347,8 @@
         <option value="months">Months of the year</option>
         <option value="gender">Gender &amp; articles</option>
         <option value="jobs">Jobs</option>
+        <option value="routine">Daily routine</option>
+        <option value="challenge">Challenge sentences</option>
 
         <option value="verbNames">Verb list (infinitives)</option>
         <option value="allVerbs">All verb practice (all verbs)</option>
@@ -364,9 +367,14 @@
         <option value="vestirseVerb">Verb: vestirse</option>
         <option value="desayunarVerb">Verb: desayunar</option>
         <option value="irTrabajoVerb">Verb: ir (al trabajo)</option>
-
-        <option value="routine">Daily routine</option>
-        <option value="challenge">Challenge sentences</option>
+        <option value="cenarVerb">Verb: cenar</option>
+        <option value="ponerseVerb">Verb: ponerse</option>
+        <option value="leerVerb">Verb: leer</option>
+        <option value="verVerb">Verb: ver</option>
+        <option value="usarVerb">Verb: usar (el móvil)</option>
+        <option value="prepararVerb">Verb: preparar (la ropa)</option>
+        <option value="irseVerb">Verb: irse (a la cama)</option>
+        <option value="dormirseVerb">Verb: dormirse</option>
       </select>
     </div>
 
@@ -1050,7 +1058,7 @@
         ]
       },
 
-      // -------- Daily routine verb decks (single-verb focus) ----
+      // -------- Daily routine verbs (existing) -------------------
       despertarseVerb: {
         label: "Verb: despertarse",
         cards: [
@@ -1399,6 +1407,240 @@
         ]
       },
 
+      // -------- NEW verb decks from your bedtime set ------------
+      cenarVerb: {
+        label: "Verb: cenar",
+        cards: [
+          { es: "cenar", en: "to have dinner" },
+
+          { es: "ceno", en: "I have dinner" },
+          { es: "cenas", en: "you (sing.) have dinner" },
+          { es: "cena", en: "he / she has dinner" },
+          { es: "cenamos", en: "we have dinner" },
+          { es: "cenáis", en: "you (plural) have dinner" },
+          { es: "cenan", en: "they have dinner" },
+
+          { es: "Ceno a las siete", en: "I have dinner at seven" },
+          { es: "Ceno a las ocho", en: "I have dinner at eight" },
+          { es: "Ceno muy tarde", en: "I have dinner very late" },
+          { es: "Ceno muy temprano", en: "I have dinner very early" },
+          { es: "Cenas a las siete y media", en: "You have dinner at half past seven" },
+          { es: "Cenas con tu familia", en: "You have dinner with your family" },
+          { es: "Cena a las ocho", en: "He / she has dinner at eight" },
+          { es: "Cena sola en casa", en: "She has dinner alone at home" },
+          { es: "Cenamos juntos los viernes", en: "We have dinner together on Fridays" },
+          { es: "Cenamos en el restaurante", en: "We have dinner at the restaurant" },
+          { es: "Cenáis a las nueve", en: "You (plural) have dinner at nine" },
+          { es: "Cenáis en casa de tus padres", en: "You (plural) have dinner at your parents' house" },
+          { es: "Cenan muy tarde los fines de semana", en: "They have dinner very late at weekends" },
+          { es: "Cenan en casa", en: "They have dinner at home" },
+          { es: "Normalmente ceno a las siete y media", en: "Normally I have dinner at seven thirty" },
+          { es: "A veces ceno en el trabajo", en: "Sometimes I have dinner at work" },
+          { es: "Hoy ceno con mis amigos", en: "Today I have dinner with my friends" },
+          { es: "Mañana ceno con mi familia", en: "Tomorrow I have dinner with my family" }
+        ]
+      },
+
+      ponerseVerb: {
+        label: "Verb: ponerse",
+        cards: [
+          { es: "ponerse", en: "to put on (clothes / pyjamas)" },
+
+          { es: "me pongo", en: "I put on" },
+          { es: "te pones", en: "you put on" },
+          { es: "se pone", en: "he / she puts on" },
+          { es: "nos ponemos", en: "we put on" },
+          { es: "os ponéis", en: "you (plural) put on" },
+          { es: "se ponen", en: "they put on" },
+
+          { es: "Me pongo el pijama", en: "I put on pyjamas" },
+          { es: "Me pongo la chaqueta", en: "I put on the jacket" },
+          { es: "Me pongo los zapatos", en: "I put on my shoes" },
+          { es: "Te pones el pijama", en: "You put on pyjamas" },
+          { es: "Te pones el abrigo", en: "You put on the coat" },
+          { es: "Se pone el pijama", en: "He / she puts on pyjamas" },
+          { es: "Se pone la camiseta", en: "He / she puts on the T-shirt" },
+          { es: "Nos ponemos el pijama", en: "We put on pyjamas" },
+          { es: "Nos ponemos la ropa de trabajo", en: "We put on work clothes" },
+          { es: "Os ponéis el pijama", en: "You (plural) put on pyjamas" },
+          { es: "Os ponéis la ropa de deporte", en: "You (plural) put on sports clothes" },
+          { es: "Se ponen el pijama muy tarde", en: "They put on pyjamas very late" },
+          { es: "Se ponen el pijama después de cenar", en: "They put on pyjamas after dinner" }
+        ]
+      },
+
+      leerVerb: {
+        label: "Verb: leer",
+        cards: [
+          { es: "leer", en: "to read" },
+
+          { es: "leo", en: "I read" },
+          { es: "lees", en: "you read" },
+          { es: "lee", en: "he / she reads" },
+          { es: "leemos", en: "we read" },
+          { es: "leéis", en: "you (plural) read" },
+          { es: "leen", en: "they read" },
+
+          { es: "Leo un libro", en: "I read a book" },
+          { es: "Leo por la noche", en: "I read at night" },
+          { es: "Leo en la cama", en: "I read in bed" },
+          { es: "Lees un libro de fantasía", en: "You read a fantasy book" },
+          { es: "Lees el periódico", en: "You read the newspaper" },
+          { es: "Lee una revista", en: "He / she reads a magazine" },
+          { es: "Lee en el sofá", en: "He / she reads on the sofa" },
+          { es: "Leemos juntos", en: "We read together" },
+          { es: "Leemos por la tarde", en: "We read in the afternoon" },
+          { es: "Leéis en la biblioteca", en: "You (plural) read in the library" },
+          { es: "Leéis muchos libros", en: "You (plural) read many books" },
+          { es: "Leen en el tren", en: "They read on the train" },
+          { es: "Leen por la mañana", en: "They read in the morning" },
+          { es: "Normalmente leo antes de dormir", en: "Normally I read before sleeping" },
+          { es: "A veces leo en el trabajo", en: "Sometimes I read at work" }
+        ]
+      },
+
+      verVerb: {
+        label: "Verb: ver",
+        cards: [
+          { es: "ver", en: "to see / to watch" },
+
+          { es: "veo", en: "I watch / I see" },
+          { es: "ves", en: "you watch / you see" },
+          { es: "ve", en: "he / she watches / sees" },
+          { es: "vemos", en: "we watch / we see" },
+          { es: "veis", en: "you (plural) watch / see" },
+          { es: "ven", en: "they watch / they see" },
+
+          { es: "Veo la tele por la noche", en: "I watch TV at night" },
+          { es: "Veo la tele en el salón", en: "I watch TV in the living room" },
+          { es: "Veo una película", en: "I watch a film" },
+          { es: "Ves la tele después de cenar", en: "You watch TV after dinner" },
+          { es: "Ves una serie", en: "You watch a series" },
+          { es: "Ve la tele en la cama", en: "He / she watches TV in bed" },
+          { es: "Ve una película de acción", en: "He / she watches an action film" },
+          { es: "Vemos la tele juntos", en: "We watch TV together" },
+          { es: "Vemos una película los domingos", en: "We watch a film on Sundays" },
+          { es: "Veis la tele por la noche", en: "You (plural) watch TV at night" },
+          { es: "Veis una serie nueva", en: "You (plural) watch a new series" },
+          { es: "Ven la tele todos los días", en: "They watch TV every day" },
+          { es: "Ven una película el viernes", en: "They watch a film on Friday" },
+          { es: "Normalmente veo la tele después de cenar", en: "Normally I watch TV after dinner" },
+          { es: "A veces veo la tele en la cocina", en: "Sometimes I watch TV in the kitchen" }
+        ]
+      },
+
+      usarVerb: {
+        label: "Verb: usar (el móvil)",
+        cards: [
+          { es: "usar", en: "to use" },
+
+          { es: "uso", en: "I use" },
+          { es: "usas", en: "you use" },
+          { es: "usa", en: "he / she uses" },
+          { es: "usamos", en: "we use" },
+          { es: "usáis", en: "you (plural) use" },
+          { es: "usan", en: "they use" },
+
+          { es: "Uso el móvil por la noche", en: "I use my mobile at night" },
+          { es: "Uso el móvil en la cama", en: "I use my mobile in bed" },
+          { es: "Uso el móvil para leer noticias", en: "I use my mobile to read news" },
+          { es: "Usas el móvil en el trabajo", en: "You use your mobile at work" },
+          { es: "Usas el móvil para jugar", en: "You use your mobile to play" },
+          { es: "Usa el móvil para ver vídeos", en: "He / she uses the mobile to watch videos" },
+          { es: "Usa el móvil en el tren", en: "He / she uses the mobile on the train" },
+          { es: "Usamos el móvil para hablar con la familia", en: "We use the mobile to talk to the family" },
+          { es: "Usamos el móvil por la mañana", en: "We use the mobile in the morning" },
+          { es: "Usáis el móvil en el sofá", en: "You (plural) use the mobile on the sofa" },
+          { es: "Usáis el móvil para escuchar música", en: "You (plural) use the mobile to listen to music" },
+          { es: "Usan el móvil todo el día", en: "They use the mobile all day" },
+          { es: "Usan el móvil antes de dormir", en: "They use the mobile before sleeping" }
+        ]
+      },
+
+      prepararVerb: {
+        label: "Verb: preparar (la ropa)",
+        cards: [
+          { es: "preparar", en: "to prepare" },
+
+          { es: "preparo", en: "I prepare" },
+          { es: "preparas", en: "you prepare" },
+          { es: "prepara", en: "he / she prepares" },
+          { es: "preparamos", en: "we prepare" },
+          { es: "preparáis", en: "you (plural) prepare" },
+          { es: "preparan", en: "they prepare" },
+
+          { es: "Preparo la ropa por la noche", en: "I prepare my clothes at night" },
+          { es: "Preparo la ropa para el trabajo", en: "I prepare clothes for work" },
+          { es: "Preparo la ropa de deporte", en: "I prepare sports clothes" },
+          { es: "Preparas la ropa por la mañana", en: "You prepare your clothes in the morning" },
+          { es: "Preparas la ropa para el lunes", en: "You prepare clothes for Monday" },
+          { es: "Prepara la ropa de los niños", en: "He / she prepares the children's clothes" },
+          { es: "Prepara la ropa para la escuela", en: "He / she prepares clothes for school" },
+          { es: "Preparamos la ropa juntos", en: "We prepare the clothes together" },
+          { es: "Preparamos la ropa el domingo", en: "We prepare clothes on Sunday" },
+          { es: "Preparáis la ropa por la noche", en: "You (plural) prepare clothes at night" },
+          { es: "Preparáis la ropa para las vacaciones", en: "You (plural) prepare clothes for the holidays" },
+          { es: "Preparan la ropa para la semana", en: "They prepare clothes for the week" },
+          { es: "Preparan la ropa de sus hijos", en: "They prepare their children's clothes" }
+        ]
+      },
+
+      irseVerb: {
+        label: "Verb: irse (a la cama)",
+        cards: [
+          { es: "irse", en: "to go away / to leave (here: go to bed)" },
+
+          { es: "me voy", en: "I go / I leave" },
+          { es: "te vas", en: "you go / you leave" },
+          { es: "se va", en: "he / she goes / leaves" },
+          { es: "nos vamos", en: "we go / we leave" },
+          { es: "os vais", en: "you (plural) go / leave" },
+          { es: "se van", en: "they go / they leave" },
+
+          { es: "Me voy a la cama a las diez", en: "I go to bed at ten" },
+          { es: "Me voy a la cama muy tarde", en: "I go to bed very late" },
+          { es: "Me voy a la cama después de leer", en: "I go to bed after reading" },
+          { es: "Te vas a la cama a las once", en: "You go to bed at eleven" },
+          { es: "Te vas a la cama muy temprano", en: "You go to bed very early" },
+          { es: "Se va a la cama a las doce", en: "He / she goes to bed at twelve" },
+          { es: "Se va a la cama después de cenar", en: "He / she goes to bed after dinner" },
+          { es: "Nos vamos a la cama a las diez y media", en: "We go to bed at half past ten" },
+          { es: "Nos vamos a la cama muy tarde los viernes", en: "We go to bed very late on Fridays" },
+          { es: "Os vais a la cama a las nueve", en: "You (plural) go to bed at nine" },
+          { es: "Os vais a la cama muy tarde los sábados", en: "You (plural) go to bed very late on Saturdays" },
+          { es: "Se van a la cama a las ocho", en: "They go to bed at eight" },
+          { es: "Se van a la cama después de ver la tele", en: "They go to bed after watching TV" }
+        ]
+      },
+
+      dormirseVerb: {
+        label: "Verb: dormirse",
+        cards: [
+          { es: "dormirse", en: "to fall asleep" },
+
+          { es: "me duermo", en: "I fall asleep" },
+          { es: "te duermes", en: "you fall asleep" },
+          { es: "se duerme", en: "he / she falls asleep" },
+          { es: "nos dormimos", en: "we fall asleep" },
+          { es: "os dormís", en: "you (plural) fall asleep" },
+          { es: "se duermen", en: "they fall asleep" },
+
+          { es: "Me duermo muy rápido", en: "I fall asleep very quickly" },
+          { es: "Me duermo muy tarde", en: "I fall asleep very late" },
+          { es: "Me duermo en el sofá", en: "I fall asleep on the sofa" },
+          { es: "Te duermes muy rápido", en: "You fall asleep very quickly" },
+          { es: "Te duermes en la cama", en: "You fall asleep in bed" },
+          { es: "Se duerme en el sofá", en: "He / she falls asleep on the sofa" },
+          { es: "Se duerme después de leer", en: "He / she falls asleep after reading" },
+          { es: "Nos dormimos muy tarde los sábados", en: "We fall asleep very late on Saturdays" },
+          { es: "Nos dormimos en el tren", en: "We fall asleep on the train" },
+          { es: "Os dormís muy pronto", en: "You (plural) fall asleep very early" },
+          { es: "Os dormís en el autobús", en: "You (plural) fall asleep on the bus" },
+          { es: "Se duermen muy rápido", en: "They fall asleep very quickly" },
+          { es: "Se duermen en el coche", en: "They fall asleep in the car" }
+        ]
+      },
+
       // ------------------ DAILY ROUTINE (mixed) -----------------
       routine: {
         label: "Daily routine",
@@ -1413,6 +1655,15 @@
           { es: "desayunar", en: "to have breakfast" },
           { es: "ir al trabajo", en: "to go to work" },
 
+          { es: "cenar", en: "to have dinner" },
+          { es: "ponerse el pijama", en: "to put on pyjamas" },
+          { es: "leer", en: "to read" },
+          { es: "ver la tele", en: "to watch TV" },
+          { es: "usar el móvil", en: "to use the mobile" },
+          { es: "preparar la ropa", en: "to prepare clothes" },
+          { es: "irse a la cama", en: "to go to bed" },
+          { es: "dormirse", en: "to fall asleep" },
+
           { es: "Me despierto", en: "I wake up" },
           { es: "Me levanto", en: "I get up" },
           { es: "Me lavo la cara", en: "I wash my face" },
@@ -1421,21 +1672,25 @@
           { es: "Me cepillo los dientes", en: "I brush my teeth" },
           { es: "Me visto", en: "I get dressed" },
 
-          { es: "Te despiertas", en: "You wake up" },
-          { es: "Te levantas", en: "You get up" },
-          { es: "Te duchas", en: "You have a shower" },
-          { es: "Te cepillas los dientes", en: "You brush your teeth" },
-          { es: "Te vistes", en: "You get dressed" },
+          { es: "Desayuno café y tostadas", en: "I have coffee and toast for breakfast" },
+          { es: "Voy al trabajo en tren", en: "I go to work by train" },
+
+          { es: "Ceno a las siete", en: "I have dinner at seven" },
+          { es: "Ceno con mi familia", en: "I have dinner with my family" },
+          { es: "Me pongo el pijama", en: "I put on pyjamas" },
+          { es: "Leo en la cama", en: "I read in bed" },
+          { es: "Veo la tele por la noche", en: "I watch TV at night" },
+          { es: "Uso el móvil en la cama", en: "I use my mobile in bed" },
+          { es: "Preparo la ropa para mañana", en: "I prepare my clothes for tomorrow" },
+          { es: "Me voy a la cama a las diez", en: "I go to bed at ten" },
+          { es: "Me duermo muy rápido", en: "I fall asleep very quickly" },
 
           { es: "¿Cuál es tu rutina en la mañana?", en: "What is your morning routine?" },
           { es: "¿A qué hora te despiertas?", en: "What time do you wake up?" },
           { es: "¿A qué hora te levantas?", en: "What time do you get up?" },
           { es: "¿A qué hora te duchas?", en: "What time do you shower?" },
-
-          { es: "Me despierto a las seis", en: "I wake up at six" },
-          { es: "Me levanto a las siete", en: "I get up at seven" },
-          { es: "Me ducho a las siete y cuarto", en: "I shower at quarter past seven" },
-          { es: "Después de desayunar voy al trabajo", en: "After breakfast I go to work" }
+          { es: "¿A qué hora cenas?", en: "What time do you have dinner?" },
+          { es: "¿Te pones el pijama antes de ver la tele?", en: "Do you put on pyjamas before watching TV?" }
         ]
       },
 
@@ -1524,7 +1779,15 @@
       "banarseVerb",
       "vestirseVerb",
       "desayunarVerb",
-      "irTrabajoVerb"
+      "irTrabajoVerb",
+      "cenarVerb",
+      "ponerseVerb",
+      "leerVerb",
+      "verVerb",
+      "usarVerb",
+      "prepararVerb",
+      "irseVerb",
+      "dormirseVerb"
     ];
 
     const VERB_INF_MAP = {
@@ -1541,7 +1804,15 @@
       banarseVerb: "bañarse",
       vestirseVerb: "vestirse",
       desayunarVerb: "desayunar",
-      irTrabajoVerb: "ir"
+      irTrabajoVerb: "ir",
+      cenarVerb: "cenar",
+      ponerseVerb: "ponerse",
+      leerVerb: "leer",
+      verVerb: "ver",
+      usarVerb: "usar",
+      prepararVerb: "preparar",
+      irseVerb: "irse",
+      dormirseVerb: "dormirse"
     };
 
     (function buildDerivedVerbDecks() {
