@@ -12,6 +12,22 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --bg: #f3fbfa;
+            --surface: #ffffff;
+            --text: #0b1220;
+            --muted: #33505a;
+
+            --brand: #0f766e;
+            --brand-hover: #115e59;
+            --accent: #22c55e;
+            --shadow: 0 10px 28px rgba(15, 118, 110, .12);
+            --border: #ccfbf1;
+        }
+
+
+
+
         html,
         body {
             height: 100%;
@@ -20,7 +36,8 @@
         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
-            background-color: #f4f4f4;
+            background: var(--bg);
+            color: var(--text);
             text-align: center;
             display: flex;
             flex-direction: column;
@@ -31,70 +48,63 @@
         }
 
         header {
-            background-color: #333;
+            background: var(--brand);
             color: #fff;
-            padding: 1rem 0;
+            padding: 1.2rem 0;
         }
 
         header h1 {
             margin: 0;
-            font-size: 2.5rem;
-        }
-
-        nav ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        nav ul li {
-            display: inline;
-            margin-right: 20px;
-        }
-
-        nav ul li a {
-            color: #fff;
-            text-decoration: none;
-            font-size: 1.2rem;
-        }
-
-        nav ul li a:hover {
-            text-decoration: underline;
+            font-size: clamp(1.8rem, 3vw, 2.6rem);
+            letter-spacing: 0.2px;
         }
 
         .container {
-            width: 80%;
+            max-width: 980px;
+            width: calc(100% - 32px);
             margin: 0 auto;
-            padding: 2rem 0;
+            padding: 0;
         }
 
         section {
-            margin: 1rem 0;
+            padding: 2.25rem 0;
+            margin: 0;
+        }
+
+        section .container {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--shadow);
         }
 
         h2 {
-            margin-bottom: 1rem;
-            font-size: 2rem;
-            color: #333;
+            margin-bottom: 0.75rem;
+            font-size: 1.6rem;
+            color: var(--text);
         }
 
         p {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
+            font-size: 1.05rem;
+            margin: 0 auto 1rem;
+            max-width: 70ch;
+            color: var(--muted);
         }
 
         .btn {
             display: inline-block;
-            padding: 0.7rem 1.5rem;
-            background-color: #333;
+            padding: 0.8rem 1.4rem;
+            background: var(--brand);
             color: #fff;
             text-decoration: none;
-            font-size: 1.2rem;
-            border-radius: 5px;
+            font-size: 1.05rem;
+            border-radius: 999px;
             cursor: pointer;
+            border: none;
         }
 
         .btn:hover {
-            background-color: #555;
+            background: var(--brand-hover);
         }
 
         .btn.disabled {
@@ -103,7 +113,7 @@
         }
 
         footer {
-            background-color: #333;
+            background: var(--brand);
             color: #fff;
             padding: 1rem 0;
             margin-top: 2rem;
@@ -113,6 +123,7 @@
         footer p {
             margin: 0;
             font-size: 1rem;
+            color: #fff;
         }
 
         #copyright {
@@ -125,19 +136,19 @@
         }
 
         #copyright:hover {
-            background-color: rgba(0, 0, 0, 0.1);
+            background-color: rgba(255, 255, 255, 0.08);
         }
 
         #contact-info {
             display: none;
-            margin-top: 2rem;
-            margin-bottom: 0.5rem;
+            margin-top: 1.25rem;
+            margin-bottom: 0.25rem;
         }
 
         #captchaModal {
             display: none;
             position: fixed;
-            z-index: 1;
+            z-index: 2;
             left: 0;
             top: 0;
             width: 100%;
@@ -147,58 +158,60 @@
 
         #captchaModal .modal-content {
             background-color: #fff;
-            margin: 15% auto;
+            margin: 12% auto;
             padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            max-width: 400px;
-            border-radius: 8px;
+            border: 1px solid var(--border);
+            width: calc(100% - 32px);
+            max-width: 420px;
+            border-radius: 14px;
             text-align: center;
         }
 
         #captchaModal .close {
-            color: #aaa;
+            color: #9ca3af;
             float: right;
             font-size: 28px;
             font-weight: bold;
             cursor: pointer;
+            line-height: 1;
         }
 
         #captchaModal .close:hover,
         #captchaModal .close:focus {
-            color: black;
+            color: #111;
         }
 
         .captcha-question {
             margin-bottom: 15px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
+            color: #111;
         }
 
         .captcha-input {
             width: 100%;
-            padding: 8px;
+            padding: 10px;
             font-size: 1rem;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            margin-bottom: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
         }
 
         .submit-captcha {
             padding: 10px 20px;
-            background-color: #333;
+            background: #111827;
             color: #fff;
             border: none;
-            border-radius: 5px;
+            border-radius: 999px;
             cursor: pointer;
-            font-size: 1.1rem;
+            font-size: 1rem;
         }
 
         .submit-captcha:hover {
-            background-color: #555;
+            background: #1f2937;
         }
 
         .error-message {
-            color: red;
+            color: #dc2626;
             display: none;
             margin-bottom: 10px;
         }
@@ -216,16 +229,17 @@
             object-fit: cover;
             cursor: pointer;
             transition: transform 0.2s ease;
+            border-radius: 10px;
         }
 
         .gallery-thumbnail:hover {
-            transform: scale(1.1);
+            transform: scale(1.06);
         }
 
         #lightboxModal {
             display: none;
             position: fixed;
-            z-index: 1;
+            z-index: 3;
             left: 0;
             top: 0;
             width: 100%;
@@ -234,31 +248,55 @@
         }
 
         .modal-content {
-            margin: auto;
+            margin: 5% auto 0;
             display: block;
-            max-width: 80%;
+            max-width: min(92%, 1100px);
             max-height: 80%;
+            border-radius: 10px;
         }
 
         #caption {
-            color: #ccc;
+            color: #d1d5db;
             text-align: center;
             padding: 10px;
         }
 
         #lightboxModal .close {
             position: absolute;
-            top: 15px;
-            right: 35px;
+            top: 14px;
+            right: 22px;
             color: #fff;
             font-size: 40px;
             font-weight: bold;
             cursor: pointer;
+            line-height: 1;
         }
 
         #lightboxModal .close:hover,
         #lightboxModal .close:focus {
             color: #bbb;
+        }
+
+        /* Make embedded calendar responsive */
+        .calendar-wrap {
+            width: 100%;
+            max-width: 900px;
+            margin: 16px auto 0;
+            aspect-ratio: 1 / 1;
+        }
+
+        .calendar-wrap iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            border-radius: 14px;
+        }
+
+        /* Sponsor image sizing */
+        .sponsor img {
+            max-width: min(520px, 100%);
+            height: auto;
+            border-radius: 12px;
         }
     </style>
 </head>
@@ -275,7 +313,8 @@
             <div class="container">
                 <h2>Welcome to Towcester Volleyball Club</h2>
                 <p>Join us every Saturday for a fun, inclusive volleyball session!</p>
-                <p>Exact times and locations vary: check out the calendar, Facebook page or WhatsApp group for up to date information.</p>
+                <p>Exact times and locations vary: check out the calendar, Facebook page or WhatsApp group for up to
+                    date information.</p>
             </div>
         </section>
 
@@ -287,87 +326,84 @@
             </div>
         </section>
 
-        <!-- <section id="sessions">
+        <section id="contact">
             <div class="container">
-                <h2>Towcester Centre for Leisure Sessions</h2>
-                <p><strong>When:</strong> Saturday at 12:30 PM Onwards</p>
-                <p><strong>Where:</strong> Towcester Leisure Centre</p>
-                <p><strong>Fee:</strong> Small fee applies (venue rent is split between participants)</p>
-                <p><strong>Outdoor Sessions:</strong> Free</p>
-                <p><strong>Attire:</strong> Comfortable sportswear, no equipment required</p> -->
-            </div>
-            <section id="contact">
-                <div class="container">
-                    <button id="contactBtn" class="btn">Contact Us</button>
-                    <div id="contact-info">
-                        <p>Scan the QR code below to reach us on WhatsApp!</p>
-                        <img src="./output-onlinepngtools.png" alt="WhatsApp QR Code"
-                            style="max-width: 300px; width: 100%; height: auto;">
-                        <p>Or, send us an email at <a href="mailto:contact@towcestervolleyball.co.uk">
-                                contact@towcestervolleyball.co.uk</a>.
-                        </p>
-                        <div class="container">
-                            <iframe
-                                src="https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Europe%2FLondon&bgcolor=%23ffffff&showTabs=0&showPrint=0&title=Volleyball%20Schedule&src=dG93Y2VzdGVydm9sbGV5YmFsbEBnbWFpbC5jb20&color=%23039BE5"
-                                style="border-width:0" width="600" height="600" frameborder="0" scrolling="no"></iframe>
-                        </div>
+                <button id="contactBtn" class="btn" type="button">Contact Us</button>
+
+                <div id="contact-info">
+                    <p>Scan the QR code below to reach us on WhatsApp.</p>
+                    <img src="./output-onlinepngtools.png" alt="WhatsApp QR Code"
+                        style="max-width: 300px; width: 100%; height: auto; border-radius: 14px;">
+
+                    <p style="margin-top: 1rem;">
+                        Prefer not to use WhatsApp?
+                        <a href="https://www.facebook.com/volleyballtowcester" class="btn" style="margin-left: .5rem;"
+                            target="_blank" rel="noopener">
+                            Facebook
+                        </a>
+                    </p>
+
+
+                    <div class="calendar-wrap">
+                        <iframe
+                            src="https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Europe%2FLondon&bgcolor=%23ffffff&showTabs=0&showPrint=0&title=Volleyball%20Schedule&src=dG93Y2VzdGVydm9sbGV5YmFsbEBnbWFpbC5jb20&color=%23039BE5"
+                            scrolling="no"></iframe>
                     </div>
                 </div>
-            </section>
+            </div>
+        </section>
 
-            <section>
-
-            </section>
-
-            <section id="gallery">
-                <div class="container">
-                    <h2>Photo Gallery</h2>
-                    <div class="gallery-grid">
-                        <img src="./VBPics/1.jpg" alt="MVP" class="gallery-thumbnail">
-                        <img src="./VBPics/2.jpg" alt="Photo 2" class="gallery-thumbnail">
-                        <img src="./VBPics/3.jpg" alt="Photo 3" class="gallery-thumbnail">
-                        <img src="./VBPics/4.jpg" alt="Photo 4" class="gallery-thumbnail">
-                        <img src="./VBPics/5.jpg" alt="Photo 5" class="gallery-thumbnail">
-                        <img src="./VBPics/6.jpg" alt="Photo 6" class="gallery-thumbnail">
-                        <img src="./VBPics/7.jpg" alt="Photo 7" class="gallery-thumbnail">
-                        <img src="./VBPics/8.jpg" alt="Photo 8" class="gallery-thumbnail">
-                        <img src="./VBPics/9.jpg" alt="Photo 9" class="gallery-thumbnail">
-                        <img src="./VBPics/10.jpg" alt="Photo 10" class="gallery-thumbnail">
-                        <img src="./VBPics/11.jpg" alt="Photo 11" class="gallery-thumbnail">
-                        <img src="./VBPics/12.jpg" alt="Photo 12" class="gallery-thumbnail">
-                        <img src="./VBPics/13.jpg" alt="Photo 13" class="gallery-thumbnail">
-                        <img src="./VBPics/14.jpg" alt="Photo 14" class="gallery-thumbnail">
-                        <img src="./VBPics/15.jpg" alt="Photo 15" class="gallery-thumbnail">
-                        <img src="./VBPics/16.jpg" alt="Photo 16" class="gallery-thumbnail">
-                    </div>
-                </div>
-            </section>
-
-            <section>
-                <div>
-                    <h2>Proudly sponsored by Towcester Homes</h2>
-                    <div>
-                        <a href="https://towcesterhomes.co.uk"><img src="./vbpics/spons1.png" alt="https://towcesterhomes.co.uk"></a>
-                    </div>
-                </div>
-            </section>
-
-            <div id="captchaModal" class="modal">
-                <div class="modal-content">
-                    <span class="close">&times;</span>
-                    <h2>Verify You're Human</h2>
-                    <p class="captcha-question" id="captchaQuestion">What is 3 + 4?</p>
-                    <input type="text" id="captchaInput" class="captcha-input" placeholder="Your Answer">
-                    <div class="error-message" id="errorMessage">Incorrect answer. Please try again.</div>
-                    <button id="submitCaptcha" class="submit-captcha">Submit</button>
+        <section id="gallery">
+            <div class="container">
+                <h2>Photo Gallery</h2>
+                <div class="gallery-grid">
+                    <img src="./VBPics/1.jpg" alt="MVP" class="gallery-thumbnail">
+                    <img src="./VBPics/2.jpg" alt="Photo 2" class="gallery-thumbnail">
+                    <img src="./VBPics/3.jpg" alt="Outdoors" class="gallery-thumbnail">
+                    <img src="./VBPics/4.jpg" alt="TCL" class="gallery-thumbnail">
+                    <img src="./VBPics/5.jpg" alt="TCL" class="gallery-thumbnail">
+                    <img src="./VBPics/6.jpg" alt="TCL" class="gallery-thumbnail">
+                    <img src="./VBPics/7.jpg" alt="TCL" class="gallery-thumbnail">
+                    <img src="./VBPics/8.jpg" alt="TCL" class="gallery-thumbnail">
+                    <img src="./VBPics/9.jpg" alt="TCL" class="gallery-thumbnail">
+                    <img src="./VBPics/10.jpg" alt="Outdoors" class="gallery-thumbnail">
+                    <img src="./VBPics/11.jpg" alt="Outdoors" class="gallery-thumbnail">
+                    <img src="./VBPics/12.jpg" alt="Outdoors" class="gallery-thumbnail">
+                    <img src="./VBPics/13.jpg" alt="Outdoors" class="gallery-thumbnail">
+                    <img src="./VBPics/14.jpg" alt="Outdoors" class="gallery-thumbnail">
+                    <img src="./VBPics/15.jpg" alt="Tiffield School" class="gallery-thumbnail">
+                    <img src="./VBPics/16.jpg" alt="Tiffield School" class="gallery-thumbnail">
                 </div>
             </div>
-
-            <div id="lightboxModal" class="modal">
-                <span class="close">&times;</span>
-                <img class="modal-content" id="lightboxImg">
-                <div id="caption"></div>
+        </section>
+        <!--
+        <section class="sponsor">
+            <div class="container">
+                <h2>Proudly sponsored by Towcester Homes</h2>
+                <div style="margin-top: 12px;">
+                    <a href="https://towcesterhomes.co.uk">
+                        <img src="./vbpics/spons1.png" alt="Towcester Homes">
+                    </a>
+                </div>
             </div>
+        </section>
+        -->
+        <div id="captchaModal" class="modal">
+            <div class="modal-content">
+                <span class="close" aria-label="Close">&times;</span>
+                <h2>Verify You're Human</h2>
+                <p class="captcha-question" id="captchaQuestion">What is 3 + 4?</p>
+                <input type="text" id="captchaInput" class="captcha-input" placeholder="Your Answer">
+                <div class="error-message" id="errorMessage">Incorrect answer. Please try again.</div>
+                <button id="submitCaptcha" class="submit-captcha" type="button">Submit</button>
+            </div>
+        </div>
+
+        <div id="lightboxModal" class="modal">
+            <span class="close" aria-label="Close">&times;</span>
+            <img class="modal-content" id="lightboxImg" alt="">
+            <div id="caption"></div>
+        </div>
     </div>
 
     <footer>
@@ -378,13 +414,19 @@
 
     <script>
         const contactBtn = document.getElementById('contactBtn');
-        const modal = document.getElementById('captchaModal');
-        const closeBtn = document.querySelector('.close');
+
+        const captchaModal = document.getElementById('captchaModal');
+        const captchaCloseBtn = document.querySelector('#captchaModal .close');
         const submitCaptcha = document.getElementById('submitCaptcha');
         const captchaInput = document.getElementById('captchaInput');
         const errorMessage = document.getElementById('errorMessage');
         const captchaQuestion = document.getElementById('captchaQuestion');
         const contactInfo = document.getElementById('contact-info');
+
+        const lightboxModal = document.getElementById('lightboxModal');
+        const lightboxImg = document.getElementById('lightboxImg');
+        const lightboxCloseBtn = document.querySelector('#lightboxModal .close');
+        const caption = document.getElementById('caption');
 
         let captchaAnswer;
 
@@ -397,19 +439,13 @@
 
         contactBtn.onclick = function () {
             generateCaptcha();
-            modal.style.display = "block";
+            captchaModal.style.display = "block";
             captchaInput.value = '';
             errorMessage.style.display = 'none';
         }
 
-        closeBtn.onclick = function () {
-            modal.style.display = "none";
-        }
-
-        window.onclick = function (event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
+        captchaCloseBtn.onclick = function () {
+            captchaModal.style.display = "none";
         }
 
         submitCaptcha.onclick = function () {
@@ -418,35 +454,34 @@
                 contactInfo.style.display = 'block';
                 contactBtn.classList.add('disabled');
                 contactBtn.disabled = true;
-                modal.style.display = "none";
+                captchaModal.style.display = "none";
             } else {
                 errorMessage.style.display = 'block';
             }
         }
 
+        // Lightbox
         const thumbnails = document.querySelectorAll('.gallery-thumbnail');
-        const lightboxModal = document.getElementById('lightboxModal');
-        const lightboxImg = document.getElementById('lightboxImg');
-        const closeLightbox = document.querySelector('#lightboxModal .close');
-
         thumbnails.forEach(thumbnail => {
             thumbnail.onclick = function () {
                 lightboxModal.style.display = "block";
                 lightboxImg.src = this.src;
-                captionText.innerHTML = this.alt;
+                lightboxImg.alt = this.alt || '';
+                caption.textContent = this.alt || '';
             }
         });
 
-        closeLightbox.onclick = function () {
+        lightboxCloseBtn.onclick = function () {
             lightboxModal.style.display = "none";
         }
 
-        window.onclick = function (event) {
-            if (event.target == lightboxModal) {
-                lightboxModal.style.display = "none";
-            }
-        }
+        // One global click handler (don’t overwrite window.onclick twice)
+        window.addEventListener('click', (event) => {
+            if (event.target === captchaModal) captchaModal.style.display = "none";
+            if (event.target === lightboxModal) lightboxModal.style.display = "none";
+        });
 
+        // Footer scramble
         const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         let interval = null;
         const originalText = document.getElementById("copyright").innerText;
