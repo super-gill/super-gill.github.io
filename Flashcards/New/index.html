@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Spanish Flashcards</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>Spanish Flashcards</h1>
+      <p>Flip the card, then mark if you got it right or wrong.</p>
+    </header>
+
+    <!-- Deck selection -->
+    <div class="deck-select">
+      <label for="deck-select">Deck:</label>
+      <select id="deck-select">
+        <option value="all">All cards (mixed)</option>
+        <option value="introductions">Introductions &amp; small talk</option>
+        <option value="family">Family</option>
+        <option value="pets">Pets</option>
+        <option value="numbers">Numbers</option>
+        <option value="days">Days of the week</option>
+        <option value="months">Months of the year</option>
+
+        <option value="weatherBasics">Weather: basics</option>
+        <option value="weatherDays">Weather: days forecast</option>
+        <option value="timeBasics">Telling the time: basics</option>
+        <option value="timePractice">Telling the time: practice</option>
+        <option value="timeZones">Time zones (London → world)</option>
+        <option value="review2Conversation">Review 2: conversation</option>
+        <option value="familyQuiz">Family questions (Q&amp;A)</option>
+
+        <option value="gender">Gender &amp; articles</option>
+        <option value="jobs">Jobs</option>
+
+        <option value="verbNames">Verb list (infinitives)</option>
+        <option value="allVerbs">All verb practice (all verbs)</option>
+
+        <option value="ser">Verb: ser</option>
+        <option value="tener">Verb: tener</option>
+        <option value="llamarse">Verb: llamarse</option>
+        <option value="estar">Verb: estar</option>
+        <option value="gustar">Verb: gustar / likes</option>
+        <option value="despertarseVerb">Verb: despertarse</option>
+        <option value="levantarseVerb">Verb: levantarse</option>
+        <option value="lavarseVerb">Verb: lavarse</option>
+        <option value="cepillarseVerb">Verb: cepillarse</option>
+        <option value="ducharseVerb">Verb: ducharse</option>
+        <option value="banarseVerb">Verb: bañarse</option>
+        <option value="vestirseVerb">Verb: vestirse</option>
+        <option value="desayunarVerb">Verb: desayunar</option>
+        <option value="irTrabajoVerb">Verb: ir (al trabajo)</option>
+
+        <option value="cenarVerb">Verb: cenar</option>
+        <option value="ponerseVerb">Verb: ponerse</option>
+        <option value="leerVerb">Verb: leer</option>
+        <option value="verVerb">Verb: ver</option>
+        <option value="usarVerb">Verb: usar (el móvil)</option>
+        <option value="prepararVerb">Verb: preparar (la ropa)</option>
+        <option value="irseVerb">Verb: irse (a la cama)</option>
+        <option value="dormirseVerb">Verb: dormirse</option>
+
+        <option value="routine">Daily routine</option>
+        <option value="challenge">Challenge sentences</option>
+      </select>
+    </div>
+
+    <!-- Direction mode -->
+    <div class="mode-select">
+      <label>
+        <input type="radio" name="direction-mode" value="es-en" checked>
+        🇪🇸 → 🇬🇧
+      </label>
+      <label>
+        <input type="radio" name="direction-mode" value="en-es">
+        🇬🇧 → 🇪🇸
+      </label>
+      <label>
+        <input type="radio" name="direction-mode" value="random">
+        🇪🇸 🎲 🇬🇧
+      </label>
+    </div>
+
+    <!-- Voice controls -->
+    <div class="voice-controls" id="voice-controls">
+      <label>
+        Voice:
+        <select id="voice-select">
+          <option value="">(auto)</option>
+        </select>
+      </label>
+      <label>
+        Speed:
+        <input id="rate-slider" type="range" min="0.7" max="1.3" step="0.05" value="0.9" />
+      </label>
+    </div>
+
+    <!-- Card -->
+    <div class="card-wrapper" aria-live="polite">
+      <div class="card" id="card">
+        <div class="card-inner">
+          <div class="card-face front">
+            <div class="card-text" id="card-question"></div>
+          </div>
+          <div class="card-face back">
+            <div class="card-text" id="card-answer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audio + Google Translate -->
+    <div class="translate-link">
+      <button id="tts-btn" type="button" title="Play Spanish audio">🔊</button>
+      <a id="gt-link" href="#" target="_blank" rel="noopener noreferrer" title="Open in Google Translate">🌐</a>
+    </div>
+
+    <div class="direction-hint" id="direction-hint"></div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="primary-actions">
+        <button id="show-answer-btn" class="btn-show">Show answer</button>
+      </div>
+
+      <div class="rating" id="rating-buttons">
+        <button id="correct-btn" class="btn-correct"><span>I got it</span></button>
+        <button id="incorrect-btn" class="btn-incorrect"><span>I missed it</span></button>
+      </div>
+
+      <div class="score-and-count">
+        <div class="score" id="score">
+          Correct: <strong>0</strong> · Incorrect: <strong>0</strong>
+        </div>
+        <div class="deck-count" id="deck-count"></div>
+      </div>
+
+      <div class="message" id="message"></div>
+    </div>
+  </div>
+
+  <!-- IMPORTANT: data file first, then app logic -->
+  <script src="decks-data.js"></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
