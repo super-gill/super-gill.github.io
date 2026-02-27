@@ -1,8 +1,11 @@
 // physics.js — water physics + update systems (movement/bullets/particles/etc.)
 (() => {
   'use strict';
+  // CONFIG safety: allow running even if config.js is missing
+  window.CONFIG = window.CONFIG || {};
 
-  window.applyWaterPhysics = (obj, dt)=>{
+
+    window.applyWaterPhysics = (obj, dt)=>{
     const drag = 0.92;
     obj.vx *= Math.pow(drag, dt*60);
     obj.vy *= Math.pow(drag, dt*60);
@@ -24,6 +27,7 @@
     // --- Enemies ---
     for(const e of enemies){
       if(e.seen>0) e.seen -= dt;
+      if(e.detectedT>0) e.detectedT = Math.max(0, e.detectedT - dt);
       if(e.pingPulse){ e.pingPulse = Math.max(0, e.pingPulse - dt); }
 
       enemyMaybeHearPlayer(e, dt);
@@ -249,11 +253,36 @@
     // decoys
     for(const d of decoys){
       d.life -= dt;
+
+      // integrate
       d.x = (d.x + d.vx*dt + world.w) % world.w;
-      d.y = clamp(d.y + d.vy*dt, world.seaLevel + 60, world.ground - 40);
-      d.vx *= Math.pow(0.93, dt*60);
-      d.vy *= Math.pow(0.93, dt*60);
-      if(d.kind==="flare"){ d.y = Math.min(d.y, world.seaLevel - 10); d.vy -= 60*dt; }
+      d.y = d.y + d.vy*dt;
+
+      // drag
+      d.vx *= Math.pow(0.94, dt*60);
+      d.vy *= Math.pow(0.94, dt*60);
+
+      if(d.kind==="flare"){
+        // ballistic flare arc (above water) then splash out
+        const g = d.g || 820;
+        d.vy += g*dt;
+
+        // once it falls back to the sea, splash and fade
+        if(d.y > world.seaLevel - 6 && d.vy > 0){
+          splash(d.x, world.seaLevel, 0.5);
+          d.life = Math.min(d.life, 0.30);
+        }
+      } else if(d.kind==="noisemaker"){
+        // noisemakers sink; ships deploy them so they drift away and down
+        if(d.mode==="sink"){
+          d.vy += 60*dt;
+          d.vx += Math.sin(now()*0.8 + d.x*0.002) * 10 * dt;
+        } else {
+          d.vy += 22*dt;
+        }
+      }
+
+      d.y = clamp(d.y, world.seaLevel - 80, world.ground - 40);
     }
     for(let i=decoys.length-1;i>=0;i--) if(decoys[i].life<=0) decoys.splice(i,1);
 
@@ -292,7 +321,7 @@
       if(b.kind==="torpedo"){
         b.arming = Math.max(0, b.arming - dt);
 
-        if(!b.target || Math.random()<0.08){
+        if(!b.target || Math.random()<CONFIG.torpedo.reacquireChance){
           const t = torpAcquire(b);
           if(t) b.target = t;
         }
@@ -340,7 +369,9 @@
 
               let best=null, bestD=1e9;
               for(const e of enemies){
-                if(e.type!=="boat") continue;
+              if(e.type!=="boat") continue;
+              if((e.detectedT||0) <= 0) continue;
+                if((e.detectedT||0) <= 0) continue;
                 const dx = wrapDx(b.x, e.x);
                 const dy = e.y - b.y;
                 const d = Math.hypot(dx,dy);
@@ -394,16 +425,37 @@
 
             if(b.lock.type==="boat"){
               const ship = b.lock;
-              const dist = Math.hypot(dx, dy);
+              const dist = Math.hypot(wrapDx(ship.x, b.x), (b.y - (world.seaLevel - 14)));
               if(dist < ship.cwis.range){
+                // visual CIWS stream
+                const bursts = CONFIG.ship.cwisTracerBurstsMin + ((Math.random()*(CONFIG.ship.cwisTracerBurstsMax-CONFIG.ship.cwisTracerBurstsMin+1))|0);
+                for(let i=0;i<bursts;i++){
+                  const sx = ship.x;
+                  const sy = world.seaLevel - 14;
+
+                  // Ship -> missile (unwrapped) so tracers always go the right way
+                  const dxSM = wrapDx(sx, b.x);
+                  const dySM = (b.y - sy);
+
+                  // aim with slight spread so some miss
+                  const spread = CONFIG.ship.cwisTracerSpread;
+                  const ax = dxSM + rand(-Math.abs(dxSM)*spread, Math.abs(dxSM)*spread);
+                  const ay = dySM + rand(-Math.abs(dySM+80)*spread, Math.abs(dySM+80)*spread);
+
+                  // endpoint ~85% of the way to the missile (don't modulo; keep local)
+                  const ex = sx + ax*0.85;
+                  const ey = sy + ay*0.85;
+
+                  window.cwisTracers.push({ x1:sx, y1:sy, x2:ex, y2:ey, life: rand(CONFIG.ship.cwisTracerLifeMin, CONFIG.ship.cwisTracerLifeMax) });
+                }
+
                 const pk = ship.cwis.pKillPerSec * dt;
                 if(Math.random() < pk){
                   makeExplosion(b.x, b.y, 0.9, false);
                   splash(b.x, world.seaLevel, 0.9);
                   b.life = 0;
                 }
-              }
-            }
+              }}
 
             const hitR = 24;
             if(Math.hypot(dx, dy) < hitR){
@@ -415,6 +467,7 @@
                 splash(b.x, world.seaLevel, 1.6);
                 const R = 210;
                 for(const e of enemies){
+                  if((e.detectedT||0) <= 0) continue;
                   const dx2 = wrapDx(b.x, e.x);
                   const dy2 = e.y - (world.seaLevel - 8);
                   const d2 = Math.hypot(dx2, dy2);
@@ -438,6 +491,7 @@
       if(b.life>0 && b.kind==="torpedo" && b.arming<=0){
         if(b.friendly){
           for(const e of enemies){
+            if((e.detectedT||0) <= 0) continue;
             const dx = wrapDx(b.x, e.x);
             const dy = e.y - b.y;
             if(Math.hypot(dx,dy) < e.r + b.r){ damageEnemy(e, b.dmg); b.life = 0; break; }
@@ -529,6 +583,10 @@
     }
     for(let i=particles.length-1;i>=0;i--) if(particles[i].life<=0) particles.splice(i,1);
 
+
+    // CIWS tracers
+    for(const t of window.cwisTracers) t.life -= dt;
+    for(let i=window.cwisTracers.length-1;i>=0;i--) if(window.cwisTracers[i].life<=0) window.cwisTracers.splice(i,1);
     // camera follow
     cam.x = (player.x - canvas.width*0.45 + world.w) % world.w;
     cam.y = clamp(player.y - canvas.height*0.55, 0, world.h - canvas.height);

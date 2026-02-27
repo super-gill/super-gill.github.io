@@ -1,6 +1,9 @@
 // entities.js — state containers + constructors + damage
 (() => {
   'use strict';
+  // CONFIG safety: allow running even if config.js is missing
+  window.CONFIG = window.CONFIG || {};
+
 
   // Collections
   window.bullets = [];
@@ -10,6 +13,7 @@
   window.decoys = [];
   window.contacts = [];
 
+  window.cwisTracers = []; // CIWS visual tracers (shared)
   // Game state
   window.score = 0;
   window.gameOver = false;
@@ -60,16 +64,20 @@
   };
 
   // Countermeasures
-  window.deployDecoy = (x,y, friendly=true, kind="noisemaker")=>{
+  window.deployDecoy = (x, y, friendly=true, kind="noisemaker", opts={})=>{
+    opts = opts || {};
     const d = {
       kind,
       x, y,
-      vx: rand(-40,40),
-      vy: rand(-30,30),
+      vx: (opts.vx !== undefined ? opts.vx : rand(-40,40)),
+      vy: (opts.vy !== undefined ? opts.vy : rand(-30,30)),
       life: kind==="flare" ? rand(1.4, 2.2) : rand(5.0, 7.5),
       r: kind==="flare" ? 12 : 18,
       friendly,
-      signature: kind==="flare" ? 0.0 : (friendly ? 1.15 : 1.0)
+      signature: kind==="flare" ? 0.0 : (friendly ? 1.15 : 1.0),
+      mode: opts.mode || null,
+      g: opts.g || (kind==="flare" ? 520 : 0),
+      buoy: opts.buoy || 0
     };
     decoys.push(d);
     if(kind==="noisemaker") makeExplosion(x,y,0.45,true);
@@ -77,7 +85,7 @@
 
   // Weapons
   window.fireTorpedo = (fromX, fromY, dirX, dirY, friendly=true)=>{
-    const sp = 620;
+    const sp = CONFIG.torpedo.speed;
     const d = Math.max(1e-6, Math.hypot(dirX, dirY));
     bullets.push({
       kind:"torpedo",
@@ -85,14 +93,14 @@
       vx: (dirX/d)*sp,
       vy: (dirY/d)*sp,
       r: 6,
-      life: 5.2,
+      life: CONFIG.torpedo.life,
       friendly,
-      dmg: 42,
-      seekRange: 780,
-      seekFOV: 0.62,
-      turnRate: 2.4,
+      dmg: CONFIG.torpedo.dmg,
+      seekRange: CONFIG.torpedo.seekRange,
+      seekFOV: CONFIG.torpedo.seekFOV,
+      turnRate: CONFIG.torpedo.turnRate,
       target: null,
-      arming: 0.18
+      arming: CONFIG.torpedo.arming
     });
   };
 
@@ -101,15 +109,15 @@
       kind:"missile",
       x: fromX, y: fromY,
       vx: 0,
-      vy: -720,
+      vy: -CONFIG.missile.speed,
       r: 7,
-      life: 4.0,
+      life: CONFIG.missile.life,
       friendly,
-      dmg: 140,
+      dmg: CONFIG.missile.dmg,
       phase:"vertical",
       lock:null,
-      tipDelay:0.35,
-      speed:720
+      tipDelay: CONFIG.missile.tipDelay,
+      speed: CONFIG.missile.speed
     });
   };
 

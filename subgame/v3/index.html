@@ -3,24 +3,23 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Doodle Sub — Covert v4 (lean)</title>
+  <title>Doodle Submarine — Stealth Patch v3 (modular)</title>
   <style>
     html, body { height:100%; margin:0; background:#f7f7fb; }
     canvas { display:block; width:100vw; height:100vh; }
-    body { user-select:none; overflow:hidden; }
+    body { user-select:none; }
   </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
+<!-- Load order matters (globals first, then systems, then core loop) -->
 <script src="./js/config.js"></script>
-<script src="./js/math.js"></script>
-<script src="./js/state.js"></script>
-<script src="./js/input.js"></script>
-<script src="./js/weapons.js"></script>
+<script src="./js/utils.js"></script>
+<script src="./js/entities.js"></script>
 <script src="./js/ai.js"></script>
-<script src="./js/sim.js"></script>
+<script src="./js/physics.js"></script>
 <script src="./js/render.js"></script>
-<script src="./js/main.js"></script>
+<script src="./js/core.js"></script>
 </body>
 </html>

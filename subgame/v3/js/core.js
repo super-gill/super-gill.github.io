@@ -1,6 +1,9 @@
 // core.js — bootstraps globals, input, world, update loop
 (() => {
   'use strict';
+  // CONFIG safety: allow running even if config.js is missing
+  window.CONFIG = window.CONFIG || {};
+
 
   // Canvas + context
   window.canvas = document.getElementById("c");
@@ -83,7 +86,7 @@
     if(!gameOver){
       // movement
       const sprint = input.keys.has("shift");
-      const acc = sprint ? 560 : 320;
+      const acc = sprint ? CONFIG.player.sprintAcc : CONFIG.player.acc;
       if(input.keys.has("a")) player.vx -= acc*dt;
       if(input.keys.has("d")) player.vx += acc*dt;
       if(input.keys.has("w")) player.vy -= acc*dt;
@@ -93,7 +96,7 @@
       // Speed cap (sprint raises the cap)
       {
         const sprint = input.keys.has("shift");
-        const vmax = sprint ? 520 : 360;
+        const vmax = sprint ? CONFIG.player.sprintVmax : CONFIG.player.vmax;
         const v = Math.hypot(player.vx, player.vy);
         if(v > vmax){
           player.vx *= vmax / v;
@@ -103,11 +106,24 @@
       player.x = (player.x + player.vx*dt + world.w) % world.w;
       player.y = clamp(player.y + player.vy*dt, world.seaLevel + 70, world.ground - 60);
 
+      // proximity detection (visual + weapons): very close contacts become directly seen
+      for(const e of enemies){
+        const dxp = wrapDx(player.x, e.x);
+        const dyp = (e.y - player.y);
+        const dp = Math.hypot(dxp, dyp);
+        if(dp < 210){
+          e.detectedT = Math.max(e.detectedT||0, 6.0);
+          e.seen = Math.max(e.seen||0, 2.4);
+          e.lastX = e.x; e.lastY = e.y; e.lastT = now();
+        }
+      }
+
       // noise model
       const spd = Math.hypot(player.vx, player.vy);
       // noise floor + earlier ramp (makes stealth harder)
-      const floor = 0.08;                  // always some machinery noise
-      player.noise = clamp(floor + (spd - 55) / 220, 0, 1);
+      const floor = CONFIG.player.noiseFloor;
+      player.noise = clamp(floor + (spd - CONFIG.player.noiseRampStart) / CONFIG.player.noiseRampDiv, 0, 1);
+      if(sprint) player.noise = Math.min(1, player.noise + CONFIG.player.sprintNoiseBoost);
       player.selfMask = player.noise;
 
       // aim
@@ -126,7 +142,7 @@
 
       // torpedo
       if(input.mouseDownL && player.torpCd<=0){
-        player.torpCd = 0.22;
+        player.torpCd = CONFIG.player.torpCd;
         const c = clampDirToArc(aimDx, aimDy);
         if(c.out) setMsg("TORP ARC LIMIT", 0.6);
         fireTorpedo(player.x + c.dx*2, player.y + c.dy*2, c.dx, c.dy, true);
@@ -134,7 +150,7 @@
 
       // missile
       if(input.mouseDownR && player.missCd<=0){
-        player.missCd = 0.95;
+        player.missCd = CONFIG.player.missCd;
         player.noise = Math.min(1, player.noise + 0.35);
         setMsg("MISSILE LAUNCH TRANSIENT!", 1.0);
         fireMissileVLS(player.x, player.y, true);
@@ -142,15 +158,15 @@
 
       // countermeasure
       if(input.keys.has("q") && player.cmCd<=0){
-        player.cmCd = 2.8;
+        player.cmCd = CONFIG.player.cmCd;
         deployDecoy(player.x - 10, player.y + 10, true, "noisemaker");
         setMsg("NOISEMAKER OUT", 1.0);
       }
 
       // active ping
       if(input.keys.has(" ") && player.sonarCd<=0){
-        player.sonarCd = 5.6;
-        player.sonarPulse = 1.25;
+        player.sonarCd = CONFIG.player.sonarCd;
+        player.sonarPulse = CONFIG.player.sonarPulse;
 
         // reveal enemies
         for(const e of enemies){
