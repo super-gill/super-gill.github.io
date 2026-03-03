@@ -122,6 +122,31 @@
   decks.all = { label: "All cards (mixed)", cards: allCards };
 
   // ============================================================
+  // Populate deck dropdown from available RAW_DECKS
+  // ============================================================
+  function populateDeckSelect() {
+    if (!deckSelectEl) return;
+
+    // keep first option (all), remove the rest
+    while (deckSelectEl.options.length > 1) deckSelectEl.remove(1);
+
+    const items = Object.entries(decks)
+      .filter(([id]) => id !== "all")
+      .map(([id, d]) => ({ id, label: d.label || id }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    for (const { id, label } of items) {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = label;
+      deckSelectEl.appendChild(opt);
+    }
+  }
+
+  populateDeckSelect();
+
+
+  // ============================================================
   // STATE
   // ============================================================
   let currentDeckId = "all";
@@ -498,5 +523,17 @@
   // ============================================================
   // INIT DECK
   // ============================================================
+  if (window.SF_SCORES && typeof window.SF_SCORES.wireSaveScore === "function") {
+    window.SF_SCORES.wireSaveScore({
+      mode: "Flashcards",
+      getScore: () => ({ correct: correctCount, wrong: incorrectCount, streak: 0 }),
+      getMeta: () => {
+        const deckId = deckSelectEl.value || "all";
+        const deckLabel = (decks[deckId] || decks.all || {}).label || deckId;
+        return { deckId, deckLabel, direction: getCurrentMode() };
+      },
+    });
+  }
+
   startDeck(deckSelectEl.value || "all");
 })();

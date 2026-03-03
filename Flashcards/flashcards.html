@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Spanish Flashcards — Flashcards</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="site-header">
+      <div class="container header-inner">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">SF</div>
+          <div class="brand-text">
+            <h1>Flashcards</h1>
+            <p class="subtitle">Flip the card, then mark if you got it right or wrong.</p>
+          </div>
+        </div>
+        <nav class="top-nav" aria-label="Primary">
+        <a class="nav-link" href="./index.html">Home</a>
+        <a class="nav-link is-active" href="./flashcards.html">Flashcards</a>
+        <a class="nav-link" href="./games/typing.html">Typing</a>
+        <a class="nav-link" href="./games/match-columns.html">Match</a>
+        <a class="nav-link" href="./games/pairs.html">Pairs</a>
+        <a class="nav-link" href="./games/mcq.html">MCQ</a>
+</nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="card app-surface">
+        <!-- Deck selection -->
+    <div class="deck-select">
+      <label for="deck-select">Deck:</label>
+      <select id="deck-select">
+        <option value="all">All cards (mixed)</option>
+      </select>
+    </div>
+
+    <!-- Direction mode -->
+    <div class="mode-select">
+      <label>
+        <input type="radio" name="direction-mode" value="es-en" checked>
+        🇪🇸 → 🇬🇧
+      </label>
+      <label>
+        <input type="radio" name="direction-mode" value="en-es">
+        🇬🇧 → 🇪🇸
+      </label>
+      <label>
+        <input type="radio" name="direction-mode" value="random">
+        🇪🇸 🎲 🇬🇧
+      </label>
+    </div>
+
+    <!-- Voice controls -->
+    <div class="voice-controls" id="voice-controls">
+      <label>
+        Voice:
+        <select id="voice-select">
+          <option value="">(auto)</option>
+        </select>
+      </label>
+      <label>
+        Speed:
+        <input id="rate-slider" type="range" min="0.7" max="1.3" step="0.05" value="0.9" />
+      </label>
+    </div>
+
+    <!-- Card -->
+    <div class="card-wrapper" aria-live="polite">
+      <div class="flashcard" id="card">
+        <div class="card-inner">
+          <div class="card-face front">
+            <div class="card-text" id="card-question"></div>
+          </div>
+          <div class="card-face back">
+            <div class="card-text" id="card-answer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audio + Google Translate -->
+    <div class="translate-link">
+      <button id="tts-btn" type="button" title="Play Spanish audio">🔊</button>
+      <a id="gt-link" href="#" target="_blank" rel="noopener noreferrer" title="Open in Google Translate">🌐</a>
+    </div>
+
+    <div class="direction-hint" id="direction-hint"></div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="primary-actions">
+        <button id="show-answer-btn" class="btn-show">Show answer</button>
+      </div>
+
+      <div class="rating" id="rating-buttons">
+        <button id="correct-btn" class="btn-correct"><span>I got it</span></button>
+        <button id="incorrect-btn" class="btn-incorrect"><span>I missed it</span></button>
+      </div>
+
+      <div class="score-and-count">
+        <div class="score" id="score">
+          Correct: <strong>0</strong> · Incorrect: <strong>0</strong>
+        </div>
+        <div class="deck-count" id="deck-count"></div>
+      </div>
+
+      <div class="actions" style="justify-content:flex-start; margin-top: 10px;">
+</div>
+
+      <div class="message" id="message"></div>
+    </div>
+  </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <span>Spanish Flashcards</span>
+        <span class="muted">Progress saved in your browser.</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="scores.js"></script>
+  <script src="decks-data.js"></script>
+  <script src="app.js" defer></script>
+</body>
+</html>

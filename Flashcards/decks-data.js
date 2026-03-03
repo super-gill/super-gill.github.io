@@ -2,742 +2,1022 @@
 // Deck content lives here.
 
 window.RAW_DECKS = {
-  "weatherBasics": {
-    "label": "Weather: basics (hace / está)",
+  "test_pack_perfect": {
+    "label": "TEST PACK (perfect)",
     "cards": [
       {
-        "es": "¿Hace calor o hace frío?",
-        "en": "Is it hot or cold?"
+        "es": "Buenos días",
+        "en": "Good morning",
+        "accept": {
+          "en": [
+            "Morning",
+            "Good morning"
+          ]
+        }
       },
       {
-        "es": "Hace calor",
-        "en": "It's hot"
+        "es": "Buenas tardes",
+        "en": "Good afternoon"
       },
       {
-        "es": "Hace frío",
-        "en": "It's cold"
+        "es": "Buenas noches",
+        "en": "Good evening / good night",
+        "accept": {
+          "en": [
+            "Good evening",
+            "Good night"
+          ]
+        }
       },
       {
-        "es": "Hace sol",
-        "en": "It's sunny"
+        "es": "Por favor",
+        "en": "Please"
       },
       {
-        "es": "Hace viento",
-        "en": "It's windy"
+        "es": "Gracias",
+        "en": "Thanks",
+        "accept": {
+          "en": [
+            "Thank you",
+            "Thanks"
+          ]
+        }
       },
       {
-        "es": "Hace buen tiempo",
-        "en": "It's fair / nice weather"
+        "es": "De nada",
+        "en": "You're welcome",
+        "accept": {
+          "en": [
+            "You are welcome",
+            "You're welcome"
+          ]
+        }
       },
       {
-        "es": "Hace mal tiempo",
-        "en": "The weather's bad"
+        "es": "Me llamo Laura.",
+        "en": "My name is Laura."
       },
       {
-        "es": "Hace mucho calor",
-        "en": "It's very hot"
+        "es": "Me llamo Ben.",
+        "en": "My name is Ben."
       },
       {
-        "es": "Hace mucho frío",
-        "en": "It's very cold"
-      },
-      {
-        "es": "Hace mucho sol",
-        "en": "It's very sunny"
-      },
-      {
-        "es": "Hace mucho viento",
-        "en": "It's very windy"
-      },
-      {
-        "es": "Hace muy buen tiempo",
-        "en": "It's very fair / very nice weather"
-      },
-      {
-        "es": "Hace muy mal tiempo",
-        "en": "The weather's very bad"
-      },
-      {
-        "es": "Está nublado",
-        "en": "It is cloudy"
-      },
-      {
-        "es": "Sol",
-        "en": "Sun"
-      },
-      {
-        "es": "Soleado",
-        "en": "Sunny"
-      },
-      {
-        "es": "Nube",
-        "en": "Cloud"
-      },
-      {
-        "es": "Nublado",
-        "en": "Cloudy"
-      },
-      {
-        "es": "Lluvia",
-        "en": "Rain"
-      },
-      {
-        "es": "Lluvioso",
-        "en": "Rainy"
-      },
-      {
-        "es": "Tormenta",
-        "en": "Storm"
-      },
-      {
-        "es": "Tormentoso",
-        "en": "Stormy"
-      },
-      {
-        "es": "Viento",
-        "en": "Wind"
-      },
-      {
-        "es": "Ventoso",
-        "en": "Windy"
-      },
-      {
-        "es": "Nieve",
-        "en": "Snow"
-      },
-      {
-        "es": "Nevado",
-        "en": "Snowy"
-      },
-      {
-        "es": "Despejar",
-        "en": "To clear"
-      },
-      {
-        "es": "Despejado",
-        "en": "Clear (skies)"
-      },
-      {
-        "es": "Verano",
-        "en": "Summer"
-      },
-      {
-        "es": "Otoño",
-        "en": "Autumn"
-      },
-      {
-        "es": "Invierno",
-        "en": "Winter"
-      },
-      {
-        "es": "Primavera",
-        "en": "Spring"
-      }
-    ]
-  },
-  "weatherDays": {
-    "label": "Weather + days (mini forecast)",
-    "cards": [
-      {
-        "es": "Domingo: ventoso",
-        "en": "Sunday: windy"
-      },
-      {
-        "es": "Lunes: soleado",
-        "en": "Monday: sunny"
-      },
-      {
-        "es": "Martes: tormentoso",
-        "en": "Tuesday: stormy"
-      },
-      {
-        "es": "Miércoles: nublado",
-        "en": "Wednesday: cloudy"
-      },
-      {
-        "es": "Jueves: nublado",
-        "en": "Thursday: cloudy"
-      },
-      {
-        "es": "Viernes: lluvioso",
-        "en": "Friday: rainy"
-      },
-      {
-        "es": "Sábado: soleado",
-        "en": "Saturday: sunny"
-      }
-    ]
-  },
-  "timeBasics": {
-    "label": "Telling the time: basics",
-    "cards": [
-      {
-        "es": "¿Qué hora es?",
-        "en": "What time is it?"
-      },
-      {
-        "es": "Son las cuatro en punto.",
-        "en": "It's four o'clock (exactly)."
-      },
-      {
-        "es": "Es la una en punto.",
-        "en": "It's one o'clock (exactly)."
-      },
-      {
-        "es": "en punto",
-        "en": "o'clock / exactly"
-      },
-      {
-        "es": "Son las seis de la mañana.",
-        "en": "It's six in the morning."
-      },
-      {
-        "es": "Son las seis de la tarde.",
-        "en": "It's six in the afternoon/evening."
-      },
-      {
-        "es": "y cuarto",
-        "en": "quarter past"
-      },
-      {
-        "es": "y media",
-        "en": "half past"
-      },
-      {
-        "es": "menos cuarto",
-        "en": "quarter to"
-      },
-      {
-        "es": "y cinco",
-        "en": "five past"
-      },
-      {
-        "es": "y diez",
-        "en": "ten past"
-      },
-      {
-        "es": "y veinte",
-        "en": "twenty past"
-      },
-      {
-        "es": "y veinticinco",
-        "en": "twenty-five past"
-      },
-      {
-        "es": "menos cinco",
-        "en": "five to"
-      },
-      {
-        "es": "menos diez",
-        "en": "ten to"
-      },
-      {
-        "es": "menos veinte",
-        "en": "twenty to"
-      },
-      {
-        "es": "menos veinticinco",
-        "en": "twenty-five to"
-      },
-      {
-        "es": "minutos",
-        "en": "minutes"
-      }
-    ]
-  },
-  "timePractice": {
-    "label": "Telling the time: practice",
-    "cards": [
-      {
-        "es": "Son las cinco en punto.",
-        "en": "5 o’clock"
-      },
-      {
-        "es": "Son las ocho en punto.",
-        "en": "8 o’clock"
-      },
-      {
-        "es": "Son las dos en punto.",
-        "en": "2 o’clock"
-      },
-      {
-        "es": "Es la una en punto.",
-        "en": "1 o’clock"
-      },
-      {
-        "es": "Son las tres en punto.",
-        "en": "3 o’clock"
-      },
-      {
-        "es": "Son las nueve en punto.",
-        "en": "9 o’clock"
-      },
-      {
-        "es": "Son las doce en punto.",
-        "en": "12 o’clock"
-      },
-      {
-        "es": "Son las seis en punto.",
-        "en": "6 o’clock"
-      },
-      {
-        "es": "Son las cuatro en punto.",
-        "en": "04:00"
-      },
-      {
-        "es": "Es la una de la tarde.",
-        "en": "13:00"
-      },
-      {
-        "es": "Son las cinco de la tarde.",
-        "en": "17:00"
-      },
-      {
-        "es": "Son las ocho de la mañana.",
-        "en": "08:00"
-      },
-      {
-        "es": "Son las siete de la mañana.",
-        "en": "07:00"
-      },
-      {
-        "es": "Son las tres de la tarde.",
-        "en": "15:00"
-      },
-      {
-        "es": "Es la una de la mañana.",
-        "en": "01:00"
-      },
-      {
-        "es": "Son las siete de la tarde.",
-        "en": "19:00"
-      },
-      {
-        "es": "Son las doce en punto.",
-        "en": "12:00"
-      },
-      {
-        "es": "Son las doce y cuarto.",
-        "en": "12:15"
-      },
-      {
-        "es": "Son las cinco y media.",
-        "en": "05:30"
-      },
-      {
-        "es": "Son las nueve menos cuarto.",
-        "en": "08:45"
-      },
-      {
-        "es": "Es la una y cuarto.",
-        "en": "13:15"
-      },
-      {
-        "es": "Son las dos y media.",
-        "en": "14:30"
-      },
-      {
-        "es": "Son las cinco menos cuarto.",
-        "en": "16:45"
-      },
-      {
-        "es": "Son las tres y cuarto.",
-        "en": "03:15"
-      },
-      {
-        "es": "Son las nueve y media.",
-        "en": "09:30"
-      },
-      {
-        "es": "Son las doce menos cuarto.",
-        "en": "23:45"
-      },
-      {
-        "es": "Son las diez y veinticinco.",
-        "en": "10:25"
-      },
-      {
-        "es": "Son las cinco y diez.",
-        "en": "17:10"
-      },
-      {
-        "es": "Son las dos menos veinte.",
-        "en": "01:40"
-      },
-      {
-        "es": "Son las doce menos cinco.",
-        "en": "23:55"
-      },
-      {
-        "es": "Son las cuatro y diez.",
-        "en": "04:10"
-      },
-      {
-        "es": "Es la una menos veinticinco.",
-        "en": "12:35"
-      },
-      {
-        "es": "Son las nueve y cinco.",
-        "en": "09:05"
-      },
-      {
-        "es": "Son las seis y veinte.",
-        "en": "18:20"
-      },
-      {
-        "es": "Son las tres menos diez.",
-        "en": "14:50"
-      },
-      {
-        "es": "Son las tres y diez.",
-        "en": "03:10"
-      },
-      {
-        "es": "Son las doce menos diez.",
-        "en": "11:50"
-      },
-      {
-        "es": "Son las ocho menos veinticinco.",
-        "en": "19:35"
-      },
-      {
-        "es": "Son las once menos veinte.",
-        "en": "22:40"
-      },
-      {
-        "es": "Son las cinco y veinte.",
-        "en": "05:20"
-      },
-      {
-        "es": "Son las doce y cinco.",
-        "en": "12:05"
-      }
-    ]
-  },
-  "timeZones": {
-    "label": "Time zones (London → world)",
-    "cards": [
-      {
-        "es": "En Londres son las nueve y cinco de la mañana. ¿Qué hora es en Nueva York?",
-        "en": "En Nueva York son las 04:05."
-      },
-      {
-        "es": "En Londres son las cuatro y diez de la tarde. ¿Qué hora es en Roma?",
-        "en": "En Roma son las 17:10."
-      },
-      {
-        "es": "En Londres son las siete y veinte de la mañana. ¿Qué hora es en Tokio?",
-        "en": "En Tokio son las 17:20."
-      },
-      {
-        "es": "En Londres son las tres y veinticinco de la tarde. ¿Qué hora es en Nueva Delhi?",
-        "en": "En Nueva Delhi son las 21:55."
-      },
-      {
-        "es": "En Londres son las ocho menos cinco de la mañana. ¿Qué hora es en Roma?",
-        "en": "En Roma son las 08:55."
-      },
-      {
-        "es": "En Londres son las dos menos diez de la tarde. ¿Qué hora es en Nueva York?",
-        "en": "En Nueva York son las 08:50."
-      },
-      {
-        "es": "En Londres son las once y cinco de la mañana. ¿Qué hora es en Tokio?",
-        "en": "En Tokio son las 21:05."
-      },
-      {
-        "es": "En Londres son las seis y veinte de la tarde. ¿Qué hora es en Nueva Delhi?",
-        "en": "En Nueva Delhi son las 00:50."
-      },
-      {
-        "es": "En Londres son las diez menos veinte de la mañana. ¿Qué hora es en Nueva York?",
-        "en": "En Nueva York son las 04:40."
-      },
-      {
-        "es": "En Londres son las cinco y veinticinco de la tarde. ¿Qué hora es en Roma?",
-        "en": "En Roma son las 18:25."
-      },
-      {
-        "es": "En Londres son las siete menos veinticinco de la mañana. ¿Qué hora es en Tokio?",
-        "en": "En Tokio son las 16:35."
-      },
-      {
-        "es": "En Londres son las nueve y diez de la tarde. ¿Qué hora es en Nueva Delhi?",
-        "en": "En Nueva Delhi son las 03:40."
-      },
-      {
-        "es": "En Londres son las doce y veinte de la mañana. ¿Qué hora es en Nueva York?",
-        "en": "En Nueva York son las 19:20."
-      },
-      {
-        "es": "En Londres son las cuatro menos diez de la tarde. ¿Qué hora es en Roma?",
-        "en": "En Roma son las 16:50."
-      },
-      {
-        "es": "En Londres son las cinco y diez de la mañana. ¿Qué hora es en Tokio?",
-        "en": "En Tokio son las 15:10."
-      },
-      {
-        "es": "En Londres son las ocho y veinticinco de la tarde. ¿Qué hora es en Nueva Delhi?",
-        "en": "En Nueva Delhi son las 02:55."
-      },
-      {
-        "es": "En Londres son las seis menos cinco de la mañana. ¿Qué hora es en Nueva York?",
-        "en": "En Nueva York son las 00:55."
-      },
-      {
-        "es": "En Londres son las diez y cinco de la tarde. ¿Qué hora es en Roma?",
-        "en": "En Roma son las 23:05."
-      },
-      {
-        "es": "En Londres son las once menos veinte de la mañana. ¿Qué hora es en Tokio?",
-        "en": "En Tokio son las 20:40."
-      },
-      {
-        "es": "En Londres son las tres y veinte de la tarde. ¿Qué hora es en Nueva Delhi?",
-        "en": "En Nueva Delhi son las 21:50."
-      }
-    ]
-  },
-  "review2Conversation": {
-    "label": "Review 2: conversation (Sara & Fernando)",
-    "cards": [
-      {
-        "es": "Buenos días.",
-        "en": "Good morning."
+        "es": "¿Cómo te llamas?",
+        "en": "What's your name?",
+        "accept": {
+          "en": [
+            "What is your name",
+            "What's your name"
+          ]
+        }
       },
       {
         "es": "¿Cómo estás?",
         "en": "How are you?"
       },
       {
-        "es": "Estoy bien, gracias. ¿Y tú?",
-        "en": "I'm good thanks. And you?"
-      },
-      {
-        "es": "Menos mal.",
-        "en": "Not too bad."
-      },
-      {
-        "es": "Me llamo Fernando. ¿Cómo te llamas?",
-        "en": "My name is Fernando. What is your name?"
-      },
-      {
-        "es": "Me llamo Sara. Es un placer.",
-        "en": "My name is Sara. It's nice to meet you."
-      },
-      {
-        "es": "Mucho gusto también.",
-        "en": "Nice to meet you too."
+        "es": "Estoy bien.",
+        "en": "I'm good.",
+        "accept": {
+          "en": [
+            "I am good",
+            "I'm fine",
+            "I am fine"
+          ]
+        }
       },
       {
         "es": "¿De dónde eres?",
         "en": "Where are you from?"
       },
       {
-        "es": "Soy de España. ¿Y tú?",
-        "en": "I'm from Spain. And you?"
-      },
-      {
         "es": "Soy de Inglaterra.",
-        "en": "I'm from England."
+        "en": "I'm from England.",
+        "accept": {
+          "en": [
+            "I am from England",
+            "I'm from England"
+          ]
+        }
       },
       {
-        "es": "¿Tienes familia?",
-        "en": "Do you have family?"
+        "es": "¿Dónde vives?",
+        "en": "Where do you live?"
       },
       {
-        "es": "Tengo un novio y un hijo. ¿Y tú?",
-        "en": "I have a boyfriend and a son. And you?"
+        "es": "Vivo en España.",
+        "en": "I live in Spain.",
+        "accept": {
+          "en": [
+            "I live in Spain",
+            "I am living in Spain"
+          ]
+        }
       },
       {
-        "es": "Tengo marido.",
-        "en": "I have a husband."
+        "es": "Es la una.",
+        "en": "It's one o'clock.",
+        "accept": {
+          "en": [
+            "It is one o'clock",
+            "One o'clock"
+          ]
+        }
       },
       {
-        "es": "¿Tienes mascotas?",
-        "en": "Do you have any pets?"
+        "es": "Son las dos.",
+        "en": "It's two o'clock.",
+        "accept": {
+          "en": [
+            "It is two o'clock",
+            "Two o'clock"
+          ]
+        }
       },
       {
-        "es": "No, no tenemos mascotas. ¿Y tú?",
-        "en": "No, we don't have pets. And you?"
+        "es": "Son las seis y media.",
+        "en": "It's half past six.",
+        "accept": {
+          "en": [
+            "Half past six",
+            "It is half past six"
+          ]
+        }
       },
       {
-        "es": "Tengo tres perros.",
-        "en": "I have three dogs."
+        "es": "Son las ocho y cuarto.",
+        "en": "It's quarter past eight.",
+        "accept": {
+          "en": [
+            "Quarter past eight",
+            "It is quarter past eight"
+          ]
+        }
       },
       {
-        "es": "Fue un placer. Hasta pronto.",
-        "en": "It was a pleasure. See you soon."
+        "es": "Son las diez menos cuarto.",
+        "en": "It's quarter to ten.",
+        "accept": {
+          "en": [
+            "Quarter to ten",
+            "It is quarter to ten"
+          ]
+        }
       },
       {
-        "es": "¡Nos vemos!",
-        "en": "See you!"
+        "es": "Hace calor.",
+        "en": "It's hot."
+      },
+      {
+        "es": "Hace frío.",
+        "en": "It's cold."
+      },
+      {
+        "es": "Hace sol.",
+        "en": "It's sunny."
+      },
+      {
+        "es": "Llueve.",
+        "en": "It's raining."
+      },
+      {
+        "es": "Hace viento.",
+        "en": "It's windy."
+      },
+      {
+        "es": "La madre",
+        "en": "Mother"
+      },
+      {
+        "es": "El padre",
+        "en": "Father"
+      },
+      {
+        "es": "El hermano",
+        "en": "Brother"
+      },
+      {
+        "es": "La hermana",
+        "en": "Sister"
+      },
+      {
+        "es": "La familia",
+        "en": "Family"
       }
     ]
   },
-  "familyQuiz": {
-    "label": "Family questions (Q&A practice)",
+  "introductions_vocab": {
+    "label": "Introductions: vocab",
     "cards": [
       {
-        "es": "¿Cuántas personas hay en tu familia?",
-        "en": "How many people are in your family?"
+        "es": "Buenos días",
+        "en": "Good morning"
       },
       {
-        "es": "Tengo siete personas.",
-        "en": "I have seven people."
+        "es": "Buenas tardes",
+        "en": "Good afternoon"
       },
       {
-        "es": "¿Quién vive contigo?",
-        "en": "Who do you live with?"
+        "es": "Buenas noches",
+        "en": "Good evening"
       },
       {
-        "es": "Nadie.",
-        "en": "Nobody."
+        "es": "¿Cómo estás?",
+        "en": "How are you? (formal)"
       },
       {
-        "es": "¿Tienes hermanos o hermanas?",
-        "en": "Do you have brothers or sisters?"
+        "es": "¿Qué tal?",
+        "en": "How are you? (informal)"
       },
       {
-        "es": "Sí, tengo un hermano.",
-        "en": "Yes, I have a brother."
+        "es": "Bien",
+        "en": "Good"
       },
       {
-        "es": "¿Quién es la persona más divertida de tu familia?",
-        "en": "Who is the most fun person in your family?"
+        "es": "Mal",
+        "en": "Bad"
       },
       {
-        "es": "Yo.",
-        "en": "Me."
+        "es": "Menos mal",
+        "en": "Not too bad"
       },
       {
-        "es": "¿Quién es la más tranquila?",
-        "en": "Who is the calmest/quietest?"
+        "es": "¿Cómo te llamas?",
+        "en": "What are you called? (what's your name?)"
       },
       {
-        "es": "Nadie.",
-        "en": "Nobody."
+        "es": "Me llamo...",
+        "en": "I am called... (my name is...)"
       },
       {
-        "es": "¿Quién habla más?",
-        "en": "Who talks the most?"
+        "es": "Mucho gusto",
+        "en": "Nice to meet you (informal)"
       },
       {
-        "es": "Mi hermano Ross.",
-        "en": "My brother Ross."
+        "es": "Es un placer",
+        "en": "Nice to meet you (formal)"
       },
       {
-        "es": "¿Quién cocina mejor?",
-        "en": "Who is the best cook?"
+        "es": "¿Y tú?",
+        "en": "And you?"
       },
       {
-        "es": "El esposo de mi hermano.",
-        "en": "My brother’s husband."
+        "es": "Adiós",
+        "en": "Goodbye"
       },
       {
-        "es": "¿A tu padre le gusta la comida picante?",
-        "en": "Does your father like spicy food?"
+        "es": "see you later",
+        "en": "Hasta luego"
       },
       {
-        "es": "Mi padre no le gustan las comidas picantes.",
-        "en": "My father doesn't like spicy foods."
+        "es": "Hasta pronto",
+        "en": "See you soon"
       },
       {
-        "es": "¿Qué comida le encanta a tu hermano?",
-        "en": "What food does your brother love?"
+        "es": "Nos vemos",
+        "en": "See you"
       },
       {
-        "es": "¡Le encanta la ensalada y el vino!",
-        "en": "He loves salad and wine!"
+        "es": "¿De dónde eres?",
+        "en": "Where are you from?"
       },
       {
-        "es": "¿Quién odia las verduras?",
-        "en": "Who hates vegetables?"
+        "es": "Soy de…",
+        "en": "I'm from..."
       },
       {
-        "es": "El perro de mi hermano.",
-        "en": "My brother’s dog."
+        "es": "Inglaterra",
+        "en": "England"
       },
       {
-        "es": "¿A quién le gusta el pescado?",
-        "en": "Who likes fish?"
+        "es": "Irlanda",
+        "en": "Ireland"
       },
       {
-        "es": "Todos.",
-        "en": "Everyone."
+        "es": "España",
+        "en": "Spain"
       },
       {
-        "es": "¿A quién no le gusta nada el café?",
-        "en": "Who doesn’t like coffee at all?"
+        "es": "Francia",
+        "en": "France"
       },
       {
-        "es": "No me gusta mucho el café.",
-        "en": "I don't like coffee very much."
+        "es": "Italia",
+        "en": "Italy"
       },
       {
-        "es": "¿A tu familia le gusta comer fuera?",
-        "en": "Does your family like eating out?"
+        "es": "Alemania",
+        "en": "Germany"
       },
       {
-        "es": "Sí, pero con buen tiempo.",
-        "en": "Yes, but only in good weather."
+        "es": "¿Qué haces por trabajo?",
+        "en": "What do you do for work?"
       },
       {
-        "es": "¿Quién siempre tiene hambre?",
-        "en": "Who is always hungry?"
+        "es": "Soy…",
+        "en": "I am..."
       },
       {
-        "es": "Yo, siempre tengo hambre.",
-        "en": "Me, I'm always hungry."
+        "es": "IT manager",
+        "en": "Gerente de IT"
       },
       {
-        "es": "¿Quién come más en tu familia?",
-        "en": "Who eats the most in your family?"
+        "es": "profesor/a de español",
+        "en": "Spanish teacher"
       },
       {
-        "es": "Yo, como demasiado.",
-        "en": "Me, I eat too much."
+        "es": "Panadero/a",
+        "en": "Baker"
       },
       {
-        "es": "¿A quién le gusta desayunar mucho?",
-        "en": "Who likes having a big breakfast?"
+        "es": "contador/a",
+        "en": "Accountant"
       },
       {
-        "es": "Me encanta el desayuno inglés.",
-        "en": "I love a full English breakfast."
+        "es": "Enfermera",
+        "en": "Nurse"
       },
       {
-        "es": "¿Quién nunca desayuna?",
-        "en": "Who never has breakfast?"
+        "es": "bus driver",
+        "en": "Conductor de autobus"
       },
       {
-        "es": "También yo.",
-        "en": "Me too."
+        "es": "cleaner",
+        "en": "Limpiador"
       },
       {
-        "es": "¿A quién le gustan los postres?",
-        "en": "Who likes desserts?"
+        "es": "Cocinero",
+        "en": "Chef"
       },
       {
-        "es": "A mi padre le gustan los postres.",
-        "en": "My father likes desserts."
+        "es": "cashier",
+        "en": "Cajero"
       },
       {
-        "es": "¿A quién le encanta el chocolate?",
-        "en": "Who loves chocolate?"
+        "es": "waiter",
+        "en": "Camarero"
       },
       {
-        "es": "A mi hermano le encanta el chocolate.",
-        "en": "My brother loves chocolate."
+        "es": "¿Cuántos años tienes?",
+        "en": "How old are you?"
       },
       {
-        "es": "¿Quién prefiere comida salada o dulce?",
-        "en": "Who prefers savoury or sweet?"
+        "es": "Tengo … años",
+        "en": "I am..."
       },
       {
-        "es": "Prefiero salada; mi hermano prefiere comida dulce; mi padre, de todo.",
-        "en": "I prefer savoury; my brother prefers sweet food; my father likes everything."
+        "es": "39",
+        "en": "Treintinueve"
+      },
+      {
+        "es": "27",
+        "en": "Veintisiete"
+      }
+    ]
+  },
+  "weather": {
+    "label": "Weather",
+    "cards": [
+      {
+        "es": "Sol",
+        "en": "Sun"
+      },
+      {
+        "es": "Nube",
+        "en": "Cloud"
+      },
+      {
+        "es": "Lluvia",
+        "en": "Rain"
+      },
+      {
+        "es": "Tormenta",
+        "en": "Storm"
+      },
+      {
+        "es": "Viento",
+        "en": "Wind"
+      },
+      {
+        "es": "Nieve",
+        "en": "Snow"
+      },
+      {
+        "es": "Despejar",
+        "en": "To clear"
+      },
+      {
+        "es": "Primavera",
+        "en": "Verano"
+      },
+      {
+        "es": "🍃☀️🌦️☔⚡🌥️🌧️",
+        "en": "🥵🌧️☀️🌪️⛈️"
+      },
+      {
+        "es": "The Weather",
+        "en": "El Tiempo"
+      },
+      {
+        "es": "Hace calor",
+        "en": "It's hot (It's hot)"
+      },
+      {
+        "es": "Hace frio",
+        "en": "It's cold (It's cold)"
+      },
+      {
+        "es": "Hace sol",
+        "en": "It does sun (It's sunny)"
+      },
+      {
+        "es": "Hace viento",
+        "en": "It does wind (It's windy)"
+      },
+      {
+        "es": "It does good weather",
+        "en": "Hace buen tiempo"
+      },
+      {
+        "es": "It does bad weather",
+        "en": "Hace mal tiempo"
+      },
+      {
+        "es": "Hace mucho calor",
+        "en": "It does a lot of hot (It's very hot)"
+      },
+      {
+        "es": "Hace mucho frio",
+        "en": "It does a lot of cold (It's very cold)"
+      },
+      {
+        "es": "Hace mucho sol",
+        "en": "It does a lot of sun (It's very sunny)"
+      },
+      {
+        "es": "Hace mucho viento",
+        "en": "It does a lot of wind (It's very windy)"
+      },
+      {
+        "es": "It does very good weather",
+        "en": "Hace muy buen tiempo"
+      },
+      {
+        "es": "It does very bad weather",
+        "en": "Hace muy mal tiempo"
+      },
+      {
+        "es": "summer",
+        "en": "Verano"
+      },
+      {
+        "es": "Otoño",
+        "en": "Autumn"
+      },
+      {
+        "es": "Winter",
+        "en": "Invierno"
+      },
+      {
+        "es": "Primavera",
+        "en": "Spring"
+      },
+      {
+        "es": "Está…",
+        "en": "It is ..."
+      },
+      {
+        "es": "Ex. Está nublado",
+        "en": "It is cloudy"
+      }
+    ]
+  },
+  "family": {
+    "label": "Family",
+    "cards": [
+      {
+        "es": "Mother",
+        "en": "Madre"
+      },
+      {
+        "es": "Father",
+        "en": "Padre"
+      },
+      {
+        "es": "Marido / Esposo",
+        "en": "Husband / wife"
+      },
+      {
+        "es": "Partner",
+        "en": "Pareja"
+      },
+      {
+        "es": "Novio/a",
+        "en": "Boyfriend / girlfriend"
+      },
+      {
+        "es": "Son/Daughter",
+        "en": "Hijo/a"
+      },
+      {
+        "es": "Brother/Sister",
+        "en": "Hermano/a"
+      },
+      {
+        "es": "Tio/a",
+        "en": "Uncle/Aunt"
+      },
+      {
+        "es": "Sobrino/a",
+        "en": "Nephew/Niece"
+      },
+      {
+        "es": "Grandfather/Grandmother",
+        "en": "Abuelo/a"
+      },
+      {
+        "es": "Primo/a",
+        "en": "Cousin"
+      },
+      {
+        "es": "Yo",
+        "en": "Me llamo"
+      },
+      {
+        "es": "Tu",
+        "en": "Te llamas"
+      },
+      {
+        "es": "Él/Ella",
+        "en": "Se llama"
+      },
+      {
+        "es": "Nosotros",
+        "en": "Nos llamamos"
+      },
+      {
+        "es": "Vosotros",
+        "en": "Os llamais"
+      },
+      {
+        "es": "Ellos",
+        "en": "Se llaman"
+      },
+      {
+        "es": "¿Tienes familia?",
+        "en": "Do you have a family?"
+      },
+      {
+        "es": "¿Cómo se llama…?",
+        "en": "What is the name of your...?"
+      },
+      {
+        "es": "My mother is called…",
+        "en": "Mi madre se llama..."
+      },
+      {
+        "es": "My parents are called…",
+        "en": "Mis padres se llaman..."
+      },
+      {
+        "es": "¿Cómo está tu…?",
+        "en": "How is your...?"
+      },
+      {
+        "es": "I am single but I live with my mother.",
+        "en": "Soy soltero pero vivo con mi madre."
+      },
+      {
+        "es": "Soltero/a",
+        "en": "Single"
+      },
+      {
+        "es": "2/ Brother - 3/ Aunt - 4/ Cousins - 5/ Grandmother",
+        "en": "1/ Dad"
+      },
+      {
+        "es": "Ex. Mi madre",
+        "en": "Mi madre se llama Vanesa."
+      },
+      {
+        "es": "La madre de Pablo",
+        "en": "La madre de Pablo se llama Vanesa."
+      },
+      {
+        "es": "Mascotas",
+        "en": "Pets"
+      },
+      {
+        "es": "¿Tienes mascotas?",
+        "en": "Do you have pets?"
+      },
+      {
+        "es": "¿Cómo se llama tu mascota?",
+        "en": "What's your pet's name?"
+      },
+      {
+        "es": "¿Qué tipo de mascota tienes?",
+        "en": "What kind of pet do you have?"
+      },
+      {
+        "es": "Gato",
+        "en": "Cat"
+      },
+      {
+        "es": "Perro",
+        "en": "Dog"
+      },
+      {
+        "es": "Pez",
+        "en": "Fish"
+      },
+      {
+        "es": "Pajaro",
+        "en": "Bird"
+      },
+      {
+        "es": "Conejo",
+        "en": "Rabbit"
+      },
+      {
+        "es": "Serpiente",
+        "en": "Snake"
+      },
+      {
+        "es": "Hámster",
+        "en": "Hamster"
+      },
+      {
+        "es": "Cobaya",
+        "en": "Guinea pig"
+      },
+      {
+        "es": "Tortuga",
+        "en": "Turtle"
+      },
+      {
+        "es": "Por supuesto",
+        "en": "Of course"
+      }
+    ]
+  },
+  "routine": {
+    "label": "Routine: verbs & phrases",
+    "cards": [
+      {
+        "es": "Despertarse",
+        "en": "To wake up"
+      },
+      {
+        "es": "Levantarse",
+        "en": "To get up/To get out of bed"
+      },
+      {
+        "es": "Lavarse la cara",
+        "en": "To wash the face"
+      },
+      {
+        "es": "Cepillarse los dientes",
+        "en": "To brush the teeth"
+      },
+      {
+        "es": "Ducharse",
+        "en": "To shower"
+      },
+      {
+        "es": "Bañarse",
+        "en": "To bathe/ To take a bath"
+      },
+      {
+        "es": "Vestirse",
+        "en": "To get dressed"
+      },
+      {
+        "es": "Desayunar",
+        "en": "To have breakfast"
+      },
+      {
+        "es": "Ir al trabajo",
+        "en": "To go to work"
+      },
+      {
+        "es": "Me despierto",
+        "en": "I wake up"
+      },
+      {
+        "es": "Me levanto",
+        "en": "I get up"
+      },
+      {
+        "es": "Me lavo",
+        "en": "I wash myself"
+      },
+      {
+        "es": "Me ducho",
+        "en": "I have a shower"
+      },
+      {
+        "es": "Me visto",
+        "en": "I get dressed"
+      },
+      {
+        "es": "Desayuno",
+        "en": "I have breakfast"
+      },
+      {
+        "es": "Voy al trabajo",
+        "en": "I go to work"
+      }
+    ]
+  },
+  "time": {
+    "label": "Time",
+    "cards": [
+      {
+        "es": "¿Qué hora es?",
+        "en": "What time is it?"
+      },
+      {
+        "es": "Es la una en punto.",
+        "en": "It's one o'clock."
+      },
+      {
+        "es": "Son las dos en punto.",
+        "en": "It's two o'clock."
+      },
+      {
+        "es": "Son las tres en punto.",
+        "en": "It's three o'clock."
+      },
+      {
+        "es": "Son las cuatro en punto.",
+        "en": "It's four o'clock."
+      },
+      {
+        "es": "Son las cinco en punto.",
+        "en": "It's five o'clock."
+      },
+      {
+        "es": "Son las seis de la mañana.",
+        "en": "It's six o'clock in the morning."
+      },
+      {
+        "es": "Son las seis de la tarde.",
+        "en": "It's six o'clock in the afternoon."
+      },
+      {
+        "es": "Y cuarto",
+        "en": "Quarter past"
+      },
+      {
+        "es": "Y media",
+        "en": "Half past"
+      },
+      {
+        "es": "Menos cuarto",
+        "en": "Quarter to"
+      }
+    ]
+  },
+  "articles_gender": {
+    "label": "Articles & gender",
+    "cards": [
+      {
+        "es": "El coche",
+        "en": "The car"
+      },
+      {
+        "es": "La mariposa",
+        "en": "The butterfly"
+      },
+      {
+        "es": "La universidad",
+        "en": "The university"
+      },
+      {
+        "es": "La silla",
+        "en": "The chair"
+      },
+      {
+        "es": "El vaso",
+        "en": "The glass"
+      },
+      {
+        "es": "La cama",
+        "en": "The bed"
+      },
+      {
+        "es": "El reloj",
+        "en": "The clock / watch",
+        "accept": {
+          "en": [
+            "The watch",
+            "The clock",
+            "Clock",
+            "Watch"
+          ]
+        }
+      },
+      {
+        "es": "El cajón",
+        "en": "The drawer"
+      },
+      {
+        "es": "La actualidad",
+        "en": "Current affairs"
+      },
+      {
+        "es": "El lápiz",
+        "en": "The pencil"
+      },
+      {
+        "es": "La manzana",
+        "en": "The apple"
+      },
+      {
+        "es": "La región",
+        "en": "The region"
+      },
+      {
+        "es": "El hombre",
+        "en": "The man"
+      },
+      {
+        "es": "Los hombres",
+        "en": "The men"
+      },
+      {
+        "es": "Las mesas",
+        "en": "The tables"
+      },
+      {
+        "es": "Las plantas",
+        "en": "The plants"
+      },
+      {
+        "es": "Las reuniones",
+        "en": "The meetings"
+      },
+      {
+        "es": "Los lápices",
+        "en": "The pencils"
+      },
+      {
+        "es": "el",
+        "en": "The (masculine singular)"
+      },
+      {
+        "es": "la",
+        "en": "The (feminine singular)"
+      },
+      {
+        "es": "los",
+        "en": "The (masculine plural)"
+      },
+      {
+        "es": "las",
+        "en": "The (feminine plural)"
+      }
+    ]
+  },
+  "adjectives": {
+    "label": "Adjectives",
+    "cards": [
+      {
+        "es": "Enfadado",
+        "en": "Angry"
+      },
+      {
+        "es": "He has fear",
+        "en": "Tiene miedo"
+      },
+      {
+        "es": "Hablador",
+        "en": "Talkative"
+      },
+      {
+        "es": "Ruidoso",
+        "en": "Noisy"
+      },
+      {
+        "es": "Generoso",
+        "en": "Generous"
+      }
+    ]
+  },
+  "pronouns": {
+    "label": "Pronouns",
+    "cards": [
+      {
+        "es": "Yo",
+        "en": "I"
+      },
+      {
+        "es": "Tú",
+        "en": "You"
+      },
+      {
+        "es": "Él/Ella",
+        "en": "He/She"
+      },
+      {
+        "es": "Nosotros",
+        "en": "We"
+      },
+      {
+        "es": "Vosotros",
+        "en": "You (plural)"
+      },
+      {
+        "es": "Ellos",
+        "en": "They"
+      }
+    ]
+  },
+  "verb_llamarse": {
+    "label": "Verb: llamarse (to be called)",
+    "cards": [
+      {
+        "es": "Me llamo",
+        "en": "I am called"
+      },
+      {
+        "es": "Te llamas",
+        "en": "You are called"
+      },
+      {
+        "es": "Se llama",
+        "en": "S/he is called"
+      },
+      {
+        "es": "Nos llamamos",
+        "en": "We are called"
+      },
+      {
+        "es": "Os llamais",
+        "en": "You (pl) are called"
+      },
+      {
+        "es": "Se llaman",
+        "en": "They are called"
+      }
+    ]
+  },
+  "verb_ser": {
+    "label": "Verb: ser (to be)",
+    "cards": [
+      {
+        "es": "Soy",
+        "en": "I am (ser)"
+      },
+      {
+        "es": "Eres",
+        "en": "You are (ser)"
+      },
+      {
+        "es": "Es",
+        "en": "He/She is (ser)"
+      },
+      {
+        "es": "Somos",
+        "en": "We are (ser)"
+      },
+      {
+        "es": "Sois",
+        "en": "You (p) are (ser)"
+      },
+      {
+        "es": "Son",
+        "en": "They are (ser)"
+      }
+    ]
+  },
+  "verb_tener": {
+    "label": "Verb: tener (to have)",
+    "cards": [
+      {
+        "es": "Tengo",
+        "en": "I have (tener)"
+      },
+      {
+        "es": "Tienes",
+        "en": "You have (tener)"
+      },
+      {
+        "es": "Tiene",
+        "en": "He/She has (tener)"
+      },
+      {
+        "es": "Tenemos",
+        "en": "We have (tener)"
+      },
+      {
+        "es": "Teneis",
+        "en": "You (p) have"
+      },
+      {
+        "es": "Tienen",
+        "en": "They have (tener)"
       }
     ]
   }

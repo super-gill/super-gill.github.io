@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Spanish Flashcards — Match pairs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="site-header">
+      <div class="container header-inner">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">SF</div>
+          <div class="brand-text">
+            <h1>Match pairs</h1>
+            <p class="subtitle">Flip tiles to match Spanish to English.</p>
+          </div>
+        </div>
+        <nav class="top-nav" aria-label="Primary">
+        <a class="nav-link" href="../index.html">Home</a>
+        <a class="nav-link" href="../flashcards.html">Flashcards</a>
+        <a class="nav-link" href="./typing.html">Typing</a>
+        <a class="nav-link" href="./match-columns.html">Match</a>
+        <a class="nav-link is-active" href="./pairs.html">Pairs</a>
+        <a class="nav-link" href="./mcq.html">MCQ</a>
+</nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="card app-surface">
+        <div class="deck-select">
+      <label for="deck-select">Deck:</label>
+      <select id="deck-select">
+        <option value="all">All cards (mixed)</option>
+      </select>
+    </div>
+
+    <div class="controls">
+      <button id="new-round" class="btn">New round</button>
+      <label style="margin-left:.5rem;">
+        Pairs:
+        <select id="pair-count">
+          <option value="6">6</option>
+          <option value="8" selected>8</option>
+          <option value="10">10</option>
+          <option value="12">12</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="game-panel">
+      <div class="pairs-grid" id="grid"></div>
+
+      <div class="status-line">
+        <div>Matched: <strong id="matched">0</strong>/<span id="total">0</span></div>
+        <div>Mistakes: <strong id="mistakes">0</strong></div>
+        <div>Time: <strong id="timer">0:00</strong></div>
+      </div>
+
+      <div class="actions" style="justify-content:flex-start; margin-top: 10px;">
+</div>
+
+      <p id="hint" style="margin:.75rem 0 0; color:#555;"></p>
+    </div>
+  </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <span>Spanish Flashcards</span>
+        <span class="muted">Progress saved in your browser.</span>
+      </div>
+    </footer>
+  </div>
+<script src="../decks-data.js"></script>
+  <script src="./pairs.js"></script>
+</body>
+</html>
