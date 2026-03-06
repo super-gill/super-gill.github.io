@@ -3,9 +3,10 @@
   const C=window.CONFIG; const {rand,clamp,now}=window.M;
   const {world,player,enemies}=window.G;
 
-  function inLayer(y){return y>=world.layerY1&&y<=world.layerY2;}
-  function layerPenalty(y1,y2){const a=inLayer(y1),b=inLayer(y2); return (a!==b)?0.70:1.0;}
+  function inLayer(d){return d>=world.layerY1&&d<=world.layerY2;}
+  function layerPenalty(d1,d2){const a=inLayer(d1),b=inLayer(d2); return (a!==b)?0.70:1.0;}
   function wrapDx(x1,x2){let dx=x2-x1; if(dx>world.w/2) dx-=world.w; if(dx<-world.w/2) dx+=world.w; return dx;}
+  function wrapDy(y1,y2){let dy=y2-y1; if(dy>world.h/2) dy-=world.h; if(dy<-world.h/2) dy+=world.h; return dy;}
 
   function enemyHasFireSolution(e){
     if(!e.contact) return false;
@@ -17,28 +18,41 @@
   }
 
   function enemyUpdateContactFromPing(e,px,py,dist){
-    const layer=layerPenalty(py,e.y);
-    const u=(120+dist*0.09)*(layer<1?1.25:1.0);
-    e.contact={x:(px+rand(-u,u)+world.w)%world.w,y:clamp(py+rand(-u,u),world.seaLevel+80,world.ground-80),u,t:now(),strength:clamp(0.55+(1-dist/1850)*0.45,0.25,1.0)};
-    e.suspicion=Math.min(1,e.suspicion+0.70*e.contact.strength);
+    const layer=layerPenalty(py,e.depth||400);
+    const u=(160+dist*0.10)*(layer<1?1.55:1.0);
+    e.contact={
+      x:(px+rand(-u,u)+world.w)%world.w,
+      y:(py+rand(-u,u)+world.h)%world.h,
+      y:clamp(py+rand(-u,u),world.seaLevel+80,world.ground-80),
+      u,t:now(),
+      strength:clamp(0.50+(1-dist/2000)*0.40,0.30,0.92)
+    };
+    // Ping is a significant suspicion event — one ping can trigger investigate,
+    // but alone won't push to engage without follow-up.
+    e.suspicion=Math.min(1,e.suspicion+0.45*e.contact.strength);
   }
 
   function enemyMaybeHearPlayer(e,dt){
-    const dx=wrapDx(e.x,player.x);
-    const dy=player.y-e.y;
+    const dx=wrapDx(e.x,player.wx);
+    const dy=wrapDy(e.y,player.wy);
     const d=Math.hypot(dx,dy);
     const baseRange=(e.type==="boat")?C.enemy.hearBoatRange:C.enemy.hearSubRange;
     if(d>baseRange) return;
-    const layer=layerPenalty(player.y,e.y);
+    const layer=layerPenalty(player.depth,e.depth||400);
     let signal=player.noise*layer*(1-d/baseRange);
-    // Periscope up makes surface ships more likely to localise you
-    if(e.type==="boat" && (player.periscopeT||0) > 0){ signal *= (C.player.periscope?.detectBoost || 1.55); }
+    if(e.type==="boat" && (player.periscopeT||0)>0){ signal*=(C.player.periscope?.detectBoost||1.55); }
     if(signal<C.enemy.hearSignalMin) return;
-    const p=clamp((signal-C.enemy.hearPBase)*C.enemy.hearPScale,0,1.0);
+    const p=clamp((signal-C.enemy.hearPBase)*C.enemy.hearPScale,0,0.40);
     if(Math.random()<p*dt){
-      const u=(200+d*0.12)*(layer<1?1.25:1.0);
-      e.contact={x:(player.x+rand(-u,u)+world.w)%world.w,y:clamp(player.y+rand(-u,u),world.seaLevel+80,world.ground-80),u,t:now(),strength:clamp(0.28+signal*0.82,0.25,0.95)};
-      e.suspicion=Math.min(1,e.suspicion+0.30*e.contact.strength);
+      const layerMult=(layer<1)?1.45:1.0;
+      const u=(260+d*0.14)*layerMult;
+      e.contact={
+        x:(player.wx+rand(-u,u)+world.w)%world.w,
+        y:(player.wy+rand(-u,u)+world.h)%world.h,
+        u,t:now(),
+        strength:clamp(0.18+signal*0.62,0.18,0.72)
+      };
+      e.suspicion=Math.min(1,e.suspicion+0.14*e.contact.strength);
     }
   }
 
@@ -53,16 +67,34 @@
 
   function spawnEnemy(){
     const type=(Math.random()<C.enemy.boatShare)?"boat":"sub";
-    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:rand(0.0,0.12),contact:null,fireCd:rand(3.0,6.0),cmCd:rand(2.2,5.5),
-      navT:rand(C.enemy.subNavT[0],C.enemy.subNavT[1]),navX:0,navY:0,heading:Math.PI,
-      pingCd:rand(C.enemy.subPingCd[0],C.enemy.subPingCd[1]),pingPulse:0,evadeT:0,evadeFrom:null,evadeDecoy:null};
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:rand(0.0,0.12),contact:null,
+      fireCd:rand(3.0,6.0),cmCd:rand(2.2,5.5),
+      navT:rand(C.enemy.subNavT[0],C.enemy.subNavT[1]),navX:0,navY:0,
+      heading:rand(0,Math.PI*2),
+      pingCd:rand(C.enemy.subPingCd[0],C.enemy.subPingCd[1]),pingPulse:0,
+      evadeT:0,evadeFrom:null,evadeDecoy:null};
+    // Spawn at random bearing and distance from player
+    const minR=C.enemy.spawnMinR||2200, maxR=C.enemy.spawnMaxR||4200;
+    const ang=rand(0,Math.PI*2);
+    const dist=rand(minR,maxR);
+    const ex=(player.wx+Math.cos(ang)*dist+world.w)%world.w;
+    const ey=(player.wy+Math.sin(ang)*dist+world.h)%world.h;
+    // Random heading toward general area of player
+    const toPlayer=Math.atan2(player.wy-ey,player.wx-ex)+rand(-0.8,0.8);
+    const spd=rand(12,28);
     if(type==="boat"){
-      enemies.push({...common,type,x:rand(player.x+1400,player.x+3300)%world.w,y:world.seaLevel-rand(6,18),hitY:world.seaLevel+14,vx:rand(-26,-12),vy:0,r:34,hp:80,sensitivity:rand(0.70,1.05),noise:1.0,flareCd:rand(2.2,4.5),cwis:{pKillPerSec:rand(0.55,0.9),range:rand(520,760)}});
+      enemies.push({...common,type,x:ex,y:ey,depth:0,hitY:0,
+        vx:Math.cos(toPlayer)*spd,vy:Math.sin(toPlayer)*spd,
+        r:34,hp:80,sensitivity:rand(0.70,1.05),noise:1.0,
+        flareCd:rand(2.2,4.5),cwis:{pKillPerSec:rand(0.55,0.9),range:rand(520,760)}});
     } else {
-      enemies.push({...common,type,x:rand(player.x+1600,player.x+3600)%world.w,y:rand(world.seaLevel+200,world.seaLevel+1100),vx:rand(-30,-12),vy:rand(-6,6),r:30,hp:90,sensitivity:rand(0.55,0.90),noise:rand(0.45,0.7)});
+      const depth=rand(200,1100);
+      enemies.push({...common,type,x:ex,y:ey,depth,
+        vx:Math.cos(toPlayer)*spd,vy:Math.sin(toPlayer)*spd,
+        r:30,hp:90,sensitivity:rand(0.55,0.90),noise:rand(0.45,0.7)});
     }
     const e=enemies[enemies.length-1]; e.navX=e.x; e.navY=e.y;
   }
 
-  window.AI={wrapDx,layerPenalty,enemyHasFireSolution,enemyUpdateContactFromPing,enemyMaybeHearPlayer,enemyDecay,spawnEnemy};
+  window.AI={wrapDx,wrapDy,layerPenalty,enemyHasFireSolution,enemyUpdateContactFromPing,enemyMaybeHearPlayer,enemyDecay,spawnEnemy};
 })();

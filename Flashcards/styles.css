@@ -253,6 +253,12 @@ label{ color: rgba(229,231,235,.9); font-weight: 650; }
   font-size: .9rem;
 }
 .translate-link a:hover{ text-decoration:none; background: rgba(255,255,255,.07); }
+.translate-link .icon-gt{
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 #tts-btn{ visibility: hidden; }
 
 .direction-hint{ text-align:center; font-size: .9rem; color: var(--muted); margin: .15rem 0 .75rem; min-height: 1.2em; }

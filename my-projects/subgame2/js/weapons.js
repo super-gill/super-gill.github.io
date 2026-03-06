@@ -41,9 +41,10 @@
     return d;
   }
 
-  function fireTorpedo(fromX,fromY,dirX,dirY,friendly=true,enableDist=C.player.torpEnableDist){
+  function fireTorpedo(fromX,fromY,dirX,dirY,friendly=true,enableDist=C.player.torpEnableDist,wireGuided=false){
     const sp=C.torpedo.speed;
     const d=Math.max(1e-6,Math.hypot(dirX,dirY));
+    const launchAng=Math.atan2(dirY,dirX);
     bullets.push({
       kind:"torpedo",x:fromX,y:fromY,
       vx:(dirX/d)*sp,vy:(dirY/d)*sp,r:6,
@@ -51,8 +52,62 @@
       dmg:C.torpedo.dmg,
       seekRange:C.torpedo.seekRange,seekFOV:C.torpedo.seekFOV,turnRate:C.torpedo.turnRate,
       target:null,arming:C.torpedo.arming,
-      enableDist,traveled:0,weaveT:rand(0,10)
+      enableDist,traveled:0,weaveT:rand(0,10),
+      // Wire guidance
+      wire: wireGuided ? {
+        live:true,
+        launchAng,          // initial bearing, for turn-break detection
+        totalTurnRad:0,     // accumulated heading change
+        fromX,fromY,        // launch origin for wire rendering
+      } : null,
     });
+  }
+
+  // Called each sim frame for each wire-guided torpedo still connected.
+  // Scans nearby enemies, pushes results into wireContacts[].
+  function wireUpdate(b, dt){
+    if(!b.wire||!b.wire.live) return;
+    const {wireContacts,world:w}=window.G;
+
+    // Range check — snap wire at max range
+    let dx=b.x-b.wire.fromX; if(dx>w.w/2)dx-=w.w; if(dx<-w.w/2)dx+=w.w;
+    let dy=b.y-b.wire.fromY; if(dy>w.h/2)dy-=w.h; if(dy<-w.h/2)dy+=w.h;
+    if(Math.hypot(dx,dy)>C.player.torpWireMaxRange){
+      b.wire.live=false;
+      window.G.setMsg("WIRE CUT: range",0.8);
+      return;
+    }
+
+    // Turn-break check
+    const curAng=Math.atan2(b.vy,b.vx);
+    const turnDelta=Math.abs(angleNorm(curAng-b.wire.launchAng));
+    b.wire.totalTurnRad=Math.max(b.wire.totalTurnRad, turnDelta);
+    if(b.wire.totalTurnRad > C.player.torpWireBreakTurnDeg*Math.PI/180){
+      b.wire.live=false;
+      window.G.setMsg("WIRE CUT: turn",0.8);
+      return;
+    }
+    b.wire.launchAng=curAng; // rolling reference keeps only last-frame delta
+
+    // Sensor sweep — report nearby enemies back through the wire
+    // Uses a wider/shorter range than the torpedo seeker itself
+    const wireRange=C.torpedo.seekRange*1.4;
+    for(const e of enemies){
+      const ex=e.x,ey=e.y;
+      let edx=AI.wrapDx(b.x,ex);
+      let edy=ey-b.y;
+      const dist=Math.hypot(edx,edy);
+      if(dist>wireRange) continue;
+      // Push a short-lived wire contact
+      const u=60+dist*0.08;
+      wireContacts.push({
+        x:(ex+rand(-u,u)+w.w)%w.w,
+        y:(ey+rand(-u,u)+w.h)%w.h,
+        u, life:1.8,
+        kind:e.type,
+        fromTorp:{x:b.x,y:b.y}
+      });
+    }
   }
 
   function fireMissileVLS(fromX,fromY,friendly=true){
@@ -95,5 +150,5 @@
     return best;
   }
 
-  window.W={wrapX,makeExplosion,splash,deployDecoy,fireTorpedo,fireMissileVLS,dropDepthCharge,torpAcquire};
+  window.W={wrapX,makeExplosion,splash,deployDecoy,fireTorpedo,wireUpdate,fireMissileVLS,dropDepthCharge,torpAcquire};
 })();

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const C=window.CONFIG; const {rand,clamp,lerp,now,angleNorm}=window.M;
-  const {world,cam,canvas,bullets,particles,enemies,decoys,contacts,cwisTracers,player,game,setMsg}=window.G;
+  const {world,cam,canvas,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,player,game,setMsg}=window.G;
   const I=window.I; const NAV=window.NAV; const SIG=window.SIG; const SENSE=window.SENSE; const W=window.W; const AI=window.AI;
 
   function wrapX(x){return (x+world.w)%world.w;}
@@ -9,12 +9,12 @@
     if(player.invuln>0) return;
     player.hp=Math.max(0,player.hp-amount);
     player.invuln=0.8;
-    W.makeExplosion(player.x,player.y,0.8,true);
+    W.makeExplosion(player.wx,player.wy,0.8,true);
     if(player.hp<=0) game.over=true;
   }
   function damageEnemy(e,amount){
     e.hp-=amount;
-    W.makeExplosion(e.x,(e.type==="boat"?(e.hitY??e.y):e.y),amount>=90?1.6:1.0,e.type==="boat");
+    W.makeExplosion(e.x,e.y,amount>=90?1.6:1.0,e.type==="boat");
     if(e.hp<=0){game.score+=(e.type==="boat"?160:190); e.dead=true;}
   }
 
@@ -31,14 +31,18 @@
   }
 
   function reset(){
-    bullets.length=0;particles.length=0;enemies.length=0;decoys.length=0;contacts.length=0;cwisTracers.length=0;
+    bullets.length=0;particles.length=0;enemies.length=0;decoys.length=0;contacts.length=0;cwisTracers.length=0;wireContacts.length=0;
+    if(window.ROUTE) window.ROUTE.length=0;
     game.score=0;game.over=false;game.msg="";game.msgT=0;
-    player.x=900;player.y=world.seaLevel+260;player.dir=1;player.heading=0;player.desiredHeading=0;player.speed=3;player.speedOrderKts=3;player.depthOrder=world.seaLevel+260;
-    player.vy=0;player.turnRate=0;player.hp=C.player.hpMax;player.invuln=0;
-    player.noise=0;player.noiseTransient=0;player.cavitating=false;
-    player.torpCd=0;player.missileCd=0;player.pingCd=0;player.cmCd=0;player.sonarPulse=0;player.periscopeCd=0;player.periscopeT=0;
-    player.silent=false;player.emergTurnT=0;player.emergTurnCd=0;player.crashDiveT=0;player.crashDiveCd=0;player.passiveTick=0;
-    for(let i=0;i<7;i++) AI.spawnEnemy();
+    const spawn=window.MAPS?.getMap()?.playerSpawn||{wx:4000,wy:5000};
+    player.wx=spawn.wx; player.wy=spawn.wy; player.x=spawn.wx;
+    player.heading=0; player.speed=0; player.speedOrderKts=0;
+    player.depth=260; player.depthOrder=260; player.y=260;
+    player.vy=0; player.turnRate=0; player.hp=C.player.hpMax; player.invuln=0;
+    player.noise=0; player.noiseTransient=0; player.cavitating=false;
+    player.torpCd=0; player.missileCd=0; player.pingCd=0; player.cmCd=0; player.sonarPulse=0; player.periscopeCd=0; player.periscopeT=0;
+    player.silent=false; player.emergTurnT=0; player.emergTurnCd=0; player.crashDiveT=0; player.crashDiveCd=0; player.passiveTick=0;
+    for(let i=0;i<9;i++) AI.spawnEnemy();
   }
   reset();
 
@@ -62,21 +66,18 @@
 
     if(!game.over){
       NAV.updateOrders(dt);
-      NAV.stepDynamics(dt);
-
-      const spWU=NAV.ktsToWU(player.speed);
-      player.x=wrapX(player.x+Math.cos(player.heading)*spWU*dt);
-      player.y=clamp(player.y+player.vy*dt,world.seaLevel+40,world.ground-60);
+      NAV.stepDynamics(dt);  // handles all movement including player.wx/wy/depth/y
 
       SIG.updateNoise(dt);
 
-      I.aimWorldX=cam.x+I.mouseX;
-      I.aimWorldY=cam.y+I.mouseY;
-      // Periscope (P): shallow-only, reveals all ships in large range, but makes you easier for ships to localise briefly.
-      if(I.keys.has("p") && player.periscopeCd<=0){
-        I.keys.delete("p");
-        const shallow = ((player.y - world.seaLevel) <= C.player.periscopeDepth);
-        if(!shallow){
+      // Aim world coords: unproject mouse through camera
+      const Z=cam.zoom;
+      I.aimWorldX=cam.x+(I.mouseX-canvas.width/2)/Z;
+      I.aimWorldY=cam.y+(I.mouseY-canvas.height/2)/Z;
+      // Periscope (O) — shallow only
+      if(I.keys.has("o") && player.periscopeCd<=0){
+        I.keys.delete("o");
+        if(player.depth>C.player.periscopeDepth){
           setMsg("PERISCOPE: TOO DEEP", 1.0);
         } else {
           player.periscopeCd = C.player.periscope.cd;
@@ -85,55 +86,70 @@
           let shown = 0;
           for(const e of enemies){
             if(e.type!=="boat") continue;
-            const dx = AI.wrapDx(player.x, e.x);
-            const dy = (e.hitY ?? e.y) - player.y;
+            const dx = AI.wrapDx(player.wx, e.x);
+            const dy = e.y - player.wy;
             const d = Math.hypot(dx,dy);
             if(d <= C.player.periscope.revealR){
               SENSE.setDetected(e, C.detection.detectT*1.4, C.detection.seenT*1.2);
               shown++;
             }
           }
-          setMsg(shown>0 ? `PERISCOPE UP: ${shown} ship(s)` : "PERISCOPE UP: no ships", 1.2);
+          setMsg(shown>0 ? `SCOPE: ${shown} ship(s)` : "SCOPE: no ships", 1.2);
         }
       }
 
-
       SENSE.proximityDetect();
-
       if(I.keys.has(" ")&&player.pingCd<=0){I.keys.delete(" "); SENSE.activePing(); setMsg("PING!",0.8);}
-
       SENSE.passiveUpdate(dt);
 
-      if(I.mouseDownL && player.torpCd<=0){
+      // Shift+LMB = fire wire-guided torpedo on aimed bearing
+      // While shift is held, an aim cone is drawn (render.js reads I.shiftHeld + I.aimWorldX/Y)
+      if(I.torpAimClick && player.torpCd<=0){
+        I.torpAimClick=false;
         player.torpCd=C.player.torpCd;
-        const aimDx=AI.wrapDx(player.x,I.aimWorldX);
-        const aimDy=I.aimWorldY-player.y;
+        const aimDx=I.aimWorldX-player.wx;
+        const aimDy=I.aimWorldY-player.wy;
         const d=Math.max(1e-6,Math.hypot(aimDx,aimDy));
         const ddx=aimDx/d, ddy=aimDy/d;
         const shot=clampConeDual(ddx,ddy,player.heading,C.player.torpArcDeg);
         if(shot.out) setMsg("TUBE ARC LIMIT",0.6);
         const off=C.player.r*1.35;
-        const sx=player.x + (shot.isRear?-Math.cos(player.heading):Math.cos(player.heading))*off;
-        const sy=player.y + (shot.isRear?-Math.sin(player.heading):Math.sin(player.heading))*off;
+        const sx=player.wx+Math.cos(player.heading)*off;
+        const sy=player.wy+Math.sin(player.heading)*off;
         player.noiseTransient=Math.min(1,player.noiseTransient+0.18);
-        W.fireTorpedo(sx,sy,shot.dx,shot.dy,true,C.player.torpEnableDist);
+        W.fireTorpedo(sx,sy,shot.dx,shot.dy,true,C.player.torpEnableDist,true); // wire=true
+        setMsg("TORPEDO — WIRE LIVE",0.9);
       }
 
-      if(I.mouseDownR && player.missileCd<=0){
-        const shallow=((player.y-world.seaLevel)<=C.player.periscopeDepth);
-        if(C.player.missileRequiresShallow && !shallow){setMsg("MISSILE: TOO DEEP",0.8);}
+      // F = quick fire (no wire, forward bearing)
+      if(I.keys.has("f")&&player.torpCd<=0){
+        I.keys.delete("f");
+        player.torpCd=C.player.torpCd;
+        const off=C.player.r*1.35;
+        const sx=player.wx+Math.cos(player.heading)*off;
+        const sy=player.wy+Math.sin(player.heading)*off;
+        player.noiseTransient=Math.min(1,player.noiseTransient+0.18);
+        W.fireTorpedo(sx,sy,Math.cos(player.heading),Math.sin(player.heading),true,C.player.torpEnableDist,false);
+        setMsg("TORPEDO AWAY",0.9);
+      }
+
+      // G = VLS missile (shallow only)
+      if(I.keys.has("g")&&player.missileCd<=0){
+        I.keys.delete("g");
+        if(player.depth>C.player.periscopeDepth){setMsg("MISSILE: TOO DEEP",0.8);}
         else{
           player.missileCd=C.player.missileCd;
           player.noiseTransient=Math.min(1,player.noiseTransient+0.35);
           setMsg("VLS LAUNCH!",1.0);
-          W.fireMissileVLS(player.x,player.y,true);
+          W.fireMissileVLS(player.wx,player.wy,true);
         }
       }
 
-      if(I.keys.has("q") && player.cmCd<=0){
-        I.keys.delete("q");
+      // X = deploy noisemaker
+      if(I.keys.has("x")&&player.cmCd<=0){
+        I.keys.delete("x");
         player.cmCd=C.player.cmCd;
-        W.deployDecoy(player.x-10,player.y+10,true,"noisemaker");
+        W.deployDecoy(player.wx,player.wy,true,"noisemaker");
         player.noiseTransient=Math.min(1,player.noiseTransient+0.10);
         setMsg("NOISEMAKER OUT",0.9);
       }
@@ -147,9 +163,10 @@
       const state=(e.suspicion>C.enemy.susEngage)?"engage":(e.suspicion>C.enemy.susInvestigate?"investigate":"patrol");
 
       if(e.type==="boat"){
-        e.x=wrapX(e.x+e.vx*dt);
-        e.y=world.seaLevel-12+Math.sin((e.x*0.002)+now())*2;
-        e.hitY=world.seaLevel+14;
+        // Surface ships move in top-down 2D — they have a heading and speed
+        e.x=(e.x+e.vx*dt+world.w)%world.w;
+        e.y=(e.y+e.vy*dt+world.h)%world.h;
+        e.hitY=0; // boats are always at surface depth=0
 
         if(state==="patrol"){
           e.vx=clamp(e.vx+Math.sin(now()*0.6+e.x*0.002)*2*dt,-40,-8);
@@ -177,20 +194,42 @@
           }
         }
 
-        // TODO: flare defense vs missiles (kept for later patch)
+        // Torpedo reaction — boats deploy noisemaker decoys and jink speed,
+        // mirroring what enemy subs do. flareCd is reused as the noisemaker cd.
+        e.flareCd = Math.max(0, (e.flareCd||0) - dt);
+        for(const b of bullets){
+          if(b.kind!=="torpedo" || !b.friendly || b.life<=0) continue;
+          const dx=AI.wrapDx(e.x,b.x);
+          const dy=b.y-e.hitY;
+          const dd=Math.hypot(dx,dy);
+          if(dd<C.enemy.boatTorpReactR){
+            e.suspicion=Math.min(1,e.suspicion+0.15);
+            if(e.flareCd<=0){
+              e.flareCd=rand(3.5,6.0);
+              // Deploy a noisemaker off the stern into the water
+              W.deployDecoy(
+                wrapX(e.x+rand(-30,30)),
+                e.hitY+rand(10,30),
+                false, "noisemaker",
+                {vx:rand(-20,20), vy:rand(20,50)}
+              );
+              setMsg("SHIP: COUNTERMEASURES!",0.8);
+            }
+          }
+        }
       } else {
-        // sub nav
-        e.x=wrapX(e.x+e.vx*dt);
-        e.y += e.vy*dt;
+        // sub nav — top-down, e.x/e.y = world position, e.depth = depth
+        e.x=(e.x+e.vx*dt+world.w)%world.w;
+        e.y=(e.y+e.vy*dt+world.h)%world.h;
         e.navT -= dt;
         if(e.navT<=0){
           e.navT=rand(C.enemy.subNavT[0],C.enemy.subNavT[1]);
-          e.navX=wrapX(e.x+rand(-1200,1200));
-          e.navY=clamp(e.y+rand(-520,520),world.seaLevel+140,world.ground-160);
+          e.navX=(e.x+rand(-1200,1200)+world.w)%world.w;
+          e.navY=(e.y+rand(-1200,1200)+world.h)%world.h;
         }
         if(e.evadeT<=0){
           const ndx=AI.wrapDx(e.x,e.navX);
-          const ndy=e.navY-e.y;
+          const ndy=AI.wrapDx(e.y,e.navY); // wrap in Y too
           const nd=Math.max(1,Math.hypot(ndx,ndy));
           const nx=ndx/nd, ny=ndy/nd;
           const thrust=(state==="engage")?38:(state==="investigate"?28:20);
@@ -223,25 +262,32 @@
         }
         e.vx *= Math.pow(0.94,dt*60);
         e.vy *= Math.pow(0.94,dt*60);
-        e.y=clamp(e.y,world.seaLevel+90,world.ground-70);
         const sv=Math.hypot(e.vx,e.vy);
         if(sv>10) e.heading=Math.atan2(e.vy,e.vx);
 
-        // sub ping
+        // sub ping — enemy subs ping infrequently; each ping is an event
+        // that degrades through the layer. A single ping raises suspicion
+        // to investigate range but not to engage.
         e.pingCd -= dt;
         if(e.pingCd<=0 && !game.over){
           e.pingCd=rand(C.enemy.subPingCd[0],C.enemy.subPingCd[1]);
-          const dxp=AI.wrapDx(player.x,e.x);
-          const dyp=player.y-e.y;
+          const dxp=AI.wrapDx(player.wx,e.x);
+          const dyp=player.wy-e.y;
           const dp=Math.hypot(dxp,dyp);
           if(dp<C.enemy.subPingRange){
             e.pingPulse=1.2;
             e.detectedT=Math.max(e.detectedT||0,C.detection.detectT);
-            e.seen=Math.max(e.seen||0,C.detection.seenT*0.5);
+            e.seen=Math.max(e.seen||0,C.detection.seenT*0.4);
             e.lastX=e.x; e.lastY=e.y; e.lastT=now();
-            const u=170+dp*0.10;
-            e.contact={x:wrapX(player.x+rand(-u,u)),y:clamp(player.y+rand(-u,u),world.seaLevel+80,world.ground-80),u,t:now(),strength:0.78};
-            e.suspicion=Math.min(1,e.suspicion+0.22);
+            const layer=AI.layerPenalty(player.depth,e.depth||400);
+            const u=(220+dp*0.13)*(layer<1?1.60:1.0);
+            e.contact={
+              x:(player.wx+rand(-u,u)+world.w)%world.w,
+              y:(player.wy+rand(-u,u)+world.h)%world.h,
+              u,t:now(),
+              strength:clamp(0.55+(1-dp/2000)*0.30,0.28,0.82)*(layer<1?0.70:1.0)
+            };
+            e.suspicion=Math.min(1,e.suspicion+0.18);
           }
         }
 
@@ -391,25 +437,20 @@
         const ang=Math.atan2(b.vy,b.vx);
         b.vx=Math.cos(ang)*ns; b.vy=Math.sin(ang)*ns;
 
-        b.x=wrapX(b.x+b.vx*dt); b.y += b.vy*dt;
-
-        if(b.y>world.ground-10){W.makeExplosion(b.x,world.ground-10,0.9,true); b.life=0;}
-        if(b.y<world.seaLevel){W.splash(b.x,world.seaLevel,0.5); b.life=0;}
-        b.y=clamp(b.y,world.seaLevel+40,world.ground-10);
+        b.x=(b.x+b.vx*dt+world.w)%world.w;
+        b.y=(b.y+b.vy*dt+world.h)%world.h;
 
         if(b.life>0 && b.arming<=0){
           if(b.friendly){
             for(const e of enemies){
               if((e.detectedT||0)<=0) continue;
-              const ex=e.x;
-              const ey=(e.type==="boat")?(e.hitY??e.y):e.y;
-              const dx=AI.wrapDx(b.x,ex);
-              const dy=ey-b.y;
+              const dx=AI.wrapDx(b.x,e.x);
+              const dy=e.y-b.y;
               if(Math.hypot(dx,dy)<e.r+b.r){damageEnemy(e,b.dmg); b.life=0; break;}
             }
           } else {
-            const dx=AI.wrapDx(b.x,player.x);
-            const dy=player.y-b.y;
+            const dx=AI.wrapDx(b.x,player.wx);
+            const dy=player.wy-b.y;
             if(Math.hypot(dx,dy)<C.player.r+b.r){damagePlayer(24); b.life=0;}
           }
         }
@@ -424,6 +465,44 @@
             if(Math.hypot(dx,dy)<d.r+b.r){W.makeExplosion(b.x,b.y,0.8,true); b.life=0; break;}
           }
         }
+
+        // CWIS intercept — surface ships shoot down incoming missiles only.
+        // Torpedoes are handled by noisemaker decoys (see boat torpedo reaction above).
+        if(b.kind==="missile" && b.life>0 && b.friendly){
+          for(const e of enemies){
+            if(e.type!=="boat" || !e.cwis) continue;
+            const dx=AI.wrapDx(b.x,e.x);
+            const dy=b.y-e.hitY;
+            const dist=Math.hypot(dx,dy);
+            if(dist>e.cwis.range) continue;
+            const closing=(dx*b.vx+dy*b.vy)<0;
+            if(!closing) continue;
+            const pKill=e.cwis.pKillPerSec*dt;
+            e.cwis.tracerCd=(e.cwis.tracerCd||0)-dt;
+            if(e.cwis.tracerCd<=0){
+              e.cwis.tracerCd=rand(0.06,0.12);
+              const bursts=Math.floor(rand(C.ship.tracerBursts[0],C.ship.tracerBursts[1]));
+              for(let k=0;k<bursts;k++){
+                const spread=(Math.random()-0.5)*C.ship.tracerSpread;
+                const ang=Math.atan2(dy,dx)+spread;
+                const spd=rand(900,1200);
+                cwisTracers.push({
+                  x:e.x, y:e.hitY-8,
+                  vx:Math.cos(ang)*spd,
+                  vy:Math.sin(ang)*spd,
+                  life:rand(C.ship.tracerLife[0],C.ship.tracerLife[1]),
+                  maxLife:rand(C.ship.tracerLife[0],C.ship.tracerLife[1])
+                });
+              }
+            }
+            if(Math.random()<pKill){
+              W.makeExplosion(b.x,b.y,0.7,false);
+              setMsg("CWIS INTERCEPT!",1.0);
+              b.life=0;
+              break;
+            }
+          }
+        }
       }
 
       // missiles not implemented in this minimal build (kept in config); safe to leave bullets list without them
@@ -431,20 +510,37 @@
     }
     for(let i=bullets.length-1;i>=0;i--) if(bullets[i].life<=0) bullets.splice(i,1);
 
-    // particles
+    // Wire guidance update — runs on live wired torpedoes
+    for(const b of bullets){
+      if(b.kind==="torpedo"&&b.wire&&b.wire.live) W.wireUpdate(b,dt);
+    }
+
+    // Wire contacts age out
+    for(const wc of wireContacts) wc.life-=dt;
+    for(let i=wireContacts.length-1;i>=0;i--) if(wireContacts[i].life<=0) wireContacts.splice(i,1);
+
+    // CWIS tracers — short-lived fast projectiles, purely visual + positional
+    for(const t of cwisTracers){
+      t.life -= dt;
+      t.x = wrapX(t.x + t.vx*dt);
+      t.y += t.vy*dt;
+    }
+    for(let i=cwisTracers.length-1;i>=0;i--) if(cwisTracers[i].life<=0) cwisTracers.splice(i,1);
+
+    // particles — top-down, just drift and fade
     for(const p of particles){
       p.life -= dt;
-      p.x = wrapX(p.x + p.vx*dt);
-      p.y += p.vy*dt;
+      p.x = (p.x + p.vx*dt + world.w)%world.w;
+      p.y = (p.y + p.vy*dt + world.h)%world.h;
       p.vx *= Math.pow(0.88,dt*60);
       p.vy *= Math.pow(0.88,dt*60);
-      if(p.y<world.seaLevel) p.vy += 300*dt;
     }
     for(let i=particles.length-1;i>=0;i--) if(particles[i].life<=0) particles.splice(i,1);
 
-    // camera
-    cam.x = wrapX(player.x - canvas.width*C.camera.followX);
-    cam.y = clamp(player.y - canvas.height*C.camera.followY, 0, world.h - canvas.height);
+    // Camera — top-down, player centred, slight lead in heading direction
+    cam.x = player.wx;
+    cam.y = player.wy;
+    cam.zoom = C.camera.zoom;
   }
 
   window.SIM={update,reset};
