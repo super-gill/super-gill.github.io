@@ -13,7 +13,8 @@
   // cam.x/y = world position of screen centre
   const cam={x:0,y:0,zoom:C.camera.zoom};
 
-  const bullets=[],particles=[],enemies=[],decoys=[],contacts=[],cwisTracers=[],wireContacts=[],ghostContacts=new Map();
+  const bullets=[],particles=[],enemies=[],decoys=[],contacts=[],cwisTracers=[],wireContacts=[],ghostContacts=new Map(),sonarContacts=new Map(),wrecks=[];
+  let _nextTorpId=1;
 
   const player={
     // Position in top-down world (x,y). Depth is a separate scalar.
@@ -34,6 +35,11 @@
     crashDiveT:0, crashDiveCd:0,
     passiveTick:0,
     turnRate:0,
+    towedArray:{
+      state:'stowed',   // 'stowed'|'deploying'|'retracting'|'operational'|'damaged'|'destroyed'
+      progress:0,       // 0-1 during deploy/retract
+      overspeedT:0,     // seconds spent above damage threshold
+    },
 
     // Legacy alias: ai.js and sensors.js read player.y expecting depth position.
     // We override .y via a getter/setter so world-y and depth coexist cleanly.
@@ -47,8 +53,18 @@
   player.wy = player.y;
   player.y  = player.depth;  // sim/ai/sensors read player.y as depth
 
-  const game={score:0,over:false,msg:"",msgT:0,lastT:performance.now()};
+  const game={score:0,over:false,msg:"",msgT:0,lastT:performance.now(),contactsScroll:0,wepsProposal:null,
+    tdc:{target:null, targetId:null, bearing:null, range:null, depth:null, course:null, speed:null, intercept:null},
+    missionT:0,
+    msgLog:[],
+  };
+  function addLog(cat, text){
+    game.msgLog.push({t:game.missionT||0, cat, text});
+    if(game.msgLog.length>60) game.msgLog.shift();
+  }
   const setMsg=(s,t=1.2)=>{game.msg=s;game.msgT=t;};
 
-  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,ghostContacts,player,game,resize,setMsg};
+  function nextTorpId(){ return 'T'+(_nextTorpId++); }
+  function resetTorpIds(){ _nextTorpId=1; }
+  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,ghostContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,wrecks};
 })();

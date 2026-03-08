@@ -17,12 +17,12 @@
       speedMaxKts:20,
       flankKts:28,
       speedIncrementKts:1,
-      speedTau:1.4,
-      turnRateDeg:18,
-      turnRateMinDeg:5,
+      speedTau:10,            // seconds to close speed gap (sluggish acceleration)
+      turnRateDeg:3.5,        // °/s at flank — gives ~2.4nm turning radius at 28kt
+      turnRateMinDeg:0.6,     // °/s at creep
       periscopeDepth:140, crashDiveRateMult:1.6,
       depthStep:60, depthHoldRepeat:0.10,
-      depthTau:1.4, depthRateMax:170,
+      depthTau:8.0, depthRateMax:1.8,   // 1.8 m/s normal depth rate — realistic
       ballast:0.0, ballastRate:0.85, buoyAccel:210, buoyDamp:0.85, vyMax:190,
       flankNoiseBoost:0.42, flankTransient:0.28,
       silentRunning:{speedCap:8, noiseMult:0.55},
@@ -31,29 +31,72 @@
       noiseFloor:0.04, flowNoiseDiv:32, turnNoise:0.07,
       cavitationDepthRef:380, cavitationKtsRef:18, cavitationSlope:0.018, cavitationSpike:0.22,
       torpCd:0.45, cmCd:4.5, pingCd:9.0, pingPulse:1.25,
-      torpArcDeg:55, torpEnableDist:220,
-      torpWireMaxRange:3200,      // world units before wire snaps
-      torpWireBreakTurnDeg:55,    // cumulative turn past this snaps wire
+      torpTubes:4, torpStock:32, torpReloadTime:28, fireDelay:1.8,
+      torpArcDeg:55, torpEnableDist:500,
+      torpWireMaxRange:3000,      // world units ~30km (Spearfish class runout)
+      torpWireBreakTurnDeg:90,    // generous cumulative turn — wire-guided shots need to manoeuvre
       missileCd:1.4, missileRequiresShallow:true,
-      periscope:{cd:10.0, dur:4.5, revealR:3600, detectBoost:1.55, noiseSpike:0.10}
+      periscope:{cd:10.0, dur:4.5, revealR:3600, detectBoost:1.55, noiseSpike:0.10},
+      speedDeafness:{startKts:4, fullDeafKts:10},  // passive sonar degrades with own speed
+      launchTransientRange:2000, launchTransientSus:0.35,  // torpedo launch noise
+      pingDatumRange:5000, pingDatumSus:0.75,     // active ping alerts all enemies
+      hitR:30
     },
     detection:{detectT:7.5, seenT:2.6, proximityR:180, pingDetectR:1800},
-    torpedo:{speed:580, life:7.2, dmg:45, seekRange:760, seekFOV:0.38, turnRate:1.20, reacquireChance:0.022, arming:0.30, searchSnake:0.14},
-    missile:{speed:740, life:4.2, dmg:140, tipDelay:0.35, maxTurn:2.8},
+    tma:{
+      defaultRange:   900,   // wu — how far to project bearing line when no solution
+      minObs:           2,   // observations needed before attempting solver
+      goodObs:          6,   // observations for full quality contribution
+      minBaseline:     80,   // wu — minimum player movement before solver counts it
+      goodBaseline:   500,   // wu — movement for quality=1 baseline contribution
+      maxBearingAge:  600,   // game-seconds — observations older than this are dropped
+      maxBearings:     24,   // max stored per contact
+      qualityThresholdBlob: 0.15,  // quality needed to show position blob
+      qualityThresholdLabel:0.35,  // quality for S# label at blob (not line)
+      qualityThresholdRange:0.20,  // quality to feed range to TDC
+    },
+    torpedo:{speed:28, life:210, dmg:55, seekRange:300, seekFOV:0.85, turnRate:1.55, reacquireChance:0.022, arming:0.30, searchSnake:0.18,
+             seduceFOV:0.80, seduceRange:280, seduceTime:5.0,
+             depthRate:12,          // m/s max depth change rate
+             vertWindow:120,        // m — seeker vertical acquisition window ±
+             vertFuse:60,           // m — detonation vertical tolerance ±
+            },
+    missile:{speed:80, life:20, dmg:140, tipDelay:0.35, maxTurn:2.8},
     decoy:{noisemakerLifeMin:7.0, noisemakerLifeMax:11.0, noisemakerR:22, sigPlayer:1.4, sigEnemy:1.0, flareLifeMin:1.8, flareLifeMax:2.6, flareR:12},
     enemy:{
       boatShare:0.35,
-      hearBoatRange:1800, hearSubRange:1600, hearSignalMin:0.12, hearPBase:0.10, hearPScale:1.1,
-      susInvestigate:0.42, susEngage:0.85,
-      quietNoiseThreshold:0.14, susDecayBase:0.022, susDecayQuietExtra:0.020,
+      hearBoatRange:2800, hearSubRange:3200, hearSignalMin:0.04, hearPBase:0.03, hearPScale:1.8,
+      wolfpackDatumRange:4500,  // enemies share player datum within this radius
+      fireTransientRange:1800, fireTransientSus:0.45,  // launch heard by player
+
+      susInvestigate:0.28, susEngage:0.72,
+      quietNoiseThreshold:0.14, susDecayBase:0.008, susDecayQuietExtra:0.012,
       contactMaxAge:12.0, contactMaxAgeQuiet:6.5,
-      fireMinSus:0.65, fireMaxAge:9.0, fireMinStrength:0.68,
-      boatFireEngage:[1.4,2.2], boatFireOther:[3.5,5.5],
-      subFireEngage:[1.4,2.4], subFireOther:[3.8,6.0],
-      subNavT:[4.0,9.0], subPingCd:[18.0,32.0], subPingRange:2000,
-      subTorpReactR:500, boatTorpReactR:220,
+      fireMinSus:0.55, fireMaxAge:16.0, fireMinStrength:0.40,
+      boatFireEngage:[0.8,1.4], boatFireOther:[2.5,4.0],
+      subFireEngage:[0.8,1.6], subFireOther:[2.5,4.5],
+      subNavT:[120,280], subPingCd:[14.0,26.0], subPingRange:2200,
+      subNoiseMin:0.58, subNoiseMax:0.82,  // enemy subs run louder than player
+      subSprintKtsMin:13, subSprintKtsMax:18,  // faster wolfpack sprints
+
+      subTorpReactR:1200, boatTorpReactR:400,
       subTorpArcDeg:55,
-      spawnMinR:2200, spawnMaxR:4200,
+      subTubes:2, subTorpStock:6, subReloadTime:40,
+      spawnMinR:500, spawnMaxR:1500,
+
+      // Wave system
+      waveSpawnMinR:2500, waveSpawnMaxR:3500,
+      waveFormationSpread:500,   // wu between group members in line-abreast
+      waveDelay:18.0,            // seconds between last kill and next wave spawn
+      // Wave compositions: array of role strings per wave (wave 3+ uses last entry)
+      waveComps:[
+        ['hunter','hunter'],                              // wave 1 — tutorial duel
+        ['pinger','hunter','hunter'],                     // wave 2 — flush + kill
+        ['pinger','hunter','interceptor','interceptor'],  // wave 3+ — full doctrine
+      ],
+      // Interceptor: how far ahead of projected player track to sprint
+      interceptorLeadTime:90,   // seconds of player track to project forward
+      interceptorAmbushSpd:3,   // kt — nearly silent when holding ambush position
     },
     ship:{
       tracerLife:[0.06,0.14], tracerSpread:0.06, tracerBursts:[2,4]

@@ -1,21 +1,31 @@
 (() => {
   'use strict';
   const C=window.CONFIG; const {rand,clamp,lerp,now,angleNorm}=window.M;
-  const {world,cam,canvas,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,player,game,setMsg}=window.G;
-  const I=window.I; const NAV=window.NAV; const SIG=window.SIG; const SENSE=window.SENSE; const W=window.W; const AI=window.AI;
+  const {world,cam,canvas,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,player,game,setMsg,addLog}=window.G;
+  const I=window.I; const NAV=window.NAV; const {ktsToWU}=window.NAV; const SIG=window.SIG; const SENSE=window.SENSE; const W=window.W; const AI=window.AI; const DMG=window.DMG;
 
   function wrapX(x){return (x+world.w)%world.w;}
-  function damagePlayer(amount){
-    if(player.invuln>0) return;
-    player.hp=Math.max(0,player.hp-amount);
-    player.invuln=0.8;
-    W.makeExplosion(player.wx,player.wy,0.8,true);
-    if(player.hp<=0) game.over=true;
+  // Legacy shim — depth charges pass no position so we let DMG pick a random compartment
+  function damagePlayer(amount, hitX, hitY){
+    DMG.hit(amount, hitX??null, hitY??null);
+    W.makeExplosion(player.wx, player.wy, 0.8, true);
   }
   function damageEnemy(e,amount){
     e.hp-=amount;
     W.makeExplosion(e.x,e.y,amount>=90?1.6:1.0,e.type==="boat");
-    if(e.hp<=0){game.score+=(e.type==="boat"?160:190); e.dead=true;}
+    if(e.hp<=0){
+      game.score+=(e.type==="boat"?160:190);
+      e.dead=true;
+      // Permanent wreck marker
+      window.G.wrecks.push({x:e.x, y:e.y, type:e.type, t:game.missionT||0});
+      // Breaking-up noise is unmistakable — always logged regardless of detection state
+      addLog('SONAR',`Breaking-up noises — ${e.type==='boat'?'surface contact':'submerged contact'} destroyed`);
+      setMsg('TARGET DESTROYED',2.5);
+      // Freeze the sonarContact — keeps TDC data but stops updating
+      const sc=window.G.sonarContacts?.get(e);
+      if(sc){ sc.dead=true; sc.activeT=0; }
+      // DO NOT clearContact — let TDC retain last-known firing solution
+    }
   }
 
   function clampConeDual(desiredDx,desiredDy,heading,coneDeg){
@@ -32,8 +42,11 @@
 
   function reset(){
     bullets.length=0;particles.length=0;enemies.length=0;decoys.length=0;contacts.length=0;cwisTracers.length=0;wireContacts.length=0;
+    if(window.G.wrecks) window.G.wrecks.length=0;
+    window.G.resetTorpIds();
     if(window.ROUTE) window.ROUTE.length=0;
-    game.score=0;game.over=false;game.msg="";game.msgT=0;
+    game.score=0;game.over=false;game.msg="";game.msgT=0;game.missionT=0;game.msgLog=[];
+    player.pendingFires=[];
     const spawn=window.MAPS?.getMap()?.playerSpawn||{wx:4000,wy:5000};
     player.wx=spawn.wx; player.wy=spawn.wy; player.x=spawn.wx;
     player.heading=0; player.speed=0; player.speedOrderKts=0;
@@ -41,21 +54,245 @@
     player.vy=0; player.turnRate=0; player.hp=C.player.hpMax; player.invuln=0;
     player.noise=0; player.noiseTransient=0; player.cavitating=false;
     player.torpCd=0; player.missileCd=0; player.pingCd=0; player.cmCd=0; player.sonarPulse=0; player.periscopeCd=0; player.periscopeT=0;
+    // Torpedo tubes: array of per-tube reload countdowns (0 = loaded & ready)
+    const nTubes=C.player.torpTubes||4;
+    player.torpTubes=[];
+    for(let i=0;i<nTubes;i++) player.torpTubes.push(0);
+    player.torpStock=C.player.torpStock||12;
     player.silent=false; player.emergTurnT=0; player.emergTurnCd=0; player.crashDiveT=0; player.crashDiveCd=0; player.passiveTick=0;
-    for(let i=0;i<9;i++) AI.spawnEnemy();
+    // Per-tube wire tracking — null=no wire, or reference to the live torpedo
+    player.tubeWires = new Array(C.player.torpTubes||4).fill(null);
+    game.wirePanel = { selectedTube:0 };
+    DMG.initDamage();
+    // Wave system — initialise
+    game.wave=0;
+    game.waveDelay=0;
+    game.groupState='patrol';      // 'patrol' | 'prosecuting'
+    game.groupStateT=0;            // time since last groupState change
+    game.prosecutingT=0;           // how long in prosecuting — decays back to patrol
+    spawnWave(1);
+  }
+
+  function spawnWave(waveNum){
+    game.wave=waveNum;
+    game.groupState='patrol';
+    game.prosecutingT=0;
+
+    const comps=C.enemy.waveComps;
+    const roles=comps[Math.min(waveNum-1, comps.length-1)];
+    const count=roles.length;
+
+    // Random bearing for the group to arrive from
+    const groupBrg=rand(0, Math.PI*2);
+    const dist=rand(C.enemy.waveSpawnMinR, C.enemy.waveSpawnMaxR);
+    const spread=C.enemy.waveFormationSpread;
+
+    // Spread members in line-abreast perpendicular to approach bearing
+    // Centred so formation is symmetric
+    const offsets=[];
+    for(let i=0;i<count;i++) offsets.push((i-(count-1)/2)*spread);
+
+    for(let i=0;i<count;i++){
+      AI.spawnSub(groupBrg, dist, roles[i], offsets[i]);
+    }
+
+    const waveLabel=waveNum===1?'First contact — patrol group detected'
+      :waveNum===2?'Second wave inbound — prosecution group'
+      :'Wave '+waveNum+' — full wolfpack doctrine';
+    addLog('CONN', waveLabel);
+    addLog('CONN', `${count} contact${count>1?'s':''} — brg ${Math.round(((groupBrg*180/Math.PI)+360)%360).toString().padStart(3,'0')}°`);
   }
   reset();
 
   function update(dt){
     if(I.keys.has("r")) reset();
+    // ` (backtick) — toggle debug true-position overlay
+    if(I.keys.has("`")){ I.keys.delete("`"); game.debugOverlay=!game.debugOverlay; setMsg(game.debugOverlay?"[DEBUG] TRUE POS ON":"[DEBUG] TRUE POS OFF",1.2); }
+    if(I.keys.has("h")){ I.keys.delete("h"); game.showDmgPanel=!game.showDmgPanel; }
 
     player.torpCd=Math.max(0,player.torpCd-dt);
+    // Tick tube reload timers (skip wire-occupied tubes: value -1)
+    for(let i=0;i<(player.torpTubes||[]).length;i++)
+      if(player.torpTubes[i]>0) player.torpTubes[i]=Math.max(0,player.torpTubes[i]-dt);
+
+    // Auto-TDC: send current intercept bearing down each live wire
+    if(player.tubeWires){
+      for(const torp of player.tubeWires){
+        if(!torp?.wire?.live) continue;
+        if(torp.wire.autoTDC && game.tdc?.intercept!=null){
+          torp.wire.cmdBrg = game.tdc.intercept;
+        }
+        // If wire has died since last frame (range/manoeuvre), run onWireCut
+        // (weapons.js calls it directly, but guard here for safety)
+      }
+    }
+
+    // Returns true and consumes one tube+stock if a shot can be fired; false otherwise
+    // Reserve a tube (starts reload for non-wire shots, or marks as wire-occupied).
+    // Returns tube index or -1.
+    function reserveTube(){
+      const tubes=player.torpTubes;
+      const stock=player.torpStock;
+      if(!tubes||tubes.length===0) return -1;
+      if(typeof stock!=='number'||stock<=0) return -1;
+      let ready=-1;
+      for(let i=0;i<tubes.length;i++){ if(tubes[i]===0){ready=i;break;} }
+      if(ready<0) return -1;
+      // Tube stays at -1 (wire-occupied) until wire breaks; non-wire starts reload now
+      tubes[ready]=-1; // will be set to reloadTime or by _onWireCut
+      player.torpStock=stock-1;
+      return ready;
+    }
+    window._reserveTube=reserveTube;
+
+    // Called when a wire breaks (any reason) — start tube reload
+    window.G._onWireCut=(b)=>{
+      const tubeWires=player.tubeWires||[];
+      for(let i=0;i<tubeWires.length;i++){
+        if(tubeWires[i]===b){
+          tubeWires[i]=null;
+          player.torpTubes[i]=Math.round((C.player.torpReloadTime||28)*(DMG.getEffects().reloadMult||1));
+          addLog('WEPS',`Tube ${i+1} — wire gone, reloading`);
+          break;
+        }
+      }
+    };
+
+    // Tick pending fire queue — staged crew launch sequence
+    if(!player.pendingFires) player.pendingFires=[];
+    for(const pf of player.pendingFires){
+      pf.t-=dt;
+      // Mid-point: outer doors open (~0.8s after order)
+      if(!pf.doorsLogged && pf.t < C.player.fireDelay - 0.8){
+        pf.doorsLogged=true;
+        addLog('WEPS',`Tube ${pf.tubeIdx+1} — outer doors open`);
+      }
+      // Launch
+      if(pf.t<=0){
+        pf.done=true;
+        const sx=player.wx+Math.cos(player.heading)*C.player.r*1.35;
+        const sy=player.wy+Math.sin(player.heading)*C.player.r*1.35;
+        player.noiseTransient=Math.min(1,player.noiseTransient+0.18);
+        if(pf.wire){
+          const wireSnapped=W.fireTorpedo(sx,sy,pf.ddx,pf.ddy,true,C.player.torpEnableDist,true,pf.launchOffset,player.depth,pf.fireDepth);
+          // Find the torpedo we just launched (it's the last bullet added)
+          const torp=bullets[bullets.length-1];
+          if(!wireSnapped && torp?.wire?.live){
+            // Track in tube slot — tube stays occupied until wire breaks
+            if(!player.tubeWires) player.tubeWires=new Array(C.player.torpTubes||4).fill(null);
+            player.tubeWires[pf.tubeIdx]=torp;
+            torp.wire.autoTDC=true;  // follow TDC updates by default
+            torp.wire.tubeIdx=pf.tubeIdx;
+          } else {
+            // Wire snapped at launch — start reload now
+            player.torpTubes[pf.tubeIdx]=Math.round((C.player.torpReloadTime||28)*(DMG.getEffects().reloadMult||1));
+          }
+          addLog('WEPS', wireSnapped
+            ? `Tube ${pf.tubeIdx+1} — weapon away, wire parted`
+            : `Tube ${pf.tubeIdx+1} — weapon away, wire live, depth ${Math.round(pf.fireDepth)}m`);
+        } else {
+          W.fireTorpedo(sx,sy,pf.ddx,pf.ddy,true,C.player.torpEnableDist,false,0,player.depth,pf.fireDepth);
+          // Non-wire shot — start reload immediately
+          player.torpTubes[pf.tubeIdx]=Math.round((C.player.torpReloadTime||28)*(DMG.getEffects().reloadMult||1));
+          addLog('WEPS',`Tube ${pf.tubeIdx+1} — weapon away, depth ${Math.round(pf.fireDepth)}m`);
+        }
+        setMsg('TORPEDO AWAY',1.2);
+      }
+    }
+    player.pendingFires=player.pendingFires.filter(pf=>!pf.done);
     player.missileCd=Math.max(0,player.missileCd-dt);
     player.pingCd=Math.max(0,player.pingCd-dt);
     player.cmCd=Math.max(0,player.cmCd-dt);
     player.invuln=Math.max(0,player.invuln-dt);
+    DMG.tick(dt);
+    if(game.hitFlash>0) game.hitFlash=Math.max(0,game.hitFlash-dt*2.5);
     player.sonarPulse=Math.max(0,player.sonarPulse-dt);
+    game.missionT=(game.missionT||0)+dt;
     game.msgT=Math.max(0,game.msgT-dt); if(game.msgT<=0) game.msg="";
+
+    // ── TDC: update solution from designated target ───────────────────────────
+    // Solution quality is continuous — no binary freeze/unfreeze.
+    // Contacts persist; quality drives what data is available.
+    {
+      const tdc=game.tdc;
+      const ref=tdc.target;
+
+      // Validity checks — clear only if target truly gone
+      if(ref){
+        if(ref._isTorp){
+          if(!bullets.includes(ref)||ref.life<=0){ tdc.target=null; tdc.targetId=null; }
+        } else if(!ref.dead && !enemies.includes(ref)){
+          tdc.target=null; tdc.targetId=null;
+        }
+      }
+
+      // Frozen only means confirmed kill — data persists for reference
+      tdc.frozen = (tdc.target?.dead===true);
+
+      if(tdc.target && !tdc.frozen){
+        const ref=tdc.target;
+        const sc=ref._isTorp ? null : window.G.sonarContacts?.get(ref);
+        const tmaQ=sc?.tmaQuality??1.0;
+        const TMA=C.tma;
+
+        // Use TMA position only when genuinely solid geometry — below 0.65 the solver
+        // can converge on a ghost intersection (low bearing spread, parallel motion).
+        // Also verify the TMA position is actually in the same direction as the latest
+        // sonar bearing — if they disagree by more than 45° the position is stale/wrong.
+        let hasTMAPos = !ref._isTorp && sc && sc.tmaX!=null && tmaQ>=0.65;
+        if(hasTMAPos && (sc.latestHullBrg ?? sc.latestBrg) != null){
+          const checkBrg = sc.latestHullBrg ?? sc.latestBrg;
+          const tmaDx=sc.tmaX-player.wx, tmaDy=sc.tmaY-player.wy;
+          const tmaAng=Math.atan2(tmaDy,tmaDx);
+          const angDiff=Math.abs(((tmaAng-checkBrg+3*Math.PI)%(Math.PI*2))-Math.PI);
+          if(angDiff>Math.PI/4) hasTMAPos=false; // >45° discrepancy — stale or wrong
+        }
+        const tx = hasTMAPos ? sc.tmaX : (ref.x??ref.wx);
+        const ty = hasTMAPos ? sc.tmaY : (ref.y??ref.wy);
+
+        const dx=AI.wrapDx(player.wx,tx), dy=ty-player.wy;
+        const range=Math.hypot(dx,dy);
+        const bearingCompass=((Math.atan2(dx,-dy)*180/Math.PI)+360)%360; // proper compass: north=0, CW+
+        tdc.bearing=bearingCompass;
+
+        // Raw bearing: ONLY from actual sonar observations — never fall back to the
+        // TMA-derived bearing, which could be at a ghost position entirely.
+        // Prefer the hull array bearing (latestHullBrg) — it has no port/stbd ambiguity.
+        const bestBrg = sc ? (sc.latestHullBrg ?? sc.latestBrg) : null;
+        if(sc && bestBrg!=null){
+          const rb=bestBrg;
+          tdc.rawBrg = ((Math.atan2(Math.cos(rb), -Math.sin(rb))*180/Math.PI)+360)%360;
+        } else {
+          tdc.rawBrg = null; // no live sonar obs — non-solid shot not available
+        }
+        // Depth: use true depth for torps, best estimate for contacts
+        tdc.depth=ref._isTorp ? (ref.depth??200) : (ref.depth??200);
+        tdc.tmaQuality=tmaQ;
+
+        const hasRange=tmaQ>=TMA.qualityThresholdRange;
+        tdc.range=hasRange ? range : null;
+
+        const tvx=ref.vx??0, tvy=ref.vy??0;
+        const tspd=Math.hypot(tvx,tvy);
+        tdc.course=hasRange&&tspd>0.1 ? ((Math.atan2(tvx,-tvy)*180/Math.PI)+360)%360 : null;
+        tdc.speed=hasRange&&tspd>0.1 ? Math.round(tspd) : null;
+
+        // Intercept bearing — lead-angle when range known, direct bearing otherwise
+        const torpSpd=C.torpedo.speed;
+        let intBearing=Math.atan2(dy,dx);
+        if(hasRange && tspd>0.5){
+          let t=range/torpSpd;
+          for(let i=0;i<6;i++){
+            const ex=tx+tvx*t, ey=ty+tvy*t;
+            const edx=AI.wrapDx(player.wx,ex), edy=ey-player.wy;
+            t=Math.hypot(edx,edy)/torpSpd;
+          }
+          const ex=tx+tvx*t, ey=ty+tvy*t;
+          intBearing=Math.atan2(ey-player.wy,AI.wrapDx(player.wx,ex));
+        }
+        tdc.intercept=intBearing;
+      }
+    }
 
     for(const e of enemies){
       if(e.seen>0) e.seen=Math.max(0,e.seen-dt);
@@ -67,13 +304,58 @@
     if(!game.over){
       NAV.updateOrders(dt);
       NAV.stepDynamics(dt);  // handles all movement including player.wx/wy/depth/y
-
       SIG.updateNoise(dt);
 
-      // Aim world coords: unproject mouse through camera
+      // Cavitation onset/clearance log
+      if(player.cavitating && !player._wasCav){
+        addLog('ENG','Cavitating — noise signature elevated');
+      } else if(!player.cavitating && player._wasCav){
+        addLog('ENG','Cavitation clear');
+      }
+      player._wasCav=player.cavitating;
+
+      // Tube reload-complete log (skip wire-occupied tubes: value -1)
+      for(let i=0;i<(player.torpTubes||[]).length;i++){
+        const prev=player._prevTubes?.[i]??0;
+        const cur=player.torpTubes[i];
+        if(prev>0 && cur===0 && player.torpStock>=0){
+          addLog('WEPS',`Tube ${i+1} reloaded — ready`);
+        }
+      }
+      player._prevTubes=(player.torpTubes||[]).slice();
+
+      // ── WEPS solution — proposed firing bearing from TDC data ───────────────
+      {
+        const tdc=game.tdc;
+        if(tdc.target && !tdc.target.dead){
+          const q=tdc.tmaQuality??0;
+          let bearing, confidence, depth;
+          if(q>=0.60 && tdc.intercept!=null){
+            // Solid: TMA position is reliable, use full lead-angle intercept
+            bearing=tdc.intercept; confidence='solid'; depth=tdc.depth??player.depth;
+          } else if(q>=0.30 && tdc.rawBrg!=null){
+            // Degraded: TMA position not trusted — fire directly on raw observed bearing.
+            // No lead angle, but at least it points at the actual contact.
+            const brgMath=(tdc.rawBrg-90)*Math.PI/180;
+            bearing=brgMath; confidence='degraded'; depth=tdc.depth??player.depth;
+          } else if(tdc.rawBrg!=null){
+            // Bearing only — too early to fire but show direction
+            const brgMath=(tdc.rawBrg-90)*Math.PI/180;
+            bearing=brgMath; confidence='bearingonly'; depth=player.depth;
+          } else {
+            bearing=null;
+          }
+          game.wepsProposal=bearing!=null?{bearing,confidence,depth}:null;
+        } else {
+          game.wepsProposal=null;
+        }
+      }
+
+      // Aim world coords: unproject mouse through camera (centred on plot area)
       const Z=cam.zoom;
-      I.aimWorldX=cam.x+(I.mouseX-canvas.width/2)/Z;
-      I.aimWorldY=cam.y+(I.mouseY-canvas.height/2)/Z;
+      const DPR=canvas.DPR||window.G.DPR||1;
+      I.aimWorldX=cam.x+(I.mouseX-(canvas.width-88*DPR)/2)/(Z*DPR);
+      I.aimWorldY=cam.y+(I.mouseY-(canvas.height-190*DPR)/2)/(Z*DPR);
       // Periscope (O) — shallow only
       if(I.keys.has("o") && player.periscopeCd<=0){
         I.keys.delete("o");
@@ -99,48 +381,130 @@
       }
 
       SENSE.proximityDetect();
+      // Inbound torpedo detection — probabilistic, masked by own noise
+      // Torpedoes are loud (cavitating props) but own flow noise can mask them
+      for(const b of bullets){
+        if(b.kind!=='torpedo'||b.friendly||b.life<=0) continue;
+        if(b._alertedPlayer) continue;
+        const dx=AI.wrapDx(b.x,player.wx), dy=b.y-player.wy;
+        const dist=Math.hypot(dx,dy);
+        if(dist>1200) continue;
+        // Signal: torpedo noise falls off with range; own noise masks it
+        const torpNoise=0.85; // torpedoes are very loud
+        const layer=AI.layerPenalty(player.depth, b.depth??200);
+        const signal=torpNoise*layer*(1-dist/1200);
+        const detect=signal-player.noise*0.80;
+        if(detect<=0) continue;
+        // Probability per tick — rises sharply as it gets close
+        const pDetect=clamp(0.08+detect*0.60, 0, 0.85)*dt;
+        if(Math.random()<pDetect){
+          const brg=((Math.atan2(AI.wrapDx(player.wx,b.x), b.y-player.wy)*180/Math.PI)+360)%360;
+          setMsg('TORPEDO IN THE WATER!', 2.5);
+          addLog('SONAR', `Torpedo brg ${Math.round(brg).toString().padStart(3,'0')}° — high-speed contact`);
+          b._alertedPlayer=true;
+        }
+      }
       if(I.keys.has(" ")&&player.pingCd<=0){I.keys.delete(" "); SENSE.activePing(); setMsg("PING!",0.8);}
       SENSE.passiveUpdate(dt);
+      SENSE.towedArrayUpdate(dt);
 
-      // Shift+LMB = fire wire-guided torpedo on aimed bearing
-      // While shift is held, an aim cone is drawn (render.js reads I.shiftHeld + I.aimWorldX/Y)
-      if(I.torpAimClick && player.torpCd<=0){
-        I.torpAimClick=false;
-        player.torpCd=C.player.torpCd;
-        const aimDx=I.aimWorldX-player.wx;
-        const aimDy=I.aimWorldY-player.wy;
-        const d=Math.max(1e-6,Math.hypot(aimDx,aimDy));
-        const ddx=aimDx/d, ddy=aimDy/d;
-        const shot=clampConeDual(ddx,ddy,player.heading,C.player.torpArcDeg);
-        if(shot.out) setMsg("TUBE ARC LIMIT",0.6);
-        const off=C.player.r*1.35;
-        const sx=player.wx+Math.cos(player.heading)*off;
-        const sy=player.wy+Math.sin(player.heading)*off;
-        player.noiseTransient=Math.min(1,player.noiseTransient+0.18);
-        W.fireTorpedo(sx,sy,shot.dx,shot.dy,true,C.player.torpEnableDist,true); // wire=true
-        setMsg("TORPEDO — WIRE LIVE",0.9);
+      // ── Towed array position trail ────────────────────────────────────────────
+      // Store player positions so the cable can follow the actual path taken.
+      // Each entry: {wx, wy} sampled every ~0.12s. We keep enough history to cover
+      // the full deployed cable length at any speed.
+      {
+        const ta = player.towedArray;
+        if(!player._cableTrail) player._cableTrail = [];
+        const trail = player._cableTrail;
+
+        // Sample interval — finer = smoother curve, 0.10s is plenty
+        player._cableTrailT = (player._cableTrailT||0) - dt;
+        if(player._cableTrailT <= 0){
+          player._cableTrailT = 0.10;
+          trail.unshift({wx: player.wx, wy: player.wy});
+          // Max entries: cable deploys at ~13wu/s max speed over 400wu = ~30s of trail
+          // At 0.10s intervals that's 300 entries — keep 400 for margin
+          if(trail.length > 800) trail.length = 800;
+        }
+
+        // When retracting, shrink the effective length so cable visually reels in
+        // When stowed/destroyed, clear the trail
+        if(!ta || ta.state === 'stowed' || ta.state === 'destroyed'){
+          player._cableTrail = [];
+        }
       }
 
-      // F = quick fire (no wire, forward bearing)
-      if(I.keys.has("f")&&player.torpCd<=0){
+      // Towed array speed warning — alert before damage threshold
+      {
+        const ta = player.towedArray;
+        if((ta.state==='operational'||ta.state==='damaged') && player.speed >= 16 && player.speed < 18){
+          if(!ta._warnedSpeed){
+            ta._warnedSpeed = true;
+            addLog('ENG', `Speed caution — array rated to 18kt (currently ${Math.round(player.speed)}kt)`);
+          }
+        } else {
+          ta._warnedSpeed = false;
+        }
+      }
+
+      // Shift+LMB = MANUAL OVERRIDE — fire on aimed bearing regardless of WEPS solution
+      if(I.torpAimClick){
+        I.torpAimClick=false;
+        const tubeIdx=reserveTube();
+        if(tubeIdx>=0){
+          const tdc=game.tdc;
+          const aimDx=I.aimWorldX-player.wx, aimDy=I.aimWorldY-player.wy;
+          const d=Math.max(1e-6,Math.hypot(aimDx,aimDy));
+          const ddx=aimDx/d, ddy=aimDy/d;
+          const launchOffset=Math.abs(angleNorm(Math.atan2(ddy,ddx)-player.heading));
+          const fireDepth=tdc.target ? (tdc.depth!=null?tdc.depth:player.depth) : player.depth;
+          addLog('CONN','Shoot — MANUAL BEARING');
+          addLog('WEPS',`Tube ${tubeIdx+1} — flooding down`);
+          setMsg('FIRING…',0.6);
+          player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth, wire:true});
+        } else {
+          const why=player.torpStock<=0?'No weapons remaining':'All tubes reloading';
+          setMsg(why.toUpperCase(),0.8); addLog('WEPS',why);
+        }
+      }
+
+      // F = quick fire straight ahead, no wire
+      if(I.keys.has("f")){
         I.keys.delete("f");
-        player.torpCd=C.player.torpCd;
-        const off=C.player.r*1.35;
-        const sx=player.wx+Math.cos(player.heading)*off;
-        const sy=player.wy+Math.sin(player.heading)*off;
-        player.noiseTransient=Math.min(1,player.noiseTransient+0.18);
-        W.fireTorpedo(sx,sy,Math.cos(player.heading),Math.sin(player.heading),true,C.player.torpEnableDist,false);
-        setMsg("TORPEDO AWAY",0.9);
+        const tubeIdx=reserveTube();
+        if(tubeIdx>=0){
+          const tdc=game.tdc;
+          let ddx,ddy,fireDepth;
+          if(tdc.target && tdc.intercept!=null){
+            ddx=Math.cos(tdc.intercept); ddy=Math.sin(tdc.intercept);
+            fireDepth=tdc.depth??player.depth;
+          } else {
+            ddx=Math.cos(player.heading); ddy=Math.sin(player.heading);
+            fireDepth=player.depth;
+          }
+          const tdcStr=game.tdc.targetId?` on ${game.tdc.targetId}`:'';
+          addLog('CONN',`Shoot${tdcStr}`);
+          addLog('WEPS',`Tube ${tubeIdx+1} — flooding down`);
+          setMsg('FIRING…',0.6);
+          player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset:0, fireDepth, wire:false});
+        } else {
+          const why=player.torpStock<=0?'No weapons remaining':'All tubes reloading';
+          setMsg(why.toUpperCase(),0.8); addLog('WEPS',why);
+        }
       }
 
       // G = VLS missile (shallow only)
       if(I.keys.has("g")&&player.missileCd<=0){
         I.keys.delete("g");
-        if(player.depth>C.player.periscopeDepth){setMsg("MISSILE: TOO DEEP",0.8);}
-        else{
+        if(player.depth>C.player.periscopeDepth){
+          setMsg("MISSILE: TOO DEEP",0.8);
+          addLog('CONN','Missile aborted — too deep');
+        } else {
           player.missileCd=C.player.missileCd;
           player.noiseTransient=Math.min(1,player.noiseTransient+0.35);
           setMsg("VLS LAUNCH!",1.0);
+          addLog('CONN','VLS — launch!');
+          addLog('WEPS','Missile away');
           W.fireMissileVLS(player.wx,player.wy,true);
         }
       }
@@ -152,6 +516,8 @@
         W.deployDecoy(player.wx,player.wy,true,"noisemaker");
         player.noiseTransient=Math.min(1,player.noiseTransient+0.10);
         setMsg("NOISEMAKER OUT",0.9);
+        addLog('CONN','Deploy countermeasures');
+        addLog('WEPS','Noisemaker away');
       }
     }
 
@@ -198,79 +564,230 @@
         // mirroring what enemy subs do. flareCd is reused as the noisemaker cd.
         e.flareCd = Math.max(0, (e.flareCd||0) - dt);
         for(const b of bullets){
-          if(b.kind!=="torpedo" || !b.friendly || b.life<=0) continue;
+          if(b.kind!=="torpedo" || !b.friendly || b.life<=0 || b._alertedEnemy===e) continue;
           const dx=AI.wrapDx(e.x,b.x);
           const dy=b.y-e.hitY;
           const dd=Math.hypot(dx,dy);
-          if(dd<C.enemy.boatTorpReactR){
-            e.suspicion=Math.min(1,e.suspicion+0.15);
-            if(e.flareCd<=0){
-              e.flareCd=rand(3.5,6.0);
-              // Deploy a noisemaker off the stern into the water
-              W.deployDecoy(
-                wrapX(e.x+rand(-30,30)),
-                e.hitY+rand(10,30),
-                false, "noisemaker",
-                {vx:rand(-20,20), vy:rand(20,50)}
-              );
-              setMsg("SHIP: COUNTERMEASURES!",0.8);
-            }
+          if(dd>C.enemy.boatTorpReactR) continue;
+          // Surface ships hear torpedoes well — low own-noise, no layer issue
+          // but signal still falls off with range
+          const signal=0.90*(1-dd/C.enemy.boatTorpReactR);
+          const pDetect=clamp(0.12+signal*0.65, 0, 0.90)*dt;
+          if(Math.random()>pDetect) continue;
+          b._alertedEnemy=e;
+          e.suspicion=Math.min(1,e.suspicion+0.15);
+          if(e.flareCd<=0){
+            e.flareCd=rand(3.5,6.0);
+            W.deployDecoy(
+              wrapX(e.x+rand(-30,30)),
+              e.hitY+rand(10,30),
+              false, "noisemaker",
+              {vx:rand(-2,2), vy:rand(2,5)}
+            );
+            setMsg("SHIP: COUNTERMEASURES!",0.8);
           }
         }
       } else {
-        // sub nav — top-down, e.x/e.y = world position, e.depth = depth
+        // ── Enemy submarine movement ─────────────────────────────────────────
         e.x=(e.x+e.vx*dt+world.w)%world.w;
         e.y=(e.y+e.vy*dt+world.h)%world.h;
-        e.navT -= dt;
-        if(e.navT<=0){
-          e.navT=rand(C.enemy.subNavT[0],C.enemy.subNavT[1]);
-          e.navX=(e.x+rand(-1200,1200)+world.w)%world.w;
-          e.navY=(e.y+rand(-1200,1200)+world.h)%world.h;
-        }
-        if(e.evadeT<=0){
-          const ndx=AI.wrapDx(e.x,e.navX);
-          const ndy=AI.wrapDx(e.y,e.navY); // wrap in Y too
-          const nd=Math.max(1,Math.hypot(ndx,ndy));
-          const nx=ndx/nd, ny=ndy/nd;
-          const thrust=(state==="engage")?38:(state==="investigate"?28:20);
-          e.vx += nx*thrust*dt;
-          e.vy += ny*thrust*dt;
-        } else {
-          let tx=null,ty=null,best=1e9;
-          for(const b of bullets){
-            if(b.kind!=="torpedo"||!b.friendly||b.life<=0) continue;
-            const dx=AI.wrapDx(e.x,b.x);
-            const dy=b.y-e.y;
-            const dd=Math.hypot(dx,dy);
-            if(dd<best){best=dd;tx=b.x;ty=b.y;}
-          }
-          if(tx===null && e.evadeFrom){tx=e.evadeFrom.x;ty=e.evadeFrom.y;}
-          if(tx!==null){
-            const ax=AI.wrapDx(tx,e.x);
-            const ay=e.y-ty;
-            const dd=Math.max(1,Math.hypot(ax,ay));
-            e.vx += (ax/dd)*200*dt;
-            e.vy += (ay/dd)*200*dt;
-          }
-          if(e.evadeDecoy){
-            const bx=AI.wrapDx(e.evadeDecoy.x,e.x);
-            const by=e.y-e.evadeDecoy.y;
-            const dd=Math.max(1,Math.hypot(bx,by));
-            e.vx += (bx/dd)*140*dt;
-            e.vy += (by/dd)*140*dt;
-          }
-        }
-        e.vx *= Math.pow(0.94,dt*60);
-        e.vy *= Math.pow(0.94,dt*60);
-        const sv=Math.hypot(e.vx,e.vy);
-        if(sv>10) e.heading=Math.atan2(e.vy,e.vx);
 
-        // sub ping — enemy subs ping infrequently; each ping is an event
-        // that degrades through the layer. A single ping raises suspicion
-        // to investigate range but not to engage.
-        e.pingCd -= dt;
-        if(e.pingCd<=0 && !game.over){
-          e.pingCd=rand(C.enemy.subPingCd[0],C.enemy.subPingCd[1]);
+        // ── Desired heading — TMA-aware state machine ─────────────────────────
+        // States: patrol → investigate (hearing something) → tma-build (deliberate
+        // cross-track sprint to build baseline) → engage (sprint+fire on solution)
+        let desiredHeading=e.heading||0;
+        e.navT=(e.navT||0)-dt;
+
+        const tmaQ=e.tmaQuality||0;
+        const hasFix=tmaQ>=0.35;     // good enough to close
+        const hasShot=tmaQ>=0.45;    // good enough to fire
+
+        if(e.evadeT>0 && e.evadeFrom){
+          // EVADE: turn perpendicular to incoming threat, deep dive
+          const ax=AI.wrapDx(e.evadeFrom.x,e.x);
+          const ay=e.y-e.evadeFrom.y;
+          const threatAng=Math.atan2(-ay,-ax);
+          const perpA=threatAng+Math.PI/2, perpB=threatAng-Math.PI/2;
+          const curH=e.heading||0;
+          desiredHeading=Math.abs(angleNorm(perpA-curH))<Math.abs(angleNorm(perpB-curH))?perpA:perpB;
+          e.navT=1;
+
+        } else if(state==='engage' && e.contact){
+          // ENGAGE + TMA BUILD: alternate sprint-cross-track to accumulate baseline
+          // Phase: 'drift' = slow cross-track bearing observation
+          //        'sprint' = fast run perpendicular to bearing to build baseline
+          //        'close'  = sprint toward contact when solution is good
+          if(!e.tmaPhase) e.tmaPhase='drift';
+
+          const dx=AI.wrapDx(e.x,e.contact.x), dy=e.contact.y-e.y;
+          const contactBrg=Math.atan2(dy,dx);
+          const dist=Math.hypot(dx,dy);
+
+          if(e.tmaPhase==='close' || (hasFix && dist<800)){
+            // Close for the kill
+            desiredHeading=contactBrg;
+            e.tmaPhase='close';
+            if(e.navT<=0) e.navT=5;
+          } else if(e.tmaPhase==='sprint'){
+            // Cross-track sprint — run perpendicular to bearing for 25-40s
+            const perpA=contactBrg+Math.PI/2, perpB=contactBrg-Math.PI/2;
+            const curH=e.heading||0;
+            const sprintDir=e.tmaManeuverDir||1;
+            desiredHeading=sprintDir>0?perpA:perpB;
+            if(e.navT<=0){
+              // Switch to drift phase — slow down and listen
+              e.tmaPhase='drift';
+              e.navT=rand(20,35);
+            }
+          } else {
+            // Drift — slow and listen, build bearing observations
+            desiredHeading=contactBrg; // creep toward contact
+            if(e.navT<=0){
+              // Switch to cross-track sprint
+              e.tmaPhase='sprint';
+              e.tmaManeuverDir=(Math.random()<0.5)?1:-1;
+              e.navT=rand(25,40);
+            }
+          }
+
+        } else if(state==='investigate' && e.contact){
+          // INVESTIGATE: slow approach on bearing, start accumulating observations
+          if(!e.tmaPhase) e.tmaPhase='drift';
+          const dx=AI.wrapDx(e.x,e.contact.x), dy=e.contact.y-e.y;
+          const contactBrg=Math.atan2(dy,dx);
+
+          if(e.tmaPhase==='sprint'){
+            const perpA=contactBrg+Math.PI/2, perpB=contactBrg-Math.PI/2;
+            const sprintDir=e.tmaManeuverDir||1;
+            desiredHeading=sprintDir>0?perpA:perpB;
+            if(e.navT<=0){ e.tmaPhase='drift'; e.navT=rand(15,25); }
+          } else {
+            desiredHeading=contactBrg;
+            if(e.navT<=0){
+              // After first observation, start cross-track runs
+              if((e.playerBearings||[]).length>=2){
+                e.tmaPhase='sprint';
+                e.tmaManeuverDir=(Math.random()<0.5)?1:-1;
+                e.navT=rand(20,35);
+              } else {
+                e.navT=rand(10,18);
+              }
+            }
+          }
+
+        } else {
+          // PATROL: long quiet legs
+          e.tmaPhase='drift';
+          if(e.navT<=0){
+            e.navT=rand(C.enemy.subNavT[0], C.enemy.subNavT[1]);
+            const maxPatrolTurn=Math.PI*0.33;
+            e.patrolHeading=angleNorm((e.patrolHeading??e.heading??0)+rand(-maxPatrolTurn,maxPatrolTurn));
+          }
+          desiredHeading=e.patrolHeading??e.heading??0;
+        }
+
+        // ── Interceptor role — sprint ahead of projected player track then ambush ──
+        if(e.role==='interceptor' && !e.evadeT){
+          const prosecuting=game.groupState==='prosecuting';
+          if(prosecuting){
+            // Calculate or refresh intercept point
+            const needsTarget=!e.interceptTargetX ||
+              (e.interceptState==='sprinting' && e.interceptArrived);
+            if(needsTarget && e.contact){
+              // Project player position forward by leadTime seconds
+              const leadT=C.enemy.interceptorLeadTime||90;
+              const pVx=Math.cos(player.heading)*ktsToWU(player.speed);
+              const pVy=Math.sin(player.heading)*ktsToWU(player.speed);
+              const projX=(player.wx+pVx*leadT+world.w)%world.w;
+              const projY=player.wy+pVy*leadT;
+              // Offset perpendicular — sit off their projected track slightly
+              const perpOff=(Math.random()<0.5?1:-1)*rand(300,600);
+              const perpAng=player.heading+Math.PI/2;
+              e.interceptTargetX=(projX+Math.cos(perpAng)*perpOff+world.w)%world.w;
+              e.interceptTargetY=projY+Math.sin(perpAng)*perpOff;
+              e.interceptState='sprinting';
+              e.interceptArrived=false;
+            }
+
+            if(e.interceptState==='sprinting' && e.interceptTargetX!=null){
+              const idx=AI.wrapDx(e.x,e.interceptTargetX);
+              const idy=e.interceptTargetY-e.y;
+              const idist=Math.hypot(idx,idy);
+              if(idist<200){
+                // Arrived — go quiet and wait
+                e.interceptState='ambush';
+                e.interceptArrived=true;
+                addLog('SONAR',''); // silent — no log, enemy is quiet
+              } else {
+                desiredHeading=Math.atan2(idy,idx);
+              }
+            }
+            // In ambush: override state machine speed below — near silent
+          } else {
+            // Group reverted to patrol — reset intercept
+            e.interceptState='waiting';
+            e.interceptTargetX=null; e.interceptTargetY=null;
+          }
+        }
+
+        // ── Apply turn
+        const maxTurnRate=0.45*dt;
+        const headingErr=angleNorm(desiredHeading-(e.heading||0));
+        e.heading=(e.heading||0)+clamp(headingErr,-maxTurnRate,maxTurnRate);
+
+        // ── Speed — sprint-and-drift: fast in sprint phase, slow in drift
+        const sprintPhase=(e.tmaPhase==='sprint');
+        const isAmbushing=e.role==='interceptor'&&e.interceptState==='ambush';
+        const targetSpd=e.evadeT>0?18
+          :isAmbushing?C.enemy.interceptorAmbushSpd||3   // ambush — near silent
+          :e.role==='interceptor'&&e.interceptState==='sprinting'?rand(14,17) // sprint to position
+          :state==='engage'&&sprintPhase?14
+          :state==='engage'&&e.tmaPhase==='close'?12
+          :state==='engage'?5          // drift: slow and quiet to listen
+          :state==='investigate'&&sprintPhase?10
+          :state==='investigate'?5
+          :7;
+        const curSpd=Math.hypot(e.vx,e.vy);
+        const accel=curSpd<targetSpd?1.0:0.6;
+        const newSpd=Math.abs(curSpd-targetSpd)<accel*dt
+          ?targetSpd
+          :curSpd+Math.sign(targetSpd-curSpd)*accel*dt;
+        e.vx=Math.cos(e.heading)*newSpd;
+        e.vy=Math.sin(e.heading)*newSpd;
+
+        // ── Depth management
+        if(!e.depthOrder) e.depthOrder=e.depth||300;
+        if(!e.depthChangeT||e.depthChangeT<=0){
+          if(e.evadeT>0){
+            // Immediate deep dive on torpedo alarm — break out of seeker window
+            e.depthChangeT=10;
+            e.depthOrder=e.depth<400?rand(500,900):rand(50,180);
+          } else if(state==='engage'){
+            e.depthChangeT=rand(120,240);
+            e.depthOrder=rand(100,500);
+          } else {
+            e.depthChangeT=rand(300,720);
+            e.depthOrder=rand(150,600);
+          }
+        }
+        e.depthChangeT-=dt;
+        {
+          const maxRate=(e.evadeT>0)?3.5:1.2;
+          const depthErr=e.depthOrder-e.depth;
+          const rate=Math.min(maxRate,Math.abs(depthErr)*0.06+0.1);
+          e.depth=clamp(e.depth+Math.sign(depthErr)*rate*dt, 30, world.ground-80);
+        }
+
+        // ── Ping — only pingers ping; hunters are passive ────────────────────────
+        e.pingCd-=dt;
+        const isPinger=e.role==='pinger';
+        const isHunter=e.role==='hunter'||e.role==='interceptor'||!e.role;
+        // Hunters never ping — passive only. Pingers ping aggressively.
+        const pingInterval=isPinger
+          ?(state==='engage'?[5,9]:state==='investigate'?[8,14]:[12,20])
+          :[9999,9999]; // hunters never ping
+        if(e.pingCd<=0 && !game.over && isPinger){
+          e.pingCd=rand(pingInterval[0],pingInterval[1]);
           const dxp=AI.wrapDx(player.wx,e.x);
           const dyp=player.wy-e.y;
           const dp=Math.hypot(dxp,dyp);
@@ -279,62 +796,144 @@
             e.detectedT=Math.max(e.detectedT||0,C.detection.detectT);
             e.seen=Math.max(e.seen||0,C.detection.seenT*0.4);
             e.lastX=e.x; e.lastY=e.y; e.lastT=now();
-            const layer=AI.layerPenalty(player.depth,e.depth||400);
-            const u=(220+dp*0.13)*(layer<1?1.60:1.0);
-            e.contact={
-              x:(player.wx+rand(-u,u)+world.w)%world.w,
-              y:(player.wy+rand(-u,u)+world.h)%world.h,
-              u,t:now(),
-              strength:clamp(0.55+(1-dp/2000)*0.30,0.28,0.82)*(layer<1?0.70:1.0)
-            };
-            e.suspicion=Math.min(1,e.suspicion+0.18);
+            AI.enemyUpdateContactFromPing(e,player.wx,player.wy,dp);
+            // Share datum immediately with the group — pinger's whole purpose
+            if(AI.wolfpackShareDatum) AI.wolfpackShareDatum(e,player.wx,player.wy,0.45);
           }
         }
 
-        // sub fire
-        e.fireCd -= dt;
-        if(e.fireCd<=0 && !game.over){
-          const t=(state==="engage")?C.enemy.subFireEngage:C.enemy.subFireOther;
+        // ── Fire — only when TMA solution is solid enough ─────────────────────
+        if(!e.torpTubes) e.torpTubes=Array(C.enemy.subTubes).fill(0);
+        e.torpTubes=e.torpTubes.map(t=>Math.max(0,t-dt));
+        e.fireCd-=dt;
+        if(e.fireCd<=0 && !game.over && (e.torpStock??1)>0){
+          const t=(state==='engage')?C.enemy.subFireEngage:C.enemy.subFireOther;
           e.fireCd=rand(t[0],t[1]);
-          if(AI.enemyHasFireSolution(e)){
+          const tubeIdx=e.torpTubes.findIndex(t=>t<=0);
+          // Role-based fire quality — hunters are aggressive, pingers are more careful
+          const roleFireQ = e.role==='hunter'?0.35
+            : e.role==='interceptor'?0.30
+            : e.role==='pinger'?0.50   // pingers fire only with a decent solution
+            : 0.30;
+          const hasRoleSolution = (e.tmaQuality||0) >= roleFireQ;
+          if(tubeIdx>=0 && AI.enemyHasFireSolution(e) && hasRoleSolution){
             const tx=e.contact.x, ty=e.contact.y;
             const dx=AI.wrapDx(e.x,tx);
             const dy=ty-e.y;
             const d=Math.hypot(dx,dy);
             const layer=AI.layerPenalty(player.y,e.y);
-            const maxD=(layer<1)?1150:1450;
-            if(d<maxD && e.contact.u<1100){
-              const shot=clampConeDual(dx,dy,e.heading||Math.atan2(e.vy,e.vx),C.enemy.subTorpArcDeg);
+            const maxD=(layer<1)?2200:2800;
+            if(d<maxD){
+              // Intercept bearing using TMA-estimated player velocity
+              // Use true player pos blurred by TMA quality — not perfect aim
+              const blur=clamp((1-tmaQ)*400, 0, 350);
+              const ftx=player.wx+rand(-blur,blur);
+              const fty=player.wy+rand(-blur,blur);
+              const ftvx=Math.cos(player.heading)*ktsToWU(player.speed);
+              const ftvy=Math.sin(player.heading)*ktsToWU(player.speed);
+              const ftDepth=player.depth??200;
+              const torpSpd=C.torpedo.speed;
+              let intBearing=Math.atan2(dy,dx);
+              const ftDist=Math.hypot(AI.wrapDx(e.x,ftx),fty-e.y);
+              let tof=ftDist/torpSpd;
+              for(let i=0;i<6;i++){
+                const ex2=ftx+ftvx*tof, ey2=fty+ftvy*tof;
+                tof=Math.hypot(AI.wrapDx(e.x,ex2),ey2-e.y)/torpSpd;
+              }
+              const predX=ftx+ftvx*tof, predY=fty+ftvy*tof;
+              intBearing=Math.atan2(predY-e.y,AI.wrapDx(e.x,predX));
+              const shot=clampConeDual(Math.cos(intBearing),Math.sin(intBearing),
+                e.heading||Math.atan2(e.vy,e.vx),C.enemy.subTorpArcDeg);
               const off=e.r*1.25;
-              const sx=e.x + (shot.isRear?-Math.cos(e.heading):Math.cos(e.heading))*off;
-              const sy=e.y + (shot.isRear?-Math.sin(e.heading):Math.sin(e.heading))*off;
-              W.fireTorpedo(sx,sy,shot.dx,shot.dy,false,260);
+              const sx=e.x+(shot.isRear?-Math.cos(e.heading):Math.cos(e.heading))*off;
+              const sy=e.y+(shot.isRear?-Math.sin(e.heading):Math.sin(e.heading))*off;
+              W.fireTorpedo(sx,sy,shot.dx,shot.dy,false,260,false,0,e.depth||300,ftDepth);
+              e.torpTubes[tubeIdx]=C.enemy.subReloadTime;
+              if(e.torpStock!=null) e.torpStock--;
+              // Launch transient — player may hear it if close enough
+              if(typeof window._playerHearTransient==='function') window._playerHearTransient(e,e.x,e.y);
+              // Wolfpack — share datum with nearby allies
+              if(e.tmaX!=null && AI.wolfpackShareDatum) AI.wolfpackShareDatum(e,e.tmaX,e.tmaY,e.tmaQuality||0.5);
+              const brgToEnemy=((Math.atan2(AI.wrapDx(player.wx,e.x),e.y-player.wy)*180/Math.PI)+360)%360;
+              addLog('SONAR',`Torpedo in the water — brg ${Math.round(brgToEnemy).toString().padStart(3,'0')}°`);
             }
           }
         }
 
-        // incoming torp reaction
+        // Incoming torpedo reaction — probabilistic, masked by own noise and layer
         for(const b of bullets){
-          if(b.kind!=="torpedo"||!b.friendly||b.life<=0) continue;
+          if(b.kind!=="torpedo"||!b.friendly||b.life<=0||b._alertedEnemy===e) continue;
           const dx=AI.wrapDx(e.x,b.x);
           const dy=b.y-e.y;
           const dd=Math.hypot(dx,dy);
-          if(dd<C.enemy.subTorpReactR){
-            e.suspicion=Math.min(1,e.suspicion+0.22);
-            e.evadeT=Math.max(e.evadeT||0,rand(1.4,2.4));
-            e.evadeFrom={x:b.x,y:b.y};
-            if(e.cmCd<=0){
-              e.cmCd=rand(3.0,6.0);
-              const dec=W.deployDecoy(wrapX(e.x+rand(-20,20)),clamp(e.y+rand(-20,20),world.seaLevel+80,world.ground-60),false,"noisemaker");
-              e.evadeDecoy={x:dec.x,y:dec.y};
-            }
+          if(dd>C.enemy.subTorpReactR) continue;
+          const layer=AI.layerPenalty(e.depth||200, b.depth??200);
+          const signal=0.85*layer*(1-dd/C.enemy.subTorpReactR);
+          const ownNoise=e.noise||0.15;
+          const detect=signal-ownNoise*0.80;
+          if(detect<=0) continue;
+          const pDetect=clamp(0.08+detect*0.60, 0, 0.85)*dt;
+          if(Math.random()>pDetect) continue;
+          b._alertedEnemy=e;
+          e.suspicion=Math.min(1,e.suspicion+0.22);
+          e.evadeT=Math.max(e.evadeT||0,rand(10,18));
+          e.evadeFrom={x:b.x,y:b.y};
+          if(e.cmCd<=0){
+            e.cmCd=rand(4.0,7.0);
+            const backX=wrapX(e.x-Math.cos(e.heading)*40+rand(-15,15));
+            const backY=clamp(e.y-Math.sin(e.heading)*40+rand(-15,15),world.seaLevel+80,world.ground-60);
+            const dec=W.deployDecoy(backX,backY,false,"noisemaker");
+            if(dec) e.evadeDecoy={x:dec.x,y:dec.y};
+            setMsg("CONN: TORPEDO INBOUND — COUNTERMEASURES",1.4);
           }
         }
         e.cmCd=Math.max(0,e.cmCd-dt);
       }
     }
 
-    for(let i=enemies.length-1;i>=0;i--) if(enemies[i].dead){enemies.splice(i,1); AI.spawnEnemy();}
+    for(let i=enemies.length-1;i>=0;i--) if(enemies[i].dead) enemies.splice(i,1);
+
+    // ── Wave management ───────────────────────────────────────────────────────
+    if(!game.over){
+      // Group state: any enemy crossing susEngage flips to prosecuting
+      const wasPatrol = game.groupState==='patrol';
+      let anyEngaged = false;
+      for(const e of enemies){
+        if(!e.dead && e.suspicion >= C.enemy.susEngage){ anyEngaged=true; break; }
+      }
+      if(anyEngaged && wasPatrol){
+        game.groupState='prosecuting';
+        game.prosecutingT=0;
+        addLog('CONN','ALERT — prosecution group committed');
+      }
+      if(game.groupState==='prosecuting'){
+        game.prosecutingT+=dt;
+        // Decay back to patrol if no enemy has suspicion above investigate for 90s
+        let stillAware=false;
+        for(const e of enemies){
+          if(!e.dead && e.suspicion>=C.enemy.susInvestigate){ stillAware=true; break; }
+        }
+        if(!stillAware && game.prosecutingT>90){
+          game.groupState='patrol';
+          game.prosecutingT=0;
+          addLog('CONN','Group lost contact — reverting to patrol');
+        }
+      }
+
+      // Wave clear — all enemies dead
+      if(enemies.length===0){
+        if(game.waveDelay<=0 && game.wave>0){
+          game.waveDelay=C.enemy.waveDelay;
+          addLog('CONN',`Area clear — wave ${game.wave} neutralised`);
+        }
+        if(game.waveDelay>0){
+          game.waveDelay-=dt;
+          if(game.waveDelay<=0){
+            spawnWave(game.wave+1);
+          }
+        }
+      }
+    }
 
     // decoys
     for(const d of decoys){
@@ -382,39 +981,59 @@
         b.traveled += s*dt;
         b.arming = Math.max(0,b.arming-dt);
         const seekerOn = (b.traveled >= (b.enableDist||0));
-        // Dumb-run depth program before seeker enables
+        // Dumb run — straight on launch bearing until seeker enables
+        // No steering at all; torpedo holds exact heading from fireTorpedo
         if(!seekerOn){
-          const prog = b.program || "hold";
-          let targetY = b.holdY ?? b.y;
-          if(prog==="dive") targetY = clamp((b.holdY ?? b.y) + 260, world.seaLevel + 80, world.ground - 120);
-          else if(prog==="ascend") targetY = clamp((b.holdY ?? b.y) - 220, world.seaLevel + 80, world.ground - 120);
-          // 'hold' keeps near initial depth
-
-          const curAng = Math.atan2(b.vy, b.vx);
-          const forward = Math.cos(curAng) >= 0 ? 1 : -1; // keep general travel direction
-          const dxProg = 1.0 * forward;
-          const dyProg = clamp((targetY - b.y) / 220, -1, 1);
-          const desiredAng = Math.atan2(dyProg, dxProg);
-          let dAng = angleNorm(desiredAng - curAng);
-          const maxTurn = 0.9 * dt; // gentle depth steering in dumb run
-          dAng = clamp(dAng, -maxTurn, maxTurn);
-          const newAng = curAng + dAng;
-          const speed = Math.hypot(b.vx, b.vy);
-          b.vx = Math.cos(newAng) * speed;
-          b.vy = Math.sin(newAng) * speed;
+          const speed=Math.hypot(b.vx,b.vy);
+          // Maintain launch direction exactly — normalise to avoid drift
+          const ang=Math.atan2(b.vy,b.vx);
+          b.vx=Math.cos(ang)*speed;
+          b.vy=Math.sin(ang)*speed;
         }
 
+        // Depth steering — always active, independent of seeker
+        {
+          const depthErr=(b.depthOrder??b.depth)-(b.depth??0);
+          const depthRate=C.torpedo.depthRate||12;
+          const dv=clamp(depthErr*0.8, -depthRate, depthRate);
+          b.vDepth=lerp(b.vDepth||0, dv, 0.15);
+          b.depth=clamp((b.depth||0)+b.vDepth*dt, 10, world.ground-20);
+          // When seeker is on and tracking, steer depth toward target depth
+          if(seekerOn && b.target && !b.seducedBy){
+            const tDepth=b.target.depth??200;
+            b.depthOrder=tDepth;
+          }
+        }
 
-        if(seekerOn && (!b.target || Math.random()<C.torpedo.reacquireChance)){
+        if(seekerOn && (!b.target || Math.random()<C.torpedo.reacquireChance) && !b.seducedBy){
           const t=W.torpAcquire(b);
           if(t) b.target=t;
         }
-        if(seekerOn && b.target && b.arming<=0){
-          const tx=b.target.x;
-          const ty=(b.target.type==="boat")?(b.target.hitY??b.target.y):b.target.y;
-          const dx=AI.wrapDx(b.x,tx);
-          const dy=ty-b.y;
-          const desired=Math.atan2(dy,dx);
+        // Wire guidance takes priority over seeker homing — wireUpdate handles steering
+        const wireControlled = b.wire?.live && b.wire?.cmdBrg != null;
+        if(!wireControlled && seekerOn && b.target && b.arming<=0 && !b.seducedBy){
+          // Use wx/wy for player (player.y is overridden to depth, not world-Y)
+          const tx=b.target.wx??b.target.x;
+          const ty=b.target.wy??b.target.y;
+          // Player uses speed+heading; enemies use vx/vy
+          let tvx=b.target.vx??0, tvy=b.target.vy??0;
+          if(b.target===player){
+            tvx=Math.cos(player.heading)*player.speed;
+            tvy=Math.sin(player.heading)*player.speed;
+          }
+          const torpSpd=Math.hypot(b.vx,b.vy)||C.torpedo.speed;
+
+          // Predicted intercept — one iteration of lead-angle solver
+          // (fast approximation: enough for homing, avoids pure pursuit overshoot)
+          let pdx=AI.wrapDx(b.x,tx), pdy=ty-b.y;
+          const dist=Math.hypot(pdx,pdy);
+          if(dist>1e-4){
+            const tof=dist/torpSpd;
+            const ex=tx+tvx*tof, ey=ty+tvy*tof;
+            pdx=AI.wrapDx(b.x,ex); pdy=ey-b.y;
+          }
+
+          const desired=Math.atan2(pdy,pdx);
           const cur=Math.atan2(b.vy,b.vx);
           let dAng=angleNorm(desired-cur);
           const maxTurn=b.turnRate*dt;
@@ -423,7 +1042,7 @@
           const speed=Math.hypot(b.vx,b.vy);
           b.vx=Math.cos(newAng)*speed;
           b.vy=Math.sin(newAng)*speed;
-        } else if(!b.target){
+        } else if(!wireControlled && !b.target && !b.seducedBy){
           b.weaveT += dt;
           const cur=Math.atan2(b.vy,b.vx);
           const wob=Math.sin(b.weaveT*2.2)*C.torpedo.searchSnake*dt;
@@ -440,29 +1059,78 @@
         b.x=(b.x+b.vx*dt+world.w)%world.w;
         b.y=(b.y+b.vy*dt+world.h)%world.h;
 
+        // 3D collision — horizontal proximity + vertical fuse window
+        const vertFuse=C.torpedo.vertFuse||60;
         if(b.life>0 && b.arming<=0){
           if(b.friendly){
             for(const e of enemies){
-              if((e.detectedT||0)<=0) continue;
               const dx=AI.wrapDx(b.x,e.x);
               const dy=e.y-b.y;
-              if(Math.hypot(dx,dy)<e.r+b.r){damageEnemy(e,b.dmg); b.life=0; break;}
+              const dz=Math.abs((b.depth??0)-(e.depth??200));
+              if(dz>vertFuse) continue;
+              if(Math.hypot(dx,dy)<(e.hitR||e.r)+b.r){damageEnemy(e,b.dmg); b.life=0; break;}
             }
           } else {
             const dx=AI.wrapDx(b.x,player.wx);
             const dy=player.wy-b.y;
-            if(Math.hypot(dx,dy)<C.player.r+b.r){damagePlayer(24); b.life=0;}
+            const dz=Math.abs((b.depth??0)-player.depth);
+            if(dz<vertFuse && Math.hypot(dx,dy)<C.player.hitR+b.r){damagePlayer(24, b.x, b.y); b.life=0;}
           }
         }
 
-        if(b.life>0){
-          for(const d of decoys){
-            if(d.kind!=="noisemaker") continue;
-            if(b.friendly && d.friendly) continue;
-            if(!b.friendly && !d.friendly) continue;
-            const dx=AI.wrapDx(b.x,d.x);
-            const dy=d.y-b.y;
-            if(Math.hypot(dx,dy)<d.r+b.r){W.makeExplosion(b.x,b.y,0.8,true); b.life=0; break;}
+        // Torpedo CM seduction — if a decoy enters seeker cone, torpedo chases it
+        // On seduction expiry or decoy death, torpedo breaks off and re-acquires
+        if(b.life>0 && seekerOn){
+          // Tick seduction timer
+          if(b.seducedBy){
+            b.seduceT=(b.seduceT||0)-dt;
+            const decoyAlive=decoys.includes(b.seducedBy) && b.seducedBy.life>0;
+            if(b.seduceT<=0 || !decoyAlive){
+              // Break seduction — store last known target position and re-acquire
+              b.seduceBreakX=b.seducedBy.x; b.seduceBreakY=b.seducedBy.y;
+              b.seducedBy=null; b.target=null;
+              // Snake outward from decoy position to find original target
+              b.weaveT=0;
+            }
+          }
+          // Check for new seduction if not already seduced
+          if(!b.seducedBy){
+            const SC=C.torpedo; const seduceR=SC.seduceRange||280;
+            const sedFOV=SC.seduceFOV||0.80;
+            const torpAng=Math.atan2(b.vy,b.vx);
+            for(const d of decoys){
+              if(d.kind!=="noisemaker") continue;
+              if(b.friendly && d.friendly) continue;
+              if(!b.friendly && !d.friendly) continue;
+              if(d.life<=0) continue;
+              const dx=AI.wrapDx(b.x,d.x);
+              const dy=d.y-b.y;
+              const dd=Math.hypot(dx,dy);
+              if(dd>seduceR) continue;
+              const angTo=Math.atan2(dy,dx);
+              if(Math.abs(angleNorm(angTo-torpAng))>sedFOV/2) continue;
+              // Seduced — chase decoy for seduceTime seconds
+              b.seducedBy=d; b.seduceT=SC.seduceTime||5.0;
+              b.target=null;
+              if(b.friendly){
+                setMsg("TORP: SEDUCED BY NOISEMAKER",1.0);
+                addLog('WEPS',`${b.torpId} seduced — chasing decoy`);
+              }
+              break;
+            }
+          }
+          // Steer toward decoy if seduced
+          if(b.seducedBy && b.seducedBy.life>0){
+            const dx=AI.wrapDx(b.x,b.seducedBy.x);
+            const dy=b.seducedBy.y-b.y;
+            const desired=Math.atan2(dy,dx);
+            const cur=Math.atan2(b.vy,b.vx);
+            let dAng=angleNorm(desired-cur);
+            const maxTurn=b.turnRate*dt;
+            dAng=clamp(dAng,-maxTurn,maxTurn);
+            const newAng=cur+dAng;
+            const speed=Math.hypot(b.vx,b.vy);
+            b.vx=Math.cos(newAng)*speed; b.vy=Math.sin(newAng)*speed;
           }
         }
 
@@ -537,9 +1205,11 @@
     }
     for(let i=particles.length-1;i>=0;i--) if(particles[i].life<=0) particles.splice(i,1);
 
-    // Camera — top-down, player centred, slight lead in heading direction
-    cam.x = player.wx;
-    cam.y = player.wy;
+    // Camera — follow player unless free-cam mode is active (Ctrl+RMB drag)
+    if(!cam.free){
+      cam.x = player.wx;
+      cam.y = player.wy;
+    }
     cam.zoom = C.camera.zoom;
   }
 

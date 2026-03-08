@@ -17,14 +17,16 @@
       _lastDesiredHeading = (player.desiredHeading ?? 0);
     }
     n=clamp(n+turnMag*C.player.turnNoise,0,1);
-    if(I.keys.has("shift")) n=clamp(n+C.player.flankNoiseBoost,0,1);
+    if(window.PANEL?.getTelegraph()?.kts >= (C.player.flankKts||28)) n=clamp(n+C.player.flankNoiseBoost,0,1);
     const cavK=cavitationThresholdKts(player.y);
     player.cavitating=(player.speed>cavK);
     if(player.cavitating) n=clamp(n+C.player.cavitationSpike,0,1);
     if(player.silent) n*=C.player.silentRunning.noiseMult;
     player.noiseTransient=Math.max(0,player.noiseTransient-dt*0.35);
     n=clamp(n+player.noiseTransient,0,1);
-    player.noise=n;
+    // Flooding pumps add to acoustic signature
+    const floodPenalty = window.DMG?.getEffects().noisePenalty||0;
+    player.noise=clamp(n+floodPenalty,0,1);
   }
   window.SIG={updateNoise,cavitationThresholdKts};
 })();
