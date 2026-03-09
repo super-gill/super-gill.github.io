@@ -437,6 +437,78 @@
 
   // ── Command Panel (bottom) ────────────────────────────────────────────────────
   // ── Message Log Board ────────────────────────────────────────────────────────
+  function drawSonarFeed(W,H,panelH){
+    const log=game.sonarLog;
+    if(!log||log.length===0) return;
+
+    const maxRows=16;
+    const rowH=13*DPR;
+    const padX=8*DPR, padY=6*DPR;
+    const boardW=210*DPR;
+    const headerH=14*DPR;
+    const boardH=rowH*maxRows+padY*2+headerH;
+
+    // Position: bottom-right of chart area just above panel
+    const bx=W-88*DPR-boardW-4*DPR;
+    const by=H-panelH-boardH-2*DPR;
+
+    // Background
+    ctx.fillStyle='rgba(4,20,30,0.82)';
+    ctx.strokeStyle='rgba(0,180,160,0.20)';
+    ctx.lineWidth=1;
+    ctx.beginPath(); ctx.roundRect(bx,by,boardW,boardH,4*DPR); ctx.fill(); ctx.stroke();
+
+    // Header
+    ctx.fillStyle='rgba(0,200,180,0.70)';
+    ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='left';
+    ctx.fillText('SONAR RAW FEED',bx+padX,by+padY+8*DPR);
+    ctx.fillStyle='rgba(0,160,140,0.40)';
+    ctx.fillRect(bx,by+padY+headerH,boardW,1);
+
+    // Entries — most recent at bottom
+    const entries=log.slice(-maxRows);
+    const T=game.missionT||0;
+    for(let i=0;i<entries.length;i++){
+      const e=entries[i];
+      const ry=by+padY+headerH+4*DPR+i*rowH;
+      const age=T-e.t;
+      const alpha=Math.max(0.25, 1.0-age/30); // fade over 30s
+
+      // Array badge colour
+      const arrCol=e.array==='HULL'?`rgba(100,200,255,${alpha})`:`rgba(0,200,160,${alpha})`;
+      ctx.fillStyle=arrCol;
+      ctx.font=`bold ${7*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='left';
+      ctx.fillText(e.array, bx+padX, ry+rowH*0.75);
+
+      // Contact ID
+      ctx.fillStyle=`rgba(200,230,255,${alpha*0.85})`;
+      ctx.font=`${7*DPR}px ui-monospace,monospace`;
+      ctx.fillText(e.id, bx+padX+38*DPR, ry+rowH*0.75);
+
+      // Bearing
+      ctx.fillStyle=`rgba(255,220,100,${alpha*0.90})`;
+      ctx.fillText(`${e.brgStr}°`, bx+padX+62*DPR, ry+rowH*0.75);
+
+      // Signal tier
+      const sigCol=e.tierLabel==='STRONG'?`rgba(100,255,120,${alpha})`
+                  :e.tierLabel==='MOD'   ?`rgba(255,200,60,${alpha})`
+                                         :`rgba(180,180,180,${alpha*0.70})`;
+      ctx.fillStyle=sigCol;
+      ctx.fillText(e.tierLabel, bx+padX+100*DPR, ry+rowH*0.75);
+
+      // Type
+      ctx.fillStyle=`rgba(160,180,200,${alpha*0.65})`;
+      ctx.fillText(e.typeLabel, bx+padX+148*DPR, ry+rowH*0.75);
+
+      // Age indicator — tiny bar
+      const ageFrac=Math.max(0,1-age/30);
+      ctx.fillStyle=`rgba(0,160,140,${alpha*0.35})`;
+      ctx.fillRect(bx+boardW-padX-40*DPR, ry+rowH*0.30, 40*DPR*ageFrac, 2*DPR);
+    }
+  }
+
   function drawMsgLog(W,H,panelH){
     const log=game.msgLog;
     if(!log||log.length===0) return;
@@ -538,153 +610,248 @@
     const dmg=player.damage;
     if(!dmg) return;
     const DMG=window.DMG;
+    const PNL=window.PANEL; // fix: was PANEL (a function wrapper), must be window.PANEL
 
-    const OW=340*DPR, OH=320*DPR;
-    const OX=92*DPR, OY=14*DPR;   // top-left of chart area
+    const OW=400*DPR, OH=340*DPR;
+    const OX=80*DPR, OY=10*DPR;
+    const P=10*DPR;
 
     // Background
-    ctx.fillStyle='rgba(15,20,35,0.93)';
-    ctx.strokeStyle='rgba(100,130,180,0.30)';
+    ctx.fillStyle='rgba(8,14,26,0.96)';
+    ctx.strokeStyle='rgba(80,110,160,0.35)';
     ctx.lineWidth=1;
     ctx.beginPath(); ctx.roundRect(OX,OY,OW,OH,6*DPR); ctx.fill(); ctx.stroke();
 
-    const P=10*DPR;
-    let cy=OY+P+11*DPR;
-
-    // Title
-    ctx.fillStyle='rgba(180,200,240,0.90)';
-    ctx.font=`bold ${10*DPR}px ui-rounded,system-ui,Arial`;
+    // Title bar
+    let cy=OY+P+10*DPR;
+    ctx.fillStyle='rgba(160,190,240,0.90)';
+    ctx.font=`bold ${10*DPR}px ui-monospace,monospace`;
     ctx.textAlign='left';
     ctx.fillText('DAMAGE CONTROL',OX+P,cy);
-    // Close hint
-    ctx.fillStyle='rgba(140,160,200,0.50)';
-    ctx.font=`${8*DPR}px ui-rounded,system-ui,Arial`;
+    ctx.fillStyle='rgba(120,140,180,0.50)';
+    ctx.font=`${8*DPR}px ui-monospace,monospace`;
     ctx.textAlign='right';
     ctx.fillText('[H] close',OX+OW-P,cy);
+
+    // Crew/DC teams row
+    cy+=13*DPR;
+    const crewTotal=dmg.crew.total, crewKilled=dmg.crew.killed, crewWounded=dmg.crew.wounded;
+    const crewFit=crewTotal-crewKilled-crewWounded;
+    const dcMax=DMG.maxDCTeams(), dcBusy=dmg.repairs.length;
+    ctx.fillStyle='rgba(160,185,230,0.70)';
+    ctx.font=`${8*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='left';
+    ctx.fillText(`CREW  ${crewFit} FIT  ${crewWounded} WND  ${crewKilled} KIA`,OX+P,cy);
+    ctx.textAlign='right';
+    ctx.fillText(`DC TEAMS ${dcMax-dcBusy}/${dcMax}`,OX+OW-P,cy);
     cy+=14*DPR;
 
-    // Crew row
-    const crewTotal=dmg.crew.total;
-    const crewKilled=dmg.crew.killed;
-    const crewWounded=dmg.crew.wounded;
-    const crewFit=crewTotal-crewKilled-crewWounded;
-    ctx.fillStyle='rgba(180,200,240,0.70)';
-    ctx.font=`${9*DPR}px ui-monospace,monospace`;
-    ctx.textAlign='left';
-    ctx.fillText(`CREW: ${crewFit} FIT  ${crewWounded} WND  ${crewKilled} KIA  (${crewTotal} TOTAL)`,OX+P,cy);
-    cy+=13*DPR;
+    // ── Submarine silhouette schematic ────────────────────────────────────────
+    // 4 compartments in a hull shape. Bow (left) to stern (right).
+    const schX=OX+P, schW=OW-P*2;
+    const schY=cy, schH=52*DPR;
+    const compKeys=['bow','control','engineering','stern'];
+    const compLabels=['BOW','CONTROL','ENG','STERN'];
+    // Proportional widths — control room is slightly wider
+    const compFracs=[0.22, 0.26, 0.26, 0.26];
+    let compXs=[], compWs=[];
+    let xx=schX;
+    for(let i=0;i<4;i++){
+      compWs[i]=schW*compFracs[i];
+      compXs[i]=xx;
+      xx+=compWs[i];
+    }
 
-    // DC teams
-    const dcMax=DMG.maxDCTeams();
-    const dcBusy=dmg.repairs.length;
-    ctx.fillText(`DC TEAMS: ${dcMax-dcBusy}/${dcMax} available`,OX+P,cy);
-    cy+=16*DPR;
+    const stFill={'nominal':'rgba(20,60,30,0.80)','degraded':'rgba(80,60,5,0.85)',
+                  'offline':'rgba(80,25,5,0.90)','destroyed':'rgba(60,5,5,0.95)'};
+    const stStroke={'nominal':'rgba(50,200,80,0.60)','degraded':'rgba(220,170,20,0.80)',
+                    'offline':'rgba(220,80,20,0.90)','destroyed':'rgba(200,30,30,1.0)'};
 
-    // ── Sub schematic ──────────────────────────────────────────────────────
-    const schY=cy, schH=28*DPR;
-    const compW=(OW-P*2)/4;
-    const compLabels=['BOW','CTRL','ENG','STERN'];
-    const stCol={'nominal':'rgba(34,197,94,0.25)','degraded':'rgba(234,179,8,0.40)',
-                 'offline':'rgba(234,89,12,0.55)','destroyed':'rgba(127,29,29,0.75)'};
-    const stBorder={'nominal':'rgba(34,197,94,0.50)','degraded':'rgba(234,179,8,0.70)',
-                    'offline':'rgba(234,89,12,0.80)','destroyed':'rgba(200,0,0,0.90)'};
+    // Draw hull outline first (full shape)
+    ctx.save();
+    ctx.beginPath();
+    // Simple sub profile: bow rounded left, stern tapered right
+    const hTop=schY+4*DPR, hBot=schY+schH-4*DPR, hMid=(hTop+hBot)/2;
+    const bowX=schX, sternX=schX+schW;
+    ctx.moveTo(bowX+18*DPR, hTop);
+    ctx.lineTo(sternX-12*DPR, hTop);
+    ctx.lineTo(sternX, hMid);          // stern taper
+    ctx.lineTo(sternX-12*DPR, hBot);
+    ctx.lineTo(bowX+18*DPR, hBot);
+    ctx.arc(bowX+18*DPR, hMid, (hBot-hTop)/2, Math.PI/2, -Math.PI/2, true); // bow arc
+    ctx.closePath();
+    ctx.strokeStyle='rgba(80,110,160,0.40)';
+    ctx.lineWidth=1;
+    ctx.stroke();
+    ctx.restore();
+
+    // Draw each compartment
     for(let ci=0;ci<4;ci++){
-      const comp=DMG.COMPARTMENTS[ci];
-      // Worst system state in compartment
+      const comp=compKeys[ci];
+      const cx2=compXs[ci], cw=compWs[ci];
       const sysList=DMG.COMP_SYSTEMS[comp];
       let worstIdx=0;
       for(const s of sysList) worstIdx=Math.max(worstIdx, DMG.STATES.indexOf(dmg.systems[s]));
       const worst=DMG.STATES[worstIdx];
-      const cx2=OX+P+ci*compW;
-      ctx.fillStyle=stCol[worst]||'rgba(34,197,94,0.25)';
-      ctx.strokeStyle=stBorder[worst]||'rgba(34,197,94,0.50)';
-      ctx.lineWidth=1.5;
-      ctx.beginPath(); ctx.roundRect(cx2+2,schY,compW-4,schH,3*DPR); ctx.fill(); ctx.stroke();
-      // Flooding indicator
-      if(dmg.flooding[comp]>0){
-        ctx.fillStyle=`rgba(59,130,246,${0.20+dmg.flooding[comp]*0.50})`;
-        const floodH=schH*(dmg.flooding[comp]*0.8);
-        ctx.fillRect(cx2+3,schY+schH-floodH-1, compW-5, floodH);
+      const flood=dmg.flooding[comp]||0;
+
+      // Clip to compartment bounds
+      ctx.save();
+      ctx.beginPath();
+      if(ci===0){
+        // Bow — arc on left side
+        ctx.moveTo(cx2+18*DPR, schY+4*DPR);
+        ctx.lineTo(cx2+cw, schY+4*DPR);
+        ctx.lineTo(cx2+cw, schY+schH-4*DPR);
+        ctx.lineTo(cx2+18*DPR, schY+schH-4*DPR);
+        ctx.arc(cx2+18*DPR, schY+schH/2, (schH-8*DPR)/2, Math.PI/2, -Math.PI/2, true);
+      } else if(ci===3){
+        // Stern — tapered right
+        const mx=schY+schH/2;
+        ctx.moveTo(cx2, schY+4*DPR);
+        ctx.lineTo(cx2+cw-12*DPR, schY+4*DPR);
+        ctx.lineTo(cx2+cw, mx);
+        ctx.lineTo(cx2+cw-12*DPR, schY+schH-4*DPR);
+        ctx.lineTo(cx2, schY+schH-4*DPR);
+      } else {
+        ctx.rect(cx2, schY+4*DPR, cw, schH-8*DPR);
       }
-      ctx.fillStyle='rgba(220,230,255,0.85)';
-      ctx.font=`bold ${7.5*DPR}px ui-monospace,monospace`;
+      ctx.closePath();
+      ctx.clip();
+
+      // Compartment fill (damage state)
+      ctx.fillStyle=stFill[worst]||stFill.nominal;
+      ctx.fill();
+
+      // Flooding water fill — rises from bottom
+      if(flood>0){
+        const floodH=(schH-8*DPR)*flood*0.90;
+        ctx.fillStyle=`rgba(30,80,200,${0.30+flood*0.45})`;
+        ctx.fillRect(cx2, schY+schH-4*DPR-floodH, cw, floodH);
+        // Animated shimmer line at water surface
+        ctx.strokeStyle=`rgba(100,160,255,${0.40+flood*0.30})`;
+        ctx.lineWidth=1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx2, schY+schH-4*DPR-floodH);
+        ctx.lineTo(cx2+cw, schY+schH-4*DPR-floodH);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      // Compartment border
+      ctx.strokeStyle=stStroke[worst]||stStroke.nominal;
+      ctx.lineWidth=ci===0||ci===3 ? 1 : 1;
+      ctx.beginPath();
+      if(ci===0){
+        ctx.moveTo(cx2+18*DPR, schY+4*DPR);
+        ctx.lineTo(cx2+cw, schY+4*DPR);
+        ctx.moveTo(cx2+cw, schY+schH-4*DPR);
+        ctx.lineTo(cx2+18*DPR, schY+schH-4*DPR);
+      } else if(ci===3){
+        ctx.moveTo(cx2, schY+4*DPR);
+        ctx.lineTo(cx2+cw-12*DPR, schY+4*DPR);
+        ctx.moveTo(cx2+cw-12*DPR, schY+schH-4*DPR);
+        ctx.lineTo(cx2, schY+schH-4*DPR);
+      } else {
+        ctx.moveTo(cx2, schY+4*DPR); ctx.lineTo(cx2+cw, schY+4*DPR);
+        ctx.moveTo(cx2, schY+schH-4*DPR); ctx.lineTo(cx2+cw, schY+schH-4*DPR);
+      }
+      // Divider lines between compartments
+      if(ci>0){ ctx.moveTo(cx2, schY+4*DPR); ctx.lineTo(cx2, schY+schH-4*DPR); }
+      ctx.stroke();
+
+      // Compartment label
+      ctx.fillStyle='rgba(200,220,255,0.85)';
+      ctx.font=`bold ${7*DPR}px ui-monospace,monospace`;
       ctx.textAlign='center';
-      ctx.fillText(compLabels[ci], cx2+compW/2, schY+10*DPR);
+      ctx.fillText(compLabels[ci], cx2+cw/2, schY+13*DPR);
+
+      // State label if damaged
       if(worst!=='nominal'){
-        ctx.fillStyle=stBorder[worst];
-        ctx.font=`${6.5*DPR}px ui-monospace,monospace`;
-        ctx.fillText(worst.slice(0,3).toUpperCase(), cx2+compW/2, schY+20*DPR);
+        ctx.fillStyle=stStroke[worst];
+        ctx.font=`bold ${7*DPR}px ui-monospace,monospace`;
+        ctx.fillText(worst.toUpperCase(), cx2+cw/2, schY+schH/2+3*DPR);
       }
-      // Flooding seal button
-      if(dmg.flooding[comp]>0){
-        const bx=cx2+2, by=schY+schH+3*DPR, bw=compW-4, bh=12*DPR;
-        const sealLbl='SEAL';
-        PANEL.btn2(ctx,sealLbl,bx,by,bw,bh,'rgba(59,130,246,0.70)',
-          ()=>DMG.sealFlooding(comp));
+
+      // Flooding % label
+      if(flood>0.02){
+        ctx.fillStyle='rgba(140,190,255,0.90)';
+        ctx.font=`${7*DPR}px ui-monospace,monospace`;
+        ctx.fillText(`${Math.round(flood*100)}%`, cx2+cw/2, schY+schH-10*DPR);
+      }
+
+      // SEAL button below compartment if flooding
+      if(flood>0){
+        const bx=cx2+2, by=schY+schH+2*DPR, bw=cw-4, bh=11*DPR;
+        PNL.btn2(ctx,'SEAL',bx,by,bw,bh,'rgba(30,80,200,0.65)',()=>DMG.sealFlooding(comp));
       }
     }
-    cy=schY+schH+18*DPR;
 
-    // ── Systems list ────────────────────────────────────────────────────────
-    const colW=(OW-P*2)/2;
-    ctx.fillStyle='rgba(140,160,200,0.50)';
-    ctx.font=`${8*DPR}px ui-rounded,system-ui,Arial`;
-    ctx.textAlign='left';
-    ctx.fillText('SYSTEM',OX+P,cy);
-    ctx.fillText('STATE / ACTION',OX+P+colW,cy);
-    cy+=11*DPR;
+    cy=schY+schH+16*DPR;
 
-    const sysEntries=Object.entries(dmg.systems);
-    for(const [sys,st] of sysEntries){
-      if(cy>OY+OH-20*DPR) break;
-      const label=DMG.SYS_LABEL[sys]||sys.toUpperCase();
-      const repairing=dmg.repairs.find(r=>r.system===sys);
-      const stColText={'nominal':'rgba(100,200,120,0.80)','degraded':'rgba(240,180,40,0.90)',
-                       'offline':'rgba(240,100,40,0.90)','destroyed':'rgba(200,60,60,0.90)'};
-      // System name
-      ctx.fillStyle='rgba(200,215,240,0.80)';
-      ctx.font=`${8.5*DPR}px ui-monospace,monospace`;
-      ctx.textAlign='left';
-      ctx.fillText(label,OX+P,cy);
-      // State
-      ctx.fillStyle=stColText[st]||'rgba(200,60,60,0.90)';
-      ctx.fillText(st.toUpperCase(),OX+P+colW,cy);
+    // ── Systems grid ────────────────────────────────────────────────────────
+    // Two columns, each compartment's systems listed under its X position
+    const stColText={'nominal':'rgba(80,200,100,0.80)','degraded':'rgba(230,170,20,0.90)',
+                     'offline':'rgba(230,90,30,0.90)','destroyed':'rgba(200,50,50,0.95)'};
 
-      if(st!=='nominal'&&st!=='destroyed'){
-        const bx=OX+P+colW+56*DPR, by=cy-9*DPR, bw=52*DPR, bh=11*DPR;
-        if(repairing){
-          // Progress bar
-          const pct=repairing.progress/repairing.totalTime;
-          ctx.fillStyle='rgba(30,58,95,0.30)'; ctx.fillRect(bx,by,bw,bh);
-          ctx.fillStyle='rgba(30,58,95,0.80)'; ctx.fillRect(bx,by,bw*pct,bh);
-          ctx.fillStyle='rgba(200,220,255,0.90)';
-          ctx.font=`${7*DPR}px ui-monospace,monospace`;
-          ctx.textAlign='center';
-          ctx.fillText(`${Math.round(pct*100)}% — CANCEL`,bx+bw/2,by+bh*0.72);
-          PANEL.btn2(ctx,'',bx,by,bw,bh,'transparent',()=>DMG.cancelRepair(sys));
-        } else {
-          PANEL.btn2(ctx,'REPAIR',bx,by,bw,bh,'rgba(30,58,95,0.60)',
-            ()=>DMG.assignRepair(sys));
+    for(let ci=0;ci<4;ci++){
+      const comp=compKeys[ci];
+      const cx2=compXs[ci], cw=compWs[ci];
+      const sysList=DMG.COMP_SYSTEMS[comp];
+      let sy=cy;
+      for(const sys of sysList){
+        const st=dmg.systems[sys];
+        const label=DMG.SYS_LABEL[sys]||sys.toUpperCase();
+        const repairing=dmg.repairs.find(r=>r.system===sys);
+
+        // System name (abbreviated to fit)
+        ctx.fillStyle='rgba(160,180,220,0.70)';
+        ctx.font=`${7*DPR}px ui-monospace,monospace`;
+        ctx.textAlign='center';
+        ctx.fillText(label, cx2+cw/2, sy);
+        sy+=10*DPR;
+
+        // State pill
+        ctx.fillStyle=stColText[st]||stColText.destroyed;
+        ctx.font=`bold ${7*DPR}px ui-monospace,monospace`;
+        ctx.fillText(st.toUpperCase(), cx2+cw/2, sy);
+        sy+=10*DPR;
+
+        // Repair button if needed
+        if(st!=='nominal'&&st!=='destroyed'){
+          const bx=cx2+2, by=sy-1*DPR, bw=cw-4, bh=11*DPR;
+          if(repairing){
+            const pct=repairing.progress/repairing.totalTime;
+            ctx.fillStyle='rgba(20,45,85,0.50)'; ctx.fillRect(bx,by,bw,bh);
+            ctx.fillStyle='rgba(30,80,160,0.80)'; ctx.fillRect(bx,by,bw*pct,bh);
+            ctx.fillStyle='rgba(180,210,255,0.90)';
+            ctx.font=`${6.5*DPR}px ui-monospace,monospace`;
+            ctx.textAlign='center';
+            ctx.fillText(`${Math.round(pct*100)}% CNCL`,bx+bw/2,by+bh*0.75);
+            PNL.btn2(ctx,'',bx,by,bw,bh,'transparent',()=>DMG.cancelRepair(sys));
+          } else {
+            PNL.btn2(ctx,'REPAIR',bx,by,bw,bh,'rgba(20,50,100,0.70)',()=>DMG.assignRepair(sys));
+          }
+          sy+=13*DPR;
         }
       }
-      cy+=14*DPR;
     }
 
-    cy=OY+OH-46*DPR;
-
-    // ── Dept priority ────────────────────────────────────────────────────────
-    ctx.fillStyle='rgba(140,160,200,0.55)';
-    ctx.font=`${8*DPR}px ui-rounded,system-ui,Arial`;
-    ctx.textAlign='left';
-    ctx.fillText('CREW PRIORITY:',OX+P,cy);
-    cy+=11*DPR;
+    // ── Crew priority ────────────────────────────────────────────────────────
+    cy=OY+OH-26*DPR;
     const priorities=['weapons','sonar','engineering','dc','balanced'];
-    const prioLabels =['WEAPS','SONAR','ENG','DC','EVEN'];
+    const prioLabels=['WEAPS','SONAR','ENG','DC','EVEN'];
     const btnW=(OW-P*2)/5;
+    ctx.fillStyle='rgba(120,145,190,0.55)';
+    ctx.font=`${7.5*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='left';
+    ctx.fillText('CREW PRIORITY:',OX+P,cy-2*DPR);
+    cy+=2*DPR;
     for(let i=0;i<priorities.length;i++){
       const active=dmg.deptPriority===priorities[i];
-      PANEL.btn2(ctx,prioLabels[i],OX+P+i*btnW,cy,btnW-3*DPR,14*DPR,
-        active?'rgba(30,58,95,0.85)':'rgba(60,80,120,0.30)',
+      PNL.btn2(ctx,prioLabels[i],OX+P+i*btnW,cy,btnW-3*DPR,13*DPR,
+        active?'rgba(40,80,160,0.90)':'rgba(40,60,100,0.35)',
         ()=>DMG.setDeptPriority(priorities[i]));
     }
   }
@@ -1691,7 +1858,9 @@
         const alpha=Math.max(0.18, 0.80 - Math.min(1,staleSecs/120)*0.62);
         const age=t2-c.lastT; // wall-clock for staleness label
         const q=c.tmaQuality??0;
-        let hasPos=q>=(TMA_CFG.qualityThresholdBlob??0.15) && c.tmaX!=null;
+        // Only draw blob when we have a real range estimate — below this threshold we
+        // only have a bearing, and planting a dot at defaultRange misleads the player.
+        let hasPos=q>=(TMA_CFG.qualityThresholdRange??0.20) && c.tmaX!=null;
         const goodLabel=q>=(TMA_CFG.qualityThresholdLabel??0.35);
 
         // ── Past bearing lines — ghosted history ──────────────────────────
@@ -1748,16 +1917,23 @@
         }
 
         // ── TMA position blob — sanity check before drawing ─────────────────
+        // Propagate position forward using velocity snapshotted at solve time
+        let blobX=c.tmaX, blobY=c.tmaY;
+        if(c.tmaX!=null && c.tmaT!=null){
+          const age=Math.min((window.G.game?.missionT||0)-c.tmaT, 60);
+          blobX = c.tmaX + (c.tmVx||0)*age;
+          blobY = c.tmaY + (c.tmVy||0)*age;
+        }
         // If the solved TMA position is behind the player relative to the latest
         // bearing, it landed on the mirror side. Suppress it rather than mislead.
         if(hasPos && c.latestBrg!=null){
-          const blobDx=c.tmaX-player.wx, blobDy=c.tmaY-player.wy;
+          const blobDx=blobX-player.wx, blobDy=blobY-player.wy;
           const dot=blobDx*Math.cos(c.latestBrg)+blobDy*Math.sin(c.latestBrg);
           if(dot<-100) hasPos=false; // wrong side
         }
         // ── TMA position blob ─────────────────────────────────────────────────
         if(hasPos){
-          const [bx,by]=w2s(c.tmaX, c.tmaY);
+          const [bx,by]=w2s(blobX, blobY);
           if(bx>-80 && bx<plotW+80){
             // Uncertainty radius shrinks as quality improves
             const uncertWU=TMA_CFG.defaultRange*(1-clamp(q,0,1))*0.5+30;
@@ -1922,9 +2098,27 @@
     // ── Decoys ────────────────────────────────────────────────────────────────
     for(const d of decoys){
       const [dx,dy]=w2s(d.x,d.y);
-      ctx.strokeStyle='rgba(17,24,39,0.35)';
-      doodleCircle(dx,dy,5,1.5);
-      doodleCircle(dx,dy,wScale(d.r||20),1);
+      const pulse=0.6+0.4*Math.sin((game.missionT||0)*6 + d.x);
+      if(d.friendly){
+        // Player noisemaker — bright orange so you can see it working
+        ctx.strokeStyle=`rgba(255,160,30,${0.70*pulse})`;
+        ctx.lineWidth=1.5;
+        doodleCircle(dx,dy,5,1.5);
+        ctx.strokeStyle=`rgba(255,160,30,${0.35*pulse})`;
+        doodleCircle(dx,dy,wScale(d.r||20),1);
+        // Label
+        ctx.fillStyle=`rgba(255,180,60,${0.80*pulse})`;
+        ctx.font=`${7*DPR}px ui-monospace,monospace`;
+        ctx.textAlign='left';
+        ctx.fillText('NM',dx+7,dy-4);
+      } else {
+        // Enemy noisemaker — dim teal
+        ctx.strokeStyle=`rgba(60,180,160,${0.45*pulse})`;
+        ctx.lineWidth=1;
+        doodleCircle(dx,dy,4,1);
+        ctx.strokeStyle=`rgba(60,180,160,${0.20*pulse})`;
+        doodleCircle(dx,dy,wScale(d.r||20),0.8);
+      }
     }
 
     // ── Torpedoes + wire lines + seeker cones ────────────────────────────────
@@ -2041,54 +2235,7 @@
       doodleCircle(px2,py2,wScale(p.size*(0.5+0.8*(1-a))),1.5);
     }
 
-    // ── Detected enemies — icon only shown on strong/live contact ────────────
-    for(const e of enemies){
-      if((e.detectedT||0)<=0 && (e.seen||0)<=0) continue;
-      // Only draw the actual icon when we have a live fix (active ping / proximity)
-      // or a very strong TMA solution — otherwise only bearing lines are visible
-      const sc=sonarContacts?.get(e);
-      const liveContact=(sc?.activeT??0)>0;
-      const strongTMA=(sc?.tmaQuality??0)>=0.75;
-      if(!liveContact && !strongTMA) continue;
-
-      const [ex,ey]=w2s(liveContact?e.x:(sc?.tmaX??e.x), liveContact?e.y:(sc?.tmaY??e.y));
-      if(ex<0||ex>plotW) continue;
-
-      const fullyDetected=(e.detectedT||0)>0;
-      ctx.strokeStyle=fullyDetected?'#111827':'rgba(17,24,39,0.40)';
-
-      ctx.save();
-      ctx.translate(ex,ey);
-      ctx.rotate(e.heading||0);
-      if(e.type==='boat'){
-        drawEnemyBoatTopDown();
-      } else {
-        drawEnemySubTopDown();
-      }
-      ctx.restore();
-
-      // Suspicion arc
-      if(e.suspicion>0.05){
-        const arcR=wScale(e.r*2.2);
-        ctx.strokeStyle=e.suspicion>C.enemy.susEngage?'rgba(220,38,38,0.5)':
-                        e.suspicion>C.enemy.susInvestigate?'rgba(217,119,6,0.4)':
-                        'rgba(17,24,39,0.15)';
-        ctx.lineWidth=1.5;
-        ctx.beginPath();
-        ctx.arc(ex,ey,arcR,0,TAU*e.suspicion);
-        ctx.stroke();
-      }
-
-      // Contact marker (where enemy thinks player is)
-      if(e.contact && fullyDetected){
-        const [ccx,ccy]=w2s(e.contact.x,e.contact.y);
-        ctx.strokeStyle='rgba(220,38,38,0.35)';
-        doodleCircle(ccx,ccy,wScale(e.contact.u*0.3),1);
-        ctx.strokeStyle='rgba(220,38,38,0.25)';
-        ctx.lineWidth=1;
-        ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ccx,ccy); ctx.stroke();
-      }
-    }
+    // Enemy icons removed — contacts represented by bearing lines and TMA dots only.
 
     // ── Towed array cable ─────────────────────────────────────────────────────
     const [ppx,ppy]=w2s(player.wx,player.wy);
@@ -2366,6 +2513,9 @@
 
     // ── Message log board ─────────────────────────────────────────────────────
     drawMsgLog(W,H,panelH);
+
+    // ── Sonar raw feed ────────────────────────────────────────────────────────
+    drawSonarFeed(W,H,panelH);
 
     // ── Command Panel ─────────────────────────────────────────────────────────
     drawPanel(W,H);

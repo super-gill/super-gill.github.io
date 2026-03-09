@@ -219,9 +219,14 @@
     const ex=(player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist+world.w)%world.w;
     const ey=(player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist+world.h)%world.h;
     const awayAng=bearing+Math.PI;
-    const patrolHeading=awayAng+rand(-0.3,0.3)+Math.PI/2;
+    // Hunters and interceptors are responding to a datum — head toward the player
+    // with some spread (±30°). Pingers run a cross-track barrier pattern.
+    const towardAng=bearing; // bearing points from player outward, so reverse for inward
+    const patrolHeading=role==='pinger'
+      ? awayAng+rand(-0.3,0.3)+Math.PI/2   // cross-track barrier
+      : towardAng+rand(-0.52,0.52);          // ±30° toward player
     // Pingers run a little faster on patrol — they're not hiding
-    const spd=role==='pinger'?rand(7,11):role==='interceptor'?rand(5,8):rand(5,8);
+    const spd=role==='pinger'?rand(7,11):role==='interceptor'?rand(5,8):rand(4,6);
     const depth=rand(200,600);
     const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
       playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,

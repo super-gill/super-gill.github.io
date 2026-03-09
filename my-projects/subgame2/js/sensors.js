@@ -4,35 +4,56 @@
   const {world,player,enemies,contacts,sonarContacts,game,addLog}=window.G;
   const AI=window.AI;
 
+  // Throttled sonar raw feed — one entry per contact per ~4s, per array
+  const _sonarLogThrottle=new Map(); // key: `${entityId}_${array}` → last log time
+  function addSonarLog(e, array, brgDeg, signalTier){
+    const key=`${e.x|0}_${array}`;
+    const T=game.missionT||0;
+    const last=_sonarLogThrottle.get(key)||0;
+    if(T-last < 4.0) return; // throttle — don't spam
+    _sonarLogThrottle.set(key,T);
+    if(!game.sonarLog) game.sonarLog=[];
+    const sc=sonarContacts?.get(e);
+    const id=sc?.id||'S?';
+    const typeLabel=e.type==='boat'?'SURF':'SUB';
+    const tierLabel=signalTier>=2?'STRONG':signalTier>=1?'MOD':'FAINT';
+    const brgStr=Math.round(brgDeg).toString().padStart(3,'0');
+    game.sonarLog.push({t:T, array, id, typeLabel, brgStr, tierLabel});
+    if(game.sonarLog.length>60) game.sonarLog.shift();
+  }
+
   let _nextId=1;
   function assignId(){ return 'S'+(_nextId++); }
 
   // ── TMA solver ─────────────────────────────────────────────────────────────────
+  // Weighted least-squares — weight = 1/u_brg² so tight hull bearings dominate
+  // wide towed bearings. Velocity estimated from consecutive solutions; never
+  // cheated by reading the enemy's actual vx/vy.
   function solveTMA(c){
     const TMA=C.tma;
     const T=game.missionT||0;
-    // Active ping or proximity fix takes precedence — don't overwrite with weaker bearing-line solution
     if(c.fixLockedUntil && T < c.fixLockedUntil) return;
     const obs=c.bearings;
     if(obs.length < TMA.minObs){ c.tmaQuality=0; c.tmaX=null; c.tmaY=null; return; }
+
     let M11=0, M12=0, M22=0, b1=0, b2=0;
     for(const o of obs){
+      const w=1/Math.max((o.u_brg||0.10)*(o.u_brg||0.10), 0.0004);
       const s=Math.sin(o.bearing), cs=Math.cos(o.bearing);
-      M11+=s*s; M12+=-s*cs; M22+=cs*cs;
+      M11+=w*s*s; M12+=w*(-s*cs); M22+=w*cs*cs;
       const d=-s*o.fromX+cs*o.fromY;
-      b1+=d*(-s); b2+=d*cs;
+      b1+=w*d*(-s); b2+=w*d*cs;
     }
     const det=M11*M22-M12*M12;
     if(Math.abs(det)<1e-8){ c.tmaQuality=0; return; }
     const px=(M22*b1-M12*b2)/det;
     const py=(M11*b2-M12*b1)/det;
-    const last=obs[obs.length-1];
-    // Reject if solution is behind ANY observation — consistent intersection must be
-    // in front of every bearing ray, not just the last one
+
     for(const o of obs){
       const dot=(px-o.fromX)*Math.cos(o.bearing)+(py-o.fromY)*Math.sin(o.bearing);
       if(dot<-100){ c.tmaQuality=0; return; }
     }
+
     let maxBase=0;
     for(let i=0;i<obs.length;i++)
       for(let j=i+1;j<obs.length;j++){
@@ -40,19 +61,47 @@
         if(bd>maxBase) maxBase=bd;
       }
     if(maxBase<TMA.minBaseline){ c.tmaQuality=0; return; }
+
+    // Sanity: solution must be within 110° of mean bearing direction
+    let mBX=0, mBY=0;
+    for(const o of obs){ mBX+=Math.cos(o.bearing); mBY+=Math.sin(o.bearing); }
+    const meanBrg=Math.atan2(mBY,mBX);
+    const lastO=obs[obs.length-1];
+    const solDir=Math.atan2(py-lastO.fromY, px-lastO.fromX);
+    const solErr=Math.abs(((solDir-meanBrg+3*Math.PI)%(Math.PI*2))-Math.PI);
+    if(solErr>110*Math.PI/180){ c.tmaQuality=0; return; }
+
     const qBase=clamp(maxBase/TMA.goodBaseline,0,1);
     const qObs=clamp(obs.length/TMA.goodObs,0,1);
-    // Bearing-spread quality: parallel motion (bearing barely changes) gives bad geometry
-    // even with large baseline. Need ≥8° of bearing spread for full credit.
-    let maxBrgSpread=0;
+    let maxCross=0;
     for(let i=0;i<obs.length;i++)
       for(let j=i+1;j<obs.length;j++){
         const d=Math.abs(((obs[i].bearing-obs[j].bearing+3*Math.PI)%(Math.PI*2))-Math.PI);
-        if(d>maxBrgSpread) maxBrgSpread=d;
+        const cross=Math.min(d,Math.PI-d);
+        if(cross>maxCross) maxCross=cross;
       }
-    const qSpread=clamp(maxBrgSpread/(8*Math.PI/180),0,1);
-    c.tmaX=px; c.tmaY=py; c.tmaBaseline=maxBase;
-    c.tmaQuality=qBase*qObs*qSpread;
+    const qCross=clamp((maxCross-5*Math.PI/180)/((25-5)*Math.PI/180),0,1);
+
+    // Velocity: estimated from solution position history every 10s.
+    // Only when baseline is meaningful — otherwise zero (honest: we don't know).
+    const prevT=c._tmaHistT||0;
+    if(T-prevT>=10 && c._tmaHistX!=null && qBase>0.4){
+      c.tmVx=clamp((px-c._tmaHistX)/(T-prevT),-25,25);
+      c.tmVy=clamp((py-c._tmaHistY)/(T-prevT),-25,25);
+    }
+    if(T-prevT>=10 || c._tmaHistX==null){
+      c._tmaHistX=px; c._tmaHistY=py; c._tmaHistT=T;
+    }
+    if(c.tmVx==null){ c.tmVx=0; c.tmVy=0; }
+
+    c.tmaX=px; c.tmaY=py; c.tmaBaseline=maxBase; c.tmaT=T;
+
+    let q=qBase*qObs*qCross;
+    // Unresolved towed contact with no recent hull coverage — cap at DEGRADED.
+    // We may be tracking the wrong ambiguous side; don't allow SOLID on uncertain data.
+    const hullAge=T-(c.lastHullBrgT||0);
+    if(c.towedCandA && c.towedResolved===null && hullAge>30) q=Math.min(q,0.45);
+    c.tmaQuality=q;
   }
 
   function updateLastPos(c){
@@ -66,72 +115,84 @@
     }
   }
 
-  function registerBearing(e, bearing, u_brg){
+  function registerBearing(e, bearing, u_brg, source='hull'){
     const T=game.missionT||0;
     const TMA=C.tma;
     if(sonarContacts.has(e)){
       const c=sonarContacts.get(e);
       c.bearings=c.bearings.filter(b=>T-b.t<TMA.maxBearingAge);
-      // Hull array bearing is unambiguous — use it to resolve towed array ambiguity
-      if(c.towedCandA && c.towedResolved===null){
-        // Pick whichever candidate (trueBrg=A or mirrorBrg=B) is closest to this hull bearing
+
+      // Hull array resolves towed port/starboard ambiguity
+      if(source==='hull' && c.towedCandA && c.towedResolved===null){
         const lastA=c.towedCandA[c.towedCandA.length-1];
         const lastB=c.towedCandB?.[c.towedCandB.length-1];
-        if(lastA && lastB){
-          const dA=Math.abs(((lastA.bearing-bearing+3*Math.PI)%(Math.PI*2))-Math.PI);
-          const dB=Math.abs(((lastB.bearing-bearing+3*Math.PI)%(Math.PI*2))-Math.PI);
-          if(Math.min(dA,dB)<40*Math.PI/180){
-            c.towedResolved=dA<=dB?'A':'B';
-            addLog('SONAR',`${c.id} ambiguity resolved by hull array`);
+        if(lastA||lastB){
+          const angDif=(a,b)=>Math.abs(((a-b+3*Math.PI)%(Math.PI*2))-Math.PI);
+          const dA=lastA?angDif(lastA.bearing,bearing):Math.PI;
+          const dB=lastB?angDif(lastB.bearing,bearing):Math.PI;
+          const aWins=dA<30*Math.PI/180 && dB>50*Math.PI/180;
+          const bWins=dB<30*Math.PI/180 && dA>50*Math.PI/180;
+          if(aWins||bWins){
+            if(!c.towedVotes) c.towedVotes={A:0,B:0};
+            if(aWins){ c.towedVotes.A++; c.towedVotes.B=0; }
+            else     { c.towedVotes.B++; c.towedVotes.A=0; }
+            const hullActive=T-(c.lastHullBrgT||0)<5;
+            const need=hullActive?1:3;
+            if(c.towedVotes.A>=need || c.towedVotes.B>=need){
+              c.towedResolved=c.towedVotes.A>=need?'A':'B';
+              if(c.towedResolved==='B'){
+                // Were tracking wrong side — flush towed obs, inject correct side
+                c.bearings=c.bearings.filter(o=>o.source!=='towed');
+                const corrObs=(c.towedCandB||[]).filter(o=>T-o.t<TMA.maxBearingAge);
+                for(const o of corrObs) c.bearings.push({...o,source:'towed'});
+                if(c.bearings.length>TMA.maxBearings) c.bearings=c.bearings.slice(-TMA.maxBearings);
+                c._tmaHistX=null; c.tmVx=0; c.tmVy=0;
+              }
+              const relBrg=((bearing-player.heading+3*Math.PI)%(Math.PI*2))-Math.PI;
+              const sideStr=relBrg>=0?'starboard':'port';
+              addLog('SONAR',`${c.id} ambiguity resolved — contact is ${sideStr}`);
+            }
           }
         }
       }
-      // If new bearing has shifted >50° from current TMA direction, old bearings
-      // describe a different geometry — flush them so the solver starts fresh.
-      // (50° not 35° — fast close contacts have noisy bearing updates)
-      if(c.tmaX!=null && c.tmaQuality>0.15){
-        const tmaDx=c.tmaX-player.wx, tmaDy=c.tmaY-player.wy;
-        const tmaAng=Math.atan2(tmaDy,tmaDx);
-        const angDiff=Math.abs(((bearing-tmaAng+3*Math.PI)%(Math.PI*2))-Math.PI);
-        if(angDiff > 50*Math.PI/180){
-          c.bearings=[];
-          c.tmaX=null; c.tmaY=null; c.tmaQuality=0;
-          c.fixLockedUntil=0; // clear any fix lock so solver can restart
-          // Flush towed candidates too — they were built on the old (wrong) geometry
-          if(c.towedResolved){ c.towedResolved=null; }
-          if(c.towedCandA){ c.towedCandA=[]; c.towedCandB=[]; }
-          addLog('SONAR',`${c.id} — geometry reset (bearing shift ${Math.round(angDiff*180/Math.PI)}°)`);
-        }
-      }
+
       if(c.bearings.length>=TMA.maxBearings) c.bearings.shift();
-      c.bearings.push({fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T});
+      c.bearings.push({fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T,source});
       c.lastObsT=T; c.activeT=3.0;
-      c.latestBrg=bearing; c.latestHullBrg=bearing; c.lastHullBrgT=T; // hull bearing stored separately — no ambiguity
+      c.latestBrg=bearing;
+      if(source==='hull'){ c.latestHullBrg=bearing; c.lastHullBrgT=T; }
       c.latestFromX=player.wx; c.latestFromY=player.wy;
       const prevQ=c.tmaQuality??0;
-      const prevTier=prevQ<0.20?0:prevQ<0.60?1:2;
+      const prevTier=prevQ<0.35?0:prevQ<0.70?1:2;
       solveTMA(c);
-      const newTier=c.tmaQuality<0.20?0:c.tmaQuality<0.60?1:2;
+      const newTier=c.tmaQuality<0.35?0:c.tmaQuality<0.70?1:2;
       if(newTier>prevTier){
-        if(newTier===1) addLog('SONAR',`${c.id} — range solution building`);
-        if(newTier===2) addLog('SONAR',`${c.id} — solid TMA solution`);
+        if(newTier===1) addLog('SONAR',`${c.id} — solution DEGRADED`);
+        if(newTier===2) addLog('SONAR',`${c.id} — solution SOLID`);
       }
       updateLastPos(c);
     } else {
       const id=assignId();
       const newC={
         id, kind:e.type,
-        bearings:[{fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T}],
+        bearings:[{fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T,source}],
         latestBrg:bearing, latestFromX:player.wx, latestFromY:player.wy,
         tmaX:null, tmaY:null, tmaQuality:0, tmaBaseline:0,
-        lastX:0, lastY:0, lastObsT:T, activeT:3.0,
+        lastX:0, lastY:0, lastObsT:T, activeT:3.0, tmVx:0, tmVy:0,
       };
+      if(source==='hull'){ newC.latestHullBrg=bearing; newC.lastHullBrgT=T; }
       newC.lastX=(player.wx+Math.cos(bearing)*TMA.defaultRange+world.w)%world.w;
       newC.lastY=player.wy+Math.sin(bearing)*TMA.defaultRange;
+      newC._ref=e;
       sonarContacts.set(e,newC);
       const typeLabel=e.type==='boat'?'surface contact':'subsurface contact';
       const brgDeg=(((Math.atan2(Math.cos(bearing),-Math.sin(bearing))*180/Math.PI)+360)%360);
-      addLog('SONAR',`New ${typeLabel} ${id} — brg ${Math.round(brgDeg).toString().padStart(3,'0')}° passive`);
+      if(source==='hull'){
+        addLog('SONAR',`New ${typeLabel} ${id} — brg ${Math.round(brgDeg).toString().padStart(3,'0')}° passive`);
+      } else {
+        addLog('SONAR',`New ${typeLabel} ${id} — brg ${Math.round(brgDeg).toString().padStart(3,'0')}° towed (ambiguous)`);
+        addLog('SONAR',`${id}: turn 10-20° to resolve port/starboard`);
+      }
     }
   }
 
@@ -148,6 +209,7 @@
         if(shift > 400) c.bearings=[];
       }
       c.tmaX=fx; c.tmaY=fy;
+      c.tmaT=T; c.tmVx=e.vx??0; c.tmVy=e.vy??0;
       c.tmaQuality=Math.max(c.tmaQuality,0.95);
       c.tmaBaseline=Math.max(c.tmaBaseline||0,9999);
       c.fixLockedUntil=(T+8); // solveTMA cannot overwrite for 8s after a fix
@@ -166,9 +228,11 @@
         latestBrg:brg, latestHullBrg:brg, lastHullBrgT:T,
         latestFromX:player.wx, latestFromY:player.wy,
         tmaX:fx, tmaY:fy, tmaQuality:0.95, tmaBaseline:9999,
+        tmaT:T, tmVx:e.vx??0, tmVy:e.vy??0,
         fixLockedUntil:(T+8),
         lastX:fx, lastY:fy, lastObsT:T,
         activeT:source==='active'?5.0:3.0,
+        _ref:e,
       };
       sonarContacts.set(e,newC);
       const typeLabel=e.type==='boat'?'surface contact':'subsurface contact';
@@ -205,141 +269,46 @@
 
   // ── Towed array helpers ───────────────────────────────────────────────────────
   // Mirror bearing: reflect θ about the sub's heading axis
-  // A contact at bearing θ is indistinguishable from one at (2*heading - θ)
   function mirrorBearing(brg, heading){
     return (2*heading - brg + 3*Math.PI) % (Math.PI*2) - Math.PI;
   }
-
   // Is bearing inside the cone of silence? (±28° off stern axis)
   function inDeadCone(brg, heading){
     const stern = heading + Math.PI;
     const diff = Math.abs(((brg - stern + 3*Math.PI) % (Math.PI*2)) - Math.PI);
-    return diff < 0.49; // ~28°
+    return diff < 0.49;
   }
-
-  // Run TMA solver on a candidate bearing set (same math as solveTMA but standalone)
-  function solveCandidateTMA(obs){
-    if(obs.length<2) return 0;
-    let M11=0,M12=0,M22=0,b1=0,b2=0;
-    for(const o of obs){
-      const s=Math.sin(o.bearing), cs=Math.cos(o.bearing);
-      M11+=s*s; M12+=-s*cs; M22+=cs*cs;
-      const d=-s*o.fromX+cs*o.fromY;
-      b1+=d*(-s); b2+=d*cs;
-    }
-    const det=M11*M22-M12*M12;
-    if(Math.abs(det)<1e-8) return 0;
-    const px=(M22*b1-M12*b2)/det;
-    const py=(M11*b2-M12*b1)/det;
-    const last=obs[obs.length-1];
-    const fwdDot=(px-last.fromX)*Math.cos(last.bearing)+(py-last.fromY)*Math.sin(last.bearing);
-    if(fwdDot<0) return 0;  // behind observer = wrong side
-    let maxBase=0;
-    for(let i=0;i<obs.length;i++)
-      for(let j=i+1;j<obs.length;j++){
-        const bd=Math.hypot(obs[i].fromX-obs[j].fromX, obs[i].fromY-obs[j].fromY);
-        if(bd>maxBase) maxBase=bd;
-      }
-    if(maxBase<80) return 0;
-    return clamp(maxBase/400,0,1)*clamp(obs.length/8,0,1);
-  }
+  // solveCandidateTMA removed — ambiguity is ONLY resolved by hull array bearing,
+  // never automatically by comparing candidate quality scores.
 
   // Register a towed array bearing — maintains two candidate sets and auto-resolves
-  function registerTowedBearing(e, trueBrg, mirrorBrg, u_brg){
-    const T = game.missionT||0;
-    const TMA = C.tma;
+  // Register a towed array bearing.
+  // Immediately feeds the active-side bearing into the main TMA stream so geometry
+  // accumulates from the first detection — no waiting for hull array resolution.
+  // towedCandA/B are maintained for rendering (both dashed lines) only.
+  // On resolution to 'B', registerBearing flushes the wrong-side obs automatically.
+  function registerTowedBearing(e, candABrg, candBBrg, u_brg){
+    const T=game.missionT||0;
+    const TMA=C.tma;
 
-    let c = sonarContacts.get(e);
-    if(!c){
-      // Create contact if not already tracked by hull array
-      const id = assignId();
-      c = {
-        id, kind:e.type,
-        bearings:[], latestBrg:null, latestFromX:player.wx, latestFromY:player.wy,
-        tmaX:null, tmaY:null, tmaQuality:0, tmaBaseline:0,
-        lastX:0, lastY:0, lastObsT:T, activeT:0,
-        // Towed array specific
-        towedCandA:[], towedCandB:[],
-        towedResolved:null,  // null | 'A' | 'B'
-        towedQA:0, towedQB:0,
-      };
-      c.lastX = (player.wx+Math.cos(trueBrg)*TMA.defaultRange+world.w)%world.w;
-      c.lastY = player.wy+Math.sin(trueBrg)*TMA.defaultRange;
-      sonarContacts.set(e, c);
-      const typeLabel = e.type==='boat'?'surface contact':'subsurface contact';
-      const brgDeg = (((Math.atan2(Math.cos(trueBrg),-Math.sin(trueBrg))*180/Math.PI)+360)%360);
-      addLog('SONAR', `Towed array: new ${typeLabel} ${c.id} — brg ${Math.round(brgDeg).toString().padStart(3,'0')}° (ambiguous)`);
-      addLog('SONAR', `${c.id}: turn 10-20° to identify port or starboard`);
-    } else {
-      // Init towed fields if this contact was previously hull-array only
-      if(!c.towedCandA){ c.towedCandA=[]; c.towedCandB=[]; c.towedResolved=null; c.towedQA=0; c.towedQB=0; }
-    }
+    // Determine which side to feed into TMA (resolved 'B' → use candB, else candA)
+    const existingC=sonarContacts.get(e);
+    const activeBrg=(existingC?.towedResolved==='B') ? candBBrg : candABrg;
 
-    c.lastObsT = T;
-    c.activeT = Math.max(c.activeT||0, 2.5);
-    c.latestFromX = player.wx; c.latestFromY = player.wy;
+    // Push active side into main TMA stream (creates contact if new)
+    registerBearing(e, activeBrg, u_brg, 'towed');
 
-    // If hull array already has a solid fix — resolve immediately
-    if(c.tmaQuality >= 0.15 && c.tmaX != null){
-      // Determine which candidate is closer to our known position
-      const dxA = Math.cos(trueBrg), dyA = Math.sin(trueBrg);
-      const dxB = Math.cos(mirrorBrg), dyB = Math.sin(mirrorBrg);
-      const dotA = dxA*(c.tmaX-player.wx) + dyA*(c.tmaY-player.wy);
-      const dotB = dxB*(c.tmaX-player.wx) + dyB*(c.tmaY-player.wy);
-      c.towedResolved = dotA >= dotB ? 'A' : 'B';
-    }
-
-    // Add to candidate sets
-    const obsA = {fromX:player.wx, fromY:player.wy, bearing:trueBrg, u_brg, t:T};
-    const obsB = {fromX:player.wx, fromY:player.wy, bearing:mirrorBrg, u_brg, t:T};
-
-    // Cull old obs
-    c.towedCandA = c.towedCandA.filter(o=>T-o.t<120);
-    c.towedCandB = c.towedCandB.filter(o=>T-o.t<120);
+    // Update rendering candidate sets
+    const c=sonarContacts.get(e);
+    if(!c) return;
+    if(!c.towedCandA){ c.towedCandA=[]; c.towedCandB=[]; c.towedResolved=null; c.towedVotes={A:0,B:0}; }
+    c.towedCandA=c.towedCandA.filter(o=>T-o.t<TMA.maxBearingAge);
+    c.towedCandB=c.towedCandB.filter(o=>T-o.t<TMA.maxBearingAge);
     if(c.towedCandA.length>=16) c.towedCandA.shift();
     if(c.towedCandB.length>=16) c.towedCandB.shift();
-
-    if(c.towedResolved === 'A'){
-      c.towedCandA.push(obsA);
-      // Feed resolved observations into main TMA
-      registerBearing(e, trueBrg, u_brg);
-      c.latestBrg = trueBrg;
-    } else if(c.towedResolved === 'B'){
-      c.towedCandB.push(obsB);
-      registerBearing(e, mirrorBrg, u_brg);
-      c.latestBrg = mirrorBrg;
-    } else {
-      // Unresolved — maintain both candidates
-      c.towedCandA.push(obsA);
-      c.towedCandB.push(obsB);
-
-      // Auto-resolve: run TMA on each candidate, pick the better one
-      // Need baseline — only attempt if player has moved
-      if(c.towedCandA.length >= 3){
-        c.towedQA = solveCandidateTMA(c.towedCandA);
-        c.towedQB = solveCandidateTMA(c.towedCandB);
-        const gap = Math.abs(c.towedQA - c.towedQB);
-        const winner = c.towedQA > c.towedQB ? 'A' : 'B';
-        // Resolve when one candidate is clearly better than the other
-        if(gap > 0.32 && Math.max(c.towedQA, c.towedQB) > 0.18){
-          c.towedResolved = winner;
-          const resolvedBrg = winner==='A' ? trueBrg : mirrorBrg;
-          const side = resolvedBrg > 0 ? 'starboard' : 'port'; // rough
-          // More accurate: which side of heading is it?
-          const relBrg = ((resolvedBrg - player.heading + 3*Math.PI) % (Math.PI*2)) - Math.PI;
-          const sideStr = relBrg >= 0 ? 'starboard' : 'port';
-          addLog('SONAR', `${c.id} ambiguity resolved — contact is ${sideStr}`);
-        }
-      }
-      // Update latest bearing to show the unresolved state.
-      // Only overwrite if hull array hasn't given us a fresh bearing recently.
-      const hullAge=T-(c.lastHullBrgT||0);
-      if(hullAge > 5.0){
-        c.latestBrg = trueBrg;
-      }
-      c.latestBrgMirror = mirrorBrg;
-    }
-    updateLastPos(c);
+    c.towedCandA.push({fromX:player.wx,fromY:player.wy,bearing:candABrg,u_brg,t:T});
+    c.towedCandB.push({fromX:player.wx,fromY:player.wy,bearing:candBBrg,u_brg,t:T});
+    c.latestBrgMirror=candBBrg;
   }
 
   // ── Towed array passive update ──────────────────────────────────────────────
@@ -435,11 +404,21 @@
         const noisyBrg = trueBrg + rand(-1,1)*u_brg;
         const mirrorBrg = mirrorBearing(noisyBrg, heading);
 
-        // Ephemeral flash — teal colour tag for towed array
+        // Ephemeral flashes — push BOTH bearings so neither side looks stronger
+        // Only suppress mirror flash if already resolved (then only true side shows)
+        const sc=sonarContacts?.get(e);
+        const alreadyResolved=sc?.towedResolved!=null;
         contacts.push({fromX:player.wx, fromY:player.wy, bearing:noisyBrg, u_brg, life:2.5, kind:e.type, source:'towed'});
+        if(!alreadyResolved){
+          contacts.push({fromX:player.wx, fromY:player.wy, bearing:mirrorBrg, u_brg, life:2.5, kind:e.type, source:'towed'});
+        }
 
         registerTowedBearing(e, noisyBrg, mirrorBrg, u_brg);
         SENSE.setDetected(e, C.detection.detectT, 0);
+        // Sonar raw feed
+        const brgDegT=((noisyBrg*180/Math.PI)+360)%360;
+        const sigTierT=detect>0.35?2:detect>0.15?1:0;
+        addSonarLog(e,'TOWED',brgDegT,sigTierT);
       }
     }
   }
@@ -534,8 +513,12 @@
         const u_brg=clamp(noiseU/Math.max(d,100),0.02,0.30);
         const noisyBearing=trueBearing+rand(-1,1)*u_brg;
         contacts.push({fromX:player.wx,fromY:player.wy,bearing:noisyBearing,u_brg,life:2.5,kind:e.type});
-        registerBearing(e,noisyBearing,u_brg);
+        registerBearing(e,noisyBearing,u_brg,'hull');
         setDetected(e,C.detection.detectT,0);
+        // Sonar raw feed
+        const brgDeg=((noisyBearing*180/Math.PI)+360)%360;
+        const sigTier=detect>0.35?2:detect>0.15?1:0;
+        addSonarLog(e,'HULL',brgDeg,sigTier);
       }
     }
   }

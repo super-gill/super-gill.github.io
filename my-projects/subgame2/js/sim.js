@@ -45,7 +45,7 @@
     if(window.G.wrecks) window.G.wrecks.length=0;
     window.G.resetTorpIds();
     if(window.ROUTE) window.ROUTE.length=0;
-    game.score=0;game.over=false;game.msg="";game.msgT=0;game.missionT=0;game.msgLog=[];
+    game.score=0;game.over=false;game.msg="";game.msgT=0;game.missionT=0;game.msgLog=[];game.sonarLog=[];
     player.pendingFires=[];
     const spawn=window.MAPS?.getMap()?.playerSpawn||{wx:4000,wy:5000};
     player.wx=spawn.wx; player.wy=spawn.wy; player.x=spawn.wx;
@@ -115,17 +115,6 @@
     for(let i=0;i<(player.torpTubes||[]).length;i++)
       if(player.torpTubes[i]>0) player.torpTubes[i]=Math.max(0,player.torpTubes[i]-dt);
 
-    // Auto-TDC: send current intercept bearing down each live wire
-    if(player.tubeWires){
-      for(const torp of player.tubeWires){
-        if(!torp?.wire?.live) continue;
-        if(torp.wire.autoTDC && game.tdc?.intercept!=null){
-          torp.wire.cmdBrg = game.tdc.intercept;
-        }
-        // If wire has died since last frame (range/manoeuvre), run onWireCut
-        // (weapons.js calls it directly, but guard here for safety)
-      }
-    }
 
     // Returns true and consumes one tube+stock if a shot can be fired; false otherwise
     // Reserve a tube (starts reload for non-wire shots, or marks as wire-occupied).
@@ -156,6 +145,11 @@
           break;
         }
       }
+      // Wire cut — torpedo flies last commanded bearing, passive seeker searches.
+      // No reattack circle — torpedo has no knowledge of a map position, only what its seeker hears.
+      if(b && !b.target){
+        // Nothing to do — torpedo continues on current heading, seeker runs normally
+      }
     };
 
     // Tick pending fire queue — staged crew launch sequence
@@ -181,7 +175,8 @@
             // Track in tube slot — tube stays occupied until wire breaks
             if(!player.tubeWires) player.tubeWires=new Array(C.player.torpTubes||4).fill(null);
             player.tubeWires[pf.tubeIdx]=torp;
-            torp.wire.autoTDC=true;  // follow TDC updates by default
+            torp.wire.autoTDC=true;        // follow TDC updates by default
+            torp.wire.lockedTarget=pf.lockedTarget??null; // remember which entity this shot was fired at
             torp.wire.tubeIdx=pf.tubeIdx;
           } else {
             // Wire snapped at launch — start reload now
@@ -235,11 +230,9 @@
         const tmaQ=sc?.tmaQuality??1.0;
         const TMA=C.tma;
 
-        // Use TMA position only when genuinely solid geometry — below 0.65 the solver
-        // can converge on a ghost intersection (low bearing spread, parallel motion).
-        // Also verify the TMA position is actually in the same direction as the latest
-        // sonar bearing — if they disagree by more than 45° the position is stale/wrong.
-        let hasTMAPos = !ref._isTorp && sc && sc.tmaX!=null && tmaQ>=0.65;
+        // Use TMA position when quality earns SOLID tier. Below that, bearing only.
+        // hasTMAPos never falls back to real enemy position — that would be cheating.
+        let hasTMAPos=!ref._isTorp && sc && sc.tmaX!=null && tmaQ>=TMA.qualityThresholdSolid;
         if(hasTMAPos && (sc.latestHullBrg ?? sc.latestBrg) != null){
           const checkBrg = sc.latestHullBrg ?? sc.latestBrg;
           const tmaDx=sc.tmaX-player.wx, tmaDy=sc.tmaY-player.wy;
@@ -247,50 +240,64 @@
           const angDiff=Math.abs(((tmaAng-checkBrg+3*Math.PI)%(Math.PI*2))-Math.PI);
           if(angDiff>Math.PI/4) hasTMAPos=false; // >45° discrepancy — stale or wrong
         }
-        const tx = hasTMAPos ? sc.tmaX : (ref.x??ref.wx);
-        const ty = hasTMAPos ? sc.tmaY : (ref.y??ref.wy);
+        // Propagate using estimated velocity (from solver history, not enemy object)
+        let tx, ty;
+        if(hasTMAPos){
+          const age = Math.min((game.missionT||0) - (sc.tmaT||0), 45);
+          const tvx=sc.tmVx??0, tvy=sc.tmVy??0;
+          tx = sc.tmaX + tvx*age;
+          ty = sc.tmaY + tvy*age;
+        } else if(sc && sc.tmaX!=null && tmaQ>=TMA.qualityThresholdRange){
+          // DEGRADED: use snapshot position, no propagation
+          tx = sc.tmaX; ty = sc.tmaY;
+        } else {
+          // BEARING only — no position
+          tx = null; ty = null;
+        }
 
-        const dx=AI.wrapDx(player.wx,tx), dy=ty-player.wy;
-        const range=Math.hypot(dx,dy);
-        const bearingCompass=((Math.atan2(dx,-dy)*180/Math.PI)+360)%360; // proper compass: north=0, CW+
-        tdc.bearing=bearingCompass;
+        const dx= tx!=null ? AI.wrapDx(player.wx,tx) : 0;
+        const dy= ty!=null ? ty-player.wy : 0;
+        const range= tx!=null ? Math.hypot(dx,dy) : null;
+        if(tx!=null) tdc.bearing=((Math.atan2(dx,-dy)*180/Math.PI)+360)%360;
 
-        // Raw bearing: ONLY from actual sonar observations — never fall back to the
-        // TMA-derived bearing, which could be at a ghost position entirely.
-        // Prefer the hull array bearing (latestHullBrg) — it has no port/stbd ambiguity.
+        // Raw bearing from actual sonar observations only — never TMA-derived
         const bestBrg = sc ? (sc.latestHullBrg ?? sc.latestBrg) : null;
         if(sc && bestBrg!=null){
           const rb=bestBrg;
           tdc.rawBrg = ((Math.atan2(Math.cos(rb), -Math.sin(rb))*180/Math.PI)+360)%360;
         } else {
-          tdc.rawBrg = null; // no live sonar obs — non-solid shot not available
+          tdc.rawBrg = null;
         }
-        // Depth: use true depth for torps, best estimate for contacts
         tdc.depth=ref._isTorp ? (ref.depth??200) : (ref.depth??200);
         tdc.tmaQuality=tmaQ;
 
-        const hasRange=tmaQ>=TMA.qualityThresholdRange;
+        const hasRange=range!=null && tmaQ>=TMA.qualityThresholdRange;
         tdc.range=hasRange ? range : null;
 
-        const tvx=ref.vx??0, tvy=ref.vy??0;
+        // Course/speed from estimated velocity (solver history) — not real enemy velocity
+        const tvx=sc?.tmVx??0, tvy=sc?.tmVy??0;
         const tspd=Math.hypot(tvx,tvy);
-        tdc.course=hasRange&&tspd>0.1 ? ((Math.atan2(tvx,-tvy)*180/Math.PI)+360)%360 : null;
-        tdc.speed=hasRange&&tspd>0.1 ? Math.round(tspd) : null;
+        tdc.course=hasRange&&tspd>0.5 ? ((Math.atan2(tvx,-tvy)*180/Math.PI)+360)%360 : null;
+        tdc.speed=hasRange&&tspd>0.5 ? Math.round(tspd) : null;
 
-        // Intercept bearing — lead-angle when range known, direct bearing otherwise
+        // Intercept bearing — lead-angle only for SOLID with position
         const torpSpd=C.torpedo.speed;
-        let intBearing=Math.atan2(dy,dx);
-        if(hasRange && tspd>0.5){
-          let t=range/torpSpd;
-          for(let i=0;i<6;i++){
+        if(hasTMAPos && tx!=null){
+          let intBearing=Math.atan2(dy,dx);
+          if(tspd>0.5){
+            let t=range/torpSpd;
+            for(let i=0;i<6;i++){
+              const ex=tx+tvx*t, ey=ty+tvy*t;
+              const edx=AI.wrapDx(player.wx,ex), edy=ey-player.wy;
+              t=Math.hypot(edx,edy)/torpSpd;
+            }
             const ex=tx+tvx*t, ey=ty+tvy*t;
-            const edx=AI.wrapDx(player.wx,ex), edy=ey-player.wy;
-            t=Math.hypot(edx,edy)/torpSpd;
+            intBearing=Math.atan2(ey-player.wy,AI.wrapDx(player.wx,ex));
           }
-          const ex=tx+tvx*t, ey=ty+tvy*t;
-          intBearing=Math.atan2(ey-player.wy,AI.wrapDx(player.wx,ex));
+          tdc.intercept=intBearing;
+        } else {
+          tdc.intercept=null;
         }
-        tdc.intercept=intBearing;
       }
     }
 
@@ -329,17 +336,17 @@
         const tdc=game.tdc;
         if(tdc.target && !tdc.target.dead){
           const q=tdc.tmaQuality??0;
+          const TMA=C.tma;
           let bearing, confidence, depth;
-          if(q>=0.60 && tdc.intercept!=null){
-            // Solid: TMA position is reliable, use full lead-angle intercept
+          if(q>=TMA.qualityThresholdSolid && tdc.intercept!=null){
+            // SOLID: reliable position + lead-angle intercept
             bearing=tdc.intercept; confidence='solid'; depth=tdc.depth??player.depth;
-          } else if(q>=0.30 && tdc.rawBrg!=null){
-            // Degraded: TMA position not trusted — fire directly on raw observed bearing.
-            // No lead angle, but at least it points at the actual contact.
+          } else if(q>=TMA.qualityThresholdRange && tdc.rawBrg!=null){
+            // DEGRADED: bearing only — direct observed bearing, no lead angle
             const brgMath=(tdc.rawBrg-90)*Math.PI/180;
             bearing=brgMath; confidence='degraded'; depth=tdc.depth??player.depth;
           } else if(tdc.rawBrg!=null){
-            // Bearing only — too early to fire but show direction
+            // POOR: show bearing but block fire
             const brgMath=(tdc.rawBrg-90)*Math.PI/180;
             bearing=brgMath; confidence='bearingonly'; depth=player.depth;
           } else {
@@ -348,6 +355,67 @@
           game.wepsProposal=bearing!=null?{bearing,confidence,depth}:null;
         } else {
           game.wepsProposal=null;
+        }
+      }
+
+      // Auto-TDC: compute intercept for each live wire torpedo against ITS OWN locked target.
+      // Geometry is torpedo-relative — the torpedo needs a bearing FROM ITS OWN POSITION,
+      // not from the submarine which may be kilometers behind it.
+      if(player.tubeWires){
+        const torpSpd=C.torpedo.speed;
+        for(const torp of player.tubeWires){
+          if(!torp?.wire?.live) continue;
+          if(!torp.wire.autoTDC) continue;
+          const ref=torp.wire.lockedTarget;
+          if(!ref || ref.dead) continue; // target gone — hold last cmdBrg, player's call
+
+          const sc=window.G.sonarContacts?.get(ref);
+          const tmaQ=sc?.tmaQuality??0;
+          const TMA=C.tma;
+
+          // Three tiers — behaviour changes at each threshold:
+          // BEARING  (< 0.35): hold launch bearing, no updates
+          // SOLUTION (0.35-0.70): steer toward TMA snapshot, no lead angle, no propagation
+          // SOLID    (≥ 0.70): full propagated lead-angle intercept with estimated velocity
+          if(tmaQ < TMA.qualityThresholdRange) continue; // BEARING — hold, no update
+          if(!sc || sc.tmaX==null) continue; // no position yet
+
+          const solidTier=tmaQ >= TMA.qualityThresholdSolid;
+          let tx, ty;
+          if(solidTier){
+            const age=Math.min((game.missionT||0)-(sc.tmaT||0), 45);
+            tx=sc.tmaX+(sc.tmVx??0)*age;
+            ty=sc.tmaY+(sc.tmVy??0)*age;
+          } else {
+            // SOLUTION: snapshot position, no propagation
+            tx=sc.tmaX; ty=sc.tmaY;
+          }
+
+          const dx=AI.wrapDx(torp.x,tx), dy=ty-torp.y;
+          const range=Math.hypot(dx,dy);
+
+          // Passed target area — hold bearing, seeker searches autonomously
+          const torpHdg=Math.atan2(torp.vy,torp.vx);
+          const fwdDot=dx*Math.cos(torpHdg)+dy*Math.sin(torpHdg);
+          if(fwdDot < -100) continue;
+
+          let intBearing=Math.atan2(dy,dx);
+
+          // Lead angle only for SOLID tier with meaningful estimated velocity
+          if(solidTier){
+            const tvx=sc.tmVx??0, tvy=sc.tmVy??0;
+            if(Math.hypot(tvx,tvy)>0.5){
+              let t=range/torpSpd;
+              for(let k=0;k<6;k++){
+                const ex=tx+tvx*t, ey=ty+tvy*t;
+                t=Math.hypot(AI.wrapDx(torp.x,ex),ey-torp.y)/torpSpd;
+              }
+              const ex=tx+tvx*t, ey=ty+tvy*t;
+              intBearing=Math.atan2(ey-torp.y, AI.wrapDx(torp.x,ex));
+            }
+          }
+
+          torp.wire.cmdBrg=intBearing;
         }
       }
 
@@ -461,7 +529,7 @@
           addLog('CONN','Shoot — MANUAL BEARING');
           addLog('WEPS',`Tube ${tubeIdx+1} — flooding down`);
           setMsg('FIRING…',0.6);
-          player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth, wire:true});
+          player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth, wire:true, lockedTarget:game.tdc.target});
         } else {
           const why=player.torpStock<=0?'No weapons remaining':'All tubes reloading';
           setMsg(why.toUpperCase(),0.8); addLog('WEPS',why);
@@ -681,7 +749,19 @@
           if(e.navT<=0){
             e.navT=rand(C.enemy.subNavT[0], C.enemy.subNavT[1]);
             const maxPatrolTurn=Math.PI*0.33;
-            e.patrolHeading=angleNorm((e.patrolHeading??e.heading??0)+rand(-maxPatrolTurn,maxPatrolTurn));
+            // Hunters bias toward player — they're on a datum, not random-walking
+            // Pingers maintain cross-track barrier pattern
+            if(e.role==='pinger'){
+              e.patrolHeading=angleNorm((e.patrolHeading??e.heading??0)+rand(-maxPatrolTurn,maxPatrolTurn));
+            } else {
+              // Compute direction toward player, bias new heading that way
+              const tdx=AI.wrapDx(e.x,player.wx), tdy=player.wy-e.y;
+              const towardPlayer=Math.atan2(tdy,tdx);
+              const currentH=e.patrolHeading??e.heading??0;
+              // Blend: 60% toward player, 40% random drift — stays roughly convergent
+              const biased=angleNorm(towardPlayer+rand(-maxPatrolTurn,maxPatrolTurn));
+              e.patrolHeading=biased;
+            }
           }
           desiredHeading=e.patrolHeading??e.heading??0;
         }
@@ -847,7 +927,12 @@
               const off=e.r*1.25;
               const sx=e.x+(shot.isRear?-Math.cos(e.heading):Math.cos(e.heading))*off;
               const sy=e.y+(shot.isRear?-Math.sin(e.heading):Math.sin(e.heading))*off;
-              W.fireTorpedo(sx,sy,shot.dx,shot.dy,false,260,false,0,e.depth||300,ftDepth);
+              W.fireTorpedo(sx,sy,shot.dx,shot.dy,false,260,false,0,e.depth||300,ftDepth,{
+                speed:     C.enemy.subTorpSpeed??26,
+                life:      C.enemy.subTorpLife??220,
+                seekRange: C.enemy.subTorpSeekRange??400,
+                reacquireChance: C.enemy.subTorpReacquire??0.010,
+              });
               e.torpTubes[tubeIdx]=C.enemy.subReloadTime;
               if(e.torpStock!=null) e.torpStock--;
               // Launch transient — player may hear it if close enough
@@ -1007,10 +1092,11 @@
 
         if(seekerOn && (!b.target || Math.random()<C.torpedo.reacquireChance) && !b.seducedBy){
           const t=W.torpAcquire(b);
-          if(t) b.target=t;
+          if(t){ b.target=t; b.reattack=null; } // seeker locked — abort circle
         }
         // Wire guidance takes priority over seeker homing — wireUpdate handles steering
-        const wireControlled = b.wire?.live && b.wire?.cmdBrg != null;
+        // Wire guides mid-course; seeker takes over for terminal phase when it has a lock
+        const wireControlled = b.wire?.live && b.wire?.cmdBrg != null && !b.target;
         if(!wireControlled && seekerOn && b.target && b.arming<=0 && !b.seducedBy){
           // Use wx/wy for player (player.y is overridden to depth, not world-Y)
           const tx=b.target.wx??b.target.x;
@@ -1043,16 +1129,44 @@
           b.vx=Math.cos(newAng)*speed;
           b.vy=Math.sin(newAng)*speed;
         } else if(!wireControlled && !b.target && !b.seducedBy){
-          b.weaveT += dt;
-          const cur=Math.atan2(b.vy,b.vx);
-          const wob=Math.sin(b.weaveT*2.2)*C.torpedo.searchSnake*dt;
-          const newAng=cur+wob;
-          const speed=Math.hypot(b.vx,b.vy);
-          b.vx=Math.cos(newAng)*speed;
-          b.vy=Math.sin(newAng)*speed;
+          // Reattack circle (post-wire or miss) takes priority over straight snake
+          if(b.reattack){
+            const ra=b.reattack;
+            // Expand radius over time up to 600wu (~6km), then abandon
+            ra.r = Math.min(ra.r + ra.rDot*dt, 600);
+            if(ra.r >= 600){ b.reattack=null; } // give up, resume snake
+            else {
+              // Angular velocity: maintain torpedo speed on circle circumference
+              const speed=Math.hypot(b.vx,b.vy)||C.torpedo.speed;
+              const omega=speed/ra.r; // rad/s
+              ra.ang += omega*dt;
+              // Desired position on circle
+              const tx2=(ra.cx+Math.cos(ra.ang)*ra.r+world.w)%world.w;
+              const ty2=ra.cy+Math.sin(ra.ang)*ra.r;
+              const dx2=AI.wrapDx(b.x,tx2), dy2=ty2-b.y;
+              const desired=Math.atan2(dy2,dx2);
+              const cur=Math.atan2(b.vy,b.vx);
+              let dAng=angleNorm(desired-cur);
+              const maxTurn=b.turnRate*dt;
+              dAng=clamp(dAng,-maxTurn,maxTurn);
+              const newAng=cur+dAng;
+              b.vx=Math.cos(newAng)*speed;
+              b.vy=Math.sin(newAng)*speed;
+            }
+          } else {
+            // No reattack state — straight snake (initial search for unguided shots)
+            b.weaveT += dt;
+            const cur=Math.atan2(b.vy,b.vx);
+            const wob=Math.sin(b.weaveT*2.2)*C.torpedo.searchSnake*dt;
+            const newAng=cur+wob;
+            const speed=Math.hypot(b.vx,b.vy);
+            b.vx=Math.cos(newAng)*speed;
+            b.vy=Math.sin(newAng)*speed;
+          }
         }
 
-        const ns=lerp(s,C.torpedo.speed,0.08);
+        const targetSpd = b.target ? (b.speed??C.torpedo.speed) : (b.approachSpeed??C.torpedo.approachSpeed??15);
+        const ns=lerp(s, targetSpd, 0.06);
         const ang=Math.atan2(b.vy,b.vx);
         b.vx=Math.cos(ang)*ns; b.vy=Math.sin(ang)*ns;
 

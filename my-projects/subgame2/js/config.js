@@ -32,7 +32,7 @@
       cavitationDepthRef:380, cavitationKtsRef:18, cavitationSlope:0.018, cavitationSpike:0.22,
       torpCd:0.45, cmCd:4.5, pingCd:9.0, pingPulse:1.25,
       torpTubes:4, torpStock:32, torpReloadTime:28, fireDelay:1.8,
-      torpArcDeg:55, torpEnableDist:500,
+      torpArcDeg:55, torpEnableDist:300,
       torpWireMaxRange:3000,      // world units ~30km (Spearfish class runout)
       torpWireBreakTurnDeg:90,    // generous cumulative turn — wire-guided shots need to manoeuvre
       missileCd:1.4, missileRequiresShallow:true,
@@ -48,15 +48,19 @@
       minObs:           2,   // observations needed before attempting solver
       goodObs:          6,   // observations for full quality contribution
       minBaseline:     80,   // wu — minimum player movement before solver counts it
-      goodBaseline:   500,   // wu — movement for quality=1 baseline contribution
-      maxBearingAge:  600,   // game-seconds — observations older than this are dropped
+      goodBaseline:   350,   // wu — crawl(3wu/s)*150s=450wu, so full baseline achievable
+      maxBearingAge:  150,   // game-seconds — long enough for slow manoeuvres to contribute
       maxBearings:     24,   // max stored per contact
-      qualityThresholdBlob: 0.15,  // quality needed to show position blob
-      qualityThresholdLabel:0.35,  // quality for S# label at blob (not line)
-      qualityThresholdRange:0.20,  // quality to feed range to TDC
+      qualityThresholdBlob:  0.15,  // quality needed to show position blob
+      qualityThresholdLabel: 0.35,  // quality for S# label at blob (not line)
+      qualityThresholdRange: 0.35,  // SOLUTION tier floor — range fed to TDC, DEGRADED fire allowed
+      qualityThresholdSolid: 0.70,  // SOLID tier — full lead-angle intercept, wire position updates
     },
-    torpedo:{speed:28, life:210, dmg:55, seekRange:300, seekFOV:0.85, turnRate:1.55, reacquireChance:0.022, arming:0.30, searchSnake:0.18,
-             seduceFOV:0.80, seduceRange:280, seduceTime:5.0,
+    torpedo:{speed:28, approachSpeed:15, life:210, dmg:55,
+             seekRange:500, seekFOV:0.85,        // active homing — narrow cone
+             passiveFOV: 2.4,                    // passive search — ~137° half-angle, nearly omnidirectional
+             turnRate:1.55, reacquireChance:0.022, arming:0.30, searchSnake:0.18,
+             seduceFOV:2.80, seduceRange:300, seduceTime:7.0,  // noisemaker: wide pull, 7s chase
              depthRate:12,          // m/s max depth change rate
              vertWindow:120,        // m — seeker vertical acquisition window ±
              vertFuse:60,           // m — detonation vertical tolerance ±
@@ -69,7 +73,7 @@
       wolfpackDatumRange:4500,  // enemies share player datum within this radius
       fireTransientRange:1800, fireTransientSus:0.45,  // launch heard by player
 
-      susInvestigate:0.28, susEngage:0.72,
+      susInvestigate:0.18, susEngage:0.72,
       quietNoiseThreshold:0.14, susDecayBase:0.008, susDecayQuietExtra:0.012,
       contactMaxAge:12.0, contactMaxAgeQuiet:6.5,
       fireMinSus:0.55, fireMaxAge:16.0, fireMinStrength:0.40,
@@ -82,6 +86,12 @@
       subTorpReactR:1200, boatTorpReactR:400,
       subTorpArcDeg:55,
       subTubes:2, subTorpStock:6, subReloadTime:40,
+      // Enemy torpedo parameters — Soviet-era: same model, slightly behind the curve
+      subTorpSpeed:26,          // slightly slower sprint
+      subTorpApproachSpeed:13,  // slower passive approach
+      subTorpSeekRange:400,     // shorter seeker range
+      subTorpReacquire:0.010,   // less reliable reacquisition
+      subTorpLife:220,          // slightly longer run (heavier fuel load, less efficient)
       spawnMinR:500, spawnMaxR:1500,
 
       // Wave system

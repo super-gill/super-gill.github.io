@@ -43,8 +43,8 @@
 
   // launchOffset = angle between aimed bearing and sub heading (radians, 0..PI)
   // Returns true if wire snapped at launch
-  function fireTorpedo(fromX,fromY,dirX,dirY,friendly=true,enableDist=C.player.torpEnableDist,wireGuided=false,launchOffset=0,fromDepth=200,depthOrder=null){
-    const sp=C.torpedo.speed;
+  function fireTorpedo(fromX,fromY,dirX,dirY,friendly=true,enableDist=C.player.torpEnableDist,wireGuided=false,launchOffset=0,fromDepth=200,depthOrder=null,statOverrides=null){
+    const sp=(statOverrides?.speed??C.torpedo.speed);
     const d=Math.max(1e-6,Math.hypot(dirX,dirY));
     const launchAng=Math.atan2(dirY,dirX);
 
@@ -64,15 +64,20 @@
       kind:"torpedo", x:fromX, y:fromY,
       depth:fromDepth, depthOrder:runDepth, vDepth:0,
       vx:(dirX/d)*sp, vy:(dirY/d)*sp, r:6,
-      life:C.torpedo.life, friendly,
-      dmg:C.torpedo.dmg,
+      life: statOverrides?.life ?? C.torpedo.life, friendly,
+      dmg: statOverrides?.dmg  ?? C.torpedo.dmg,
       torpId: window.G.nextTorpId(),
-      seekRange:C.torpedo.seekRange, seekFOV:C.torpedo.seekFOV, turnRate:C.torpedo.turnRate,
+      seekRange:  statOverrides?.seekRange  ?? C.torpedo.seekRange,
+      seekFOV:    statOverrides?.seekFOV    ?? C.torpedo.seekFOV,
+      turnRate:   statOverrides?.turnRate   ?? C.torpedo.turnRate,
+      speed:      statOverrides?.speed      ?? C.torpedo.speed,
+      approachSpeed: statOverrides?.approachSpeed ?? C.torpedo.approachSpeed ?? 15,
       target:null, arming:C.torpedo.arming,
       enableDist, traveled:0, weaveT:rand(0,10),
       seducedBy:null, seduceT:0,
       wire: wireGuided ? {
-        live:wireLive, prevAng:launchAng, totalTurn:0, fromX, fromY,
+        live:wireLive, prevAng:launchAng, fromX, fromY,
+        cmdBrg: launchAng,  // hold launch bearing until TDC sends an update
       } : null,
     });
 
@@ -105,20 +110,8 @@
       return;
     }
 
-    // Per-frame turn delta — accumulate after arming only
-    const curAng=Math.atan2(b.vy,b.vx);
-    const frameDelta=Math.abs(angleNorm(curAng-b.wire.prevAng));
-    b.wire.prevAng=curAng;
-    if(b.arming<=0){
-      b.wire.totalTurn=(b.wire.totalTurn||0)+frameDelta;
-      if(b.wire.totalTurn > (C.player.torpWireBreakTurnDeg||90)*Math.PI/180){
-        b.wire.live=false;
-        window.G.setMsg('WIRE CUT: manoeuvre',0.8);
-        window.G.addLog('WEPS','Wire parted — manoeuvre limit');
-        window.G._onWireCut?.(b);
-        return;
-      }
-    }
+    // Per-frame prevAng tracking (used for panel heading display only)
+    b.wire.prevAng = Math.atan2(b.vy, b.vx);
 
     // Commanded bearing steering — if a cmdBrg has been set, steer torpedo toward it
     if(b.wire.cmdBrg != null){
@@ -171,20 +164,30 @@
   function torpAcquire(torp){
     const aAng=Math.atan2(torp.vy,torp.vx);
     const vertW=C.torpedo.vertWindow||120;
-    // Own-speed flow noise degrades seeker range (30kt+ starts masking returns)
-    const speedKts=Math.hypot(torp.vx,torp.vy)*1.944; // wu/s to kt approx
-    const noiseDegr=clamp((speedKts-20)/22,0,0.50);
-    const effectiveRange=torp.seekRange*(1-noiseDegr);
-    let best=null,bestScore=-1;
+    const speedKts=Math.hypot(torp.vx,torp.vy)*1.944;
+
+    // Two distinct seeker modes:
+    // PASSIVE SEARCH (no target): wide passive hydrophones, nearly omnidirectional.
+    //   Self-noise degrades range heavily — slower = much better hearing.
+    // ACTIVE HOMING (has target): narrow active sonar cone, full range, speed matters less.
+    const activeHoming = !!torp.target;
+    const fov = activeHoming
+      ? (torp.seekFOV ?? C.torpedo.seekFOV)
+      : (C.torpedo.passiveFOV ?? 2.4);           // ~137° half-angle ≈ nearly all-around
+    const noiseDegr = activeHoming
+      ? clamp((speedKts-20)/22, 0, 0.30)          // active: minor speed degradation
+      : clamp((speedKts-14)/12, 0, 0.65);          // passive: heavy — sprint speed = nearly deaf
+    const effectiveRange = (torp.seekRange ?? C.torpedo.seekRange) * (1-noiseDegr);
+
+    let best=null, bestScore=-1;
     const list=[];
     if(torp.friendly){
-      // Seeker is autonomous — no parent-sub detectedT requirement
       for(const e of enemies){
         if(e.dead) continue;
         list.push({ref:e, x:e.x, y:e.y, depth:e.depth??200, sig:e.noise});
       }
       for(const d of decoys) if(!d.friendly&&d.kind==="noisemaker")
-        list.push({ref:d, x:d.x, y:d.y, depth:torp.depth, sig:d.signature}); // decoys at torp depth
+        list.push({ref:d, x:d.x, y:d.y, depth:torp.depth, sig:d.signature});
     } else {
       list.push({ref:player, x:player.wx, y:player.wy, depth:player.depth, sig:Math.max(0.35,player.noise)});
       for(const d of decoys) if(d.friendly&&d.kind==="noisemaker")
@@ -198,11 +201,13 @@
       if(dist>effectiveRange) continue;
       const angTo=Math.atan2(dy,dx);
       const dAng=Math.abs(angleNorm(angTo-aAng));
-      if(dAng>torp.seekFOV/2) continue;
-      const centered=1-(dAng/(torp.seekFOV/2));
-      const close=1-(dist/effectiveRange);
-      const score=(c.sig*0.9+0.1)*(0.55+0.45*close)*(0.55+0.45*centered);
-      if(score>bestScore){bestScore=score;best=c.ref;}
+      if(dAng>fov) continue;
+      // Passive mode: minimum signal threshold — very quiet contacts may not register
+      if(!activeHoming && c.sig < 0.28) continue;
+      const centered = 1-(dAng/fov);
+      const close = 1-(dist/effectiveRange);
+      const score = (c.sig*0.9+0.1)*(0.55+0.45*close)*(0.30+0.70*centered);
+      if(score>bestScore){bestScore=score; best=c.ref;}
     }
     return best;
   }

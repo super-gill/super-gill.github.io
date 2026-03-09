@@ -40,24 +40,7 @@
     e.lastX = e.x; e.lastY = e.y; e.lastT = now();
   }
 
-  
-  // Clamp a desired direction into a cone around heading, allowing forward OR rear cones.
-  // Returns {dx,dy, isRear} where (dx,dy) is the clamped unit direction and isRear indicates stern shot.
-  function clampConeDual(desiredDx, desiredDy, heading, coneDeg){
-    const desAng = Math.atan2(desiredDy, desiredDx);
-    const half = (coneDeg * Math.PI/180) * 0.5;
-
-    const diffF = angleNorm(desAng - heading);
-    const diffR = angleNorm(desAng - (heading + Math.PI));
-
-    const useRear = (Math.abs(diffR) < Math.abs(diffF));
-    const diff = useRear ? diffR : diffF;
-
-    const clamped = clamp(diff, -half, half);
-    const ang = (useRear ? (heading + Math.PI) : heading) + clamped;
-    return { dx: Math.cos(ang), dy: Math.sin(ang), isRear: useRear };
-  }
-function clampTorpArc(dx,dy){
+  function clampTorpArc(dx,dy){
     const desired = Math.atan2(dy, dx);
     const half = (C.player.torpArcDeg * Math.PI/180) * 0.5;
     const diff = angleNorm(desired - (player.heading||0));
@@ -217,28 +200,10 @@ function clampTorpArc(dx,dy){
           if(d > baseRange) continue;
 
           const layer = AI.layerPenalty(player.y, e.y);
-
-          // Base acoustic signal from enemy to player
-          let signal = e.noise * layer * (1 - d/baseRange);
-
-          // Surface ships are louder/more obvious, especially when shallow/above layers
-          if(e.type==="boat"){
-            const shallow = clamp(1 - ((player.y - world.seaLevel) / 520), 0, 1); // 1 near surface
-            signal *= (1 + shallow* (C.ship.shipAudibilityNearSurface - 1));
-
-            // If ship+player are on same side of thermocline, it's easier
-            const sameSide = ((player.y < world.layerY1) === (e.hitY < world.layerY1)) ? 1 : 0;
-            if(sameSide) signal *= C.ship.shipAudibilitySameSide;
-
-            // If ship is above thermocline while player is below, still give it a noticeable boost (you asked for this)
-            if(e.hitY < world.layerY1 && player.y > world.layerY2) signal *= C.ship.shipAudibilityAboveLayer;
-          }
-
+          const signal = e.noise * layer * (1 - d/baseRange);
           const detect = signal - (player.selfMask*0.80);
 
-          // Increased probability for ships, plus overall detect scaling
-          const pBase = 0.07 + detect*0.55 + (e.type==="boat" ? 0.20 : 0.08);
-          const p = clamp(pBase, 0, 0.75);
+          const p = clamp(0.07 + detect*0.55 + (e.type==="boat" ? 0.12 : 0.08), 0, 0.65);
           if(Math.random() < p) AI.addContactBlobEnemyForPlayer(e);
         }
       }
@@ -298,12 +263,6 @@ function clampTorpArc(dx,dy){
         applyWaterPhysics(e, dt);
         e.y = clamp(e.y, world.seaLevel + 90, world.ground - 70);
 
-        // heading for firing cones (not rendered)
-        {
-          const sv = Math.hypot(e.vx, e.vy);
-          if(sv > 12) e.heading = Math.atan2(e.vy, e.vx);
-          else if(e.heading === undefined) e.heading = Math.PI; // default left-ish
-        }
         // nav
         e.navT -= dt;
         if(e.navT <= 0){
@@ -393,17 +352,11 @@ function clampTorpArc(dx,dy){
             const dx = AI.wrapDx(e.x, tx);
             const dy = ty - e.y;
             const d = Math.hypot(dx,dy);
+            if(d < 1400
             const layer = AI.layerPenalty(player.y, e.y);
             const maxD = (layer < 1) ? 1100 : 1400;
             if(d < maxD && e.contact.u < 1100 && (e.contact.strength||0) > 0.55){
-              const cone = (C.enemy.enemySubTorpArcDeg || C.player.torpArcDeg || 40);
-              const h = (e.heading !== undefined ? e.heading : Math.atan2(e.vy, e.vx));
-              const shot = clampConeDual(dx, dy, h, cone);
-              // spawn from bow or stern
-              const off = e.r * 1.25;
-              const sx = e.x + (shot.isRear ? -Math.cos(h) : Math.cos(h)) * off;
-              const sy = e.y + (shot.isRear ? -Math.sin(h) : Math.sin(h)) * off;
-              W.fireTorpedo(sx, sy, shot.dx, shot.dy, false);
+              W.fireTorpedo(e.x, e.y, dx, dy, false);
             }
           }
         }

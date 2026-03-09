@@ -121,7 +121,7 @@
     window.G.addLog('WEPS',`Tube ${tubeIdx+1} — firing on ${confLabel}`);
     window.G.setMsg('FIRING…',0.6);
     if(!player.pendingFires) player.pendingFires=[];
-    player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth:wp.depth, wire:true});
+    player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth:wp.depth, wire:true, lockedTarget:game.tdc.target});
   }
 
   function toggleTowedArray(){
