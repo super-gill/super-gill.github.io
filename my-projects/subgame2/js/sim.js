@@ -318,47 +318,6 @@
         }
       }
 
-      // Auto-TDC: compute intercept for each live wire torpedo against ITS OWN locked target.
-      // Geometry is torpedo-relative — the torpedo needs a bearing FROM ITS OWN POSITION,
-      // not from the submarine which may be kilometers behind it.
-      if(player.tubeWires){
-        const torpSpd=C.torpedo.speed;
-        for(const torp of player.tubeWires){
-          if(!torp?.wire?.live) continue;
-          if(!torp.wire.autoTDC) continue;
-          const ref=torp.wire.lockedTarget;
-          if(!ref || ref.dead) continue; // target gone — hold last cmdBrg, player's call
-
-          const sc=window.G.sonarContacts?.get(ref);
-          const tmaQ=sc?.tmaQuality??0;
-          const TMA=C.tma;
-
-          // Below DEGRADED threshold — hold launch bearing
-          if(tmaQ < TMA.qualityThresholdRange) continue;
-
-          const bestBrg=sc?.latestHullBrg ?? sc?.latestBrg;
-          if(bestBrg==null) continue;
-
-          // Convert bearing (FROM sub) to torpedo-relative bearing
-          // The wire sends a direction, not a position — always safe
-          const torpHdg=Math.atan2(torp.vy,torp.vx);
-
-          // SOLID: apply bearing-rate lead angle
-          // DEGRADED: fly directly down the latest observed bearing
-          let cmdBrg=bestBrg;
-          if(tmaQ >= TMA.qualityThresholdSolid && sc._brgRate!=null){
-            const estRange=sc._estRange??TMA.defaultRange;
-            const tof=estRange/torpSpd;
-            cmdBrg=bestBrg + (sc._brgRate??0)*tof*0.6;
-          }
-
-          // Re-express bearing as absolute math angle from torpedo's current position.
-          // The wire bearing is measured from the sub, so we use it directly as a
-          // heading command — the torpedo just steers in that direction.
-          torp.wire.cmdBrg=cmdBrg;
-        }
-      }
-
       // Aim world coords: unproject mouse through camera (centred on plot area)
       const Z=cam.zoom;
       const DPR=canvas.DPR||window.G.DPR||1;
@@ -1002,195 +961,12 @@
       }
 
       if(b.kind==="torpedo"){
-        const s=Math.hypot(b.vx,b.vy);
-        b.traveled += s*dt;
-        b.arming = Math.max(0,b.arming-dt);
-        const seekerOn = (b.traveled >= (b.enableDist||0));
-        // Dumb run — straight on launch bearing until seeker enables
-        // No steering at all; torpedo holds exact heading from fireTorpedo
-        if(!seekerOn){
-          const speed=Math.hypot(b.vx,b.vy);
-          // Maintain launch direction exactly — normalise to avoid drift
-          const ang=Math.atan2(b.vy,b.vx);
-          b.vx=Math.cos(ang)*speed;
-          b.vy=Math.sin(ang)*speed;
-        }
+        TORP.update(b, dt);
+        continue;
+      }
 
-        // Depth steering — always active, independent of seeker
-        {
-          const depthErr=(b.depthOrder??b.depth)-(b.depth??0);
-          const depthRate=C.torpedo.depthRate||12;
-          const dv=clamp(depthErr*0.8, -depthRate, depthRate);
-          b.vDepth=lerp(b.vDepth||0, dv, 0.15);
-          b.depth=clamp((b.depth||0)+b.vDepth*dt, 10, world.ground-20);
-          // When seeker is on and tracking, steer depth toward target depth
-          if(seekerOn && b.target && !b.seducedBy){
-            const tDepth=b.target.depth??200;
-            b.depthOrder=tDepth;
-          }
-        }
-
-        if(seekerOn && (!b.target || Math.random()<C.torpedo.reacquireChance) && !b.seducedBy){
-          const t=W.torpAcquire(b);
-          if(t){ b.target=t; b.reattack=null; } // seeker locked — abort circle
-        }
-        // Wire guidance takes priority over seeker homing — wireUpdate handles steering
-        // Wire guides mid-course; seeker takes over for terminal phase when it has a lock
-        const wireControlled = b.wire?.live && b.wire?.cmdBrg != null && !b.target;
-        if(!wireControlled && seekerOn && b.target && b.arming<=0 && !b.seducedBy){
-          // Use wx/wy for player (player.y is overridden to depth, not world-Y)
-          const tx=b.target.wx??b.target.x;
-          const ty=b.target.wy??b.target.y;
-          // Player uses speed+heading; enemies use vx/vy
-          let tvx=b.target.vx??0, tvy=b.target.vy??0;
-          if(b.target===player){
-            tvx=Math.cos(player.heading)*player.speed;
-            tvy=Math.sin(player.heading)*player.speed;
-          }
-          const torpSpd=Math.hypot(b.vx,b.vy)||C.torpedo.speed;
-
-          // Predicted intercept — one iteration of lead-angle solver
-          // (fast approximation: enough for homing, avoids pure pursuit overshoot)
-          let pdx=AI.wrapDx(b.x,tx), pdy=ty-b.y;
-          const dist=Math.hypot(pdx,pdy);
-          if(dist>1e-4){
-            const tof=dist/torpSpd;
-            const ex=tx+tvx*tof, ey=ty+tvy*tof;
-            pdx=AI.wrapDx(b.x,ex); pdy=ey-b.y;
-          }
-
-          const desired=Math.atan2(pdy,pdx);
-          const cur=Math.atan2(b.vy,b.vx);
-          let dAng=angleNorm(desired-cur);
-          const maxTurn=b.turnRate*dt;
-          dAng=clamp(dAng,-maxTurn,maxTurn);
-          const newAng=cur+dAng;
-          const speed=Math.hypot(b.vx,b.vy);
-          b.vx=Math.cos(newAng)*speed;
-          b.vy=Math.sin(newAng)*speed;
-        } else if(!wireControlled && !b.target && !b.seducedBy){
-          // Reattack circle (post-wire or miss) takes priority over straight snake
-          if(b.reattack){
-            const ra=b.reattack;
-            // Expand radius over time up to 600wu (~6km), then abandon
-            ra.r = Math.min(ra.r + ra.rDot*dt, 600);
-            if(ra.r >= 600){ b.reattack=null; } // give up, resume snake
-            else {
-              // Angular velocity: maintain torpedo speed on circle circumference
-              const speed=Math.hypot(b.vx,b.vy)||C.torpedo.speed;
-              const omega=speed/ra.r; // rad/s
-              ra.ang += omega*dt;
-              // Desired position on circle
-              const tx2=(ra.cx+Math.cos(ra.ang)*ra.r+world.w)%world.w;
-              const ty2=ra.cy+Math.sin(ra.ang)*ra.r;
-              const dx2=AI.wrapDx(b.x,tx2), dy2=ty2-b.y;
-              const desired=Math.atan2(dy2,dx2);
-              const cur=Math.atan2(b.vy,b.vx);
-              let dAng=angleNorm(desired-cur);
-              const maxTurn=b.turnRate*dt;
-              dAng=clamp(dAng,-maxTurn,maxTurn);
-              const newAng=cur+dAng;
-              b.vx=Math.cos(newAng)*speed;
-              b.vy=Math.sin(newAng)*speed;
-            }
-          } else {
-            // No reattack state — straight snake (initial search for unguided shots)
-            b.weaveT += dt;
-            const cur=Math.atan2(b.vy,b.vx);
-            const wob=Math.sin(b.weaveT*2.2)*C.torpedo.searchSnake*dt;
-            const newAng=cur+wob;
-            const speed=Math.hypot(b.vx,b.vy);
-            b.vx=Math.cos(newAng)*speed;
-            b.vy=Math.sin(newAng)*speed;
-          }
-        }
-
-        const targetSpd = b.target ? (b.speed??C.torpedo.speed) : (b.approachSpeed??C.torpedo.approachSpeed??15);
-        const ns=lerp(s, targetSpd, 0.06);
-        const ang=Math.atan2(b.vy,b.vx);
-        b.vx=Math.cos(ang)*ns; b.vy=Math.sin(ang)*ns;
-
-        b.x=(b.x+b.vx*dt+world.w)%world.w;
-        b.y=(b.y+b.vy*dt+world.h)%world.h;
-
-        // 3D collision — horizontal proximity + vertical fuse window
-        const vertFuse=C.torpedo.vertFuse||60;
-        if(b.life>0 && b.arming<=0){
-          if(b.friendly){
-            for(const e of enemies){
-              const dx=AI.wrapDx(b.x,e.x);
-              const dy=e.y-b.y;
-              const dz=Math.abs((b.depth??0)-(e.depth??200));
-              if(dz>vertFuse) continue;
-              if(Math.hypot(dx,dy)<(e.hitR||e.r)+b.r){damageEnemy(e,b.dmg); b.life=0; break;}
-            }
-          } else {
-            const dx=AI.wrapDx(b.x,player.wx);
-            const dy=player.wy-b.y;
-            const dz=Math.abs((b.depth??0)-player.depth);
-            if(dz<vertFuse && Math.hypot(dx,dy)<C.player.hitR+b.r){damagePlayer(24, b.x, b.y); b.life=0;}
-          }
-        }
-
-        // Torpedo CM seduction — if a decoy enters seeker cone, torpedo chases it
-        // On seduction expiry or decoy death, torpedo breaks off and re-acquires
-        if(b.life>0 && seekerOn){
-          // Tick seduction timer
-          if(b.seducedBy){
-            b.seduceT=(b.seduceT||0)-dt;
-            const decoyAlive=decoys.includes(b.seducedBy) && b.seducedBy.life>0;
-            if(b.seduceT<=0 || !decoyAlive){
-              // Break seduction — store last known target position and re-acquire
-              b.seduceBreakX=b.seducedBy.x; b.seduceBreakY=b.seducedBy.y;
-              b.seducedBy=null; b.target=null;
-              // Snake outward from decoy position to find original target
-              b.weaveT=0;
-            }
-          }
-          // Check for new seduction if not already seduced
-          if(!b.seducedBy){
-            const SC=C.torpedo; const seduceR=SC.seduceRange||280;
-            const sedFOV=SC.seduceFOV||0.80;
-            const torpAng=Math.atan2(b.vy,b.vx);
-            for(const d of decoys){
-              if(d.kind!=="noisemaker") continue;
-              if(b.friendly && d.friendly) continue;
-              if(!b.friendly && !d.friendly) continue;
-              if(d.life<=0) continue;
-              const dx=AI.wrapDx(b.x,d.x);
-              const dy=d.y-b.y;
-              const dd=Math.hypot(dx,dy);
-              if(dd>seduceR) continue;
-              const angTo=Math.atan2(dy,dx);
-              if(Math.abs(angleNorm(angTo-torpAng))>sedFOV/2) continue;
-              // Seduced — chase decoy for seduceTime seconds
-              b.seducedBy=d; b.seduceT=SC.seduceTime||5.0;
-              b.target=null;
-              if(b.friendly){
-                setMsg("TORP: SEDUCED BY NOISEMAKER",1.0);
-                addLog('WEPS',`${b.torpId} seduced — chasing decoy`);
-              }
-              break;
-            }
-          }
-          // Steer toward decoy if seduced
-          if(b.seducedBy && b.seducedBy.life>0){
-            const dx=AI.wrapDx(b.x,b.seducedBy.x);
-            const dy=b.seducedBy.y-b.y;
-            const desired=Math.atan2(dy,dx);
-            const cur=Math.atan2(b.vy,b.vx);
-            let dAng=angleNorm(desired-cur);
-            const maxTurn=b.turnRate*dt;
-            dAng=clamp(dAng,-maxTurn,maxTurn);
-            const newAng=cur+dAng;
-            const speed=Math.hypot(b.vx,b.vy);
-            b.vx=Math.cos(newAng)*speed; b.vy=Math.sin(newAng)*speed;
-          }
-        }
-
-        // CWIS intercept — surface ships shoot down incoming missiles only.
-        // Torpedoes are handled by noisemaker decoys (see boat torpedo reaction above).
-        if(b.kind==="missile" && b.life>0 && b.friendly){
+      // CWIS intercept — surface ships shoot down incoming missiles only.
+      if(b.kind==="missile" && b.life>0 && b.friendly){
           for(const e of enemies){
             if(e.type!=="boat" || !e.cwis) continue;
             const dx=AI.wrapDx(b.x,e.x);
@@ -1225,7 +1001,6 @@
             }
           }
         }
-      }
 
       // missiles not implemented in this minimal build (kept in config); safe to leave bullets list without them
       // If you want missiles now, we can port them from v4 with the new movement model.
@@ -1268,4 +1043,6 @@
   }
 
   window.SIM={update,reset};
+  window.G.damageEnemy=damageEnemy;
+  window.G.damagePlayer=damagePlayer;
 })()

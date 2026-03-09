@@ -92,14 +92,17 @@
     return wireSnappedAtLaunch;
   }
 
-  // Wire update — called each frame on live wired torpedoes
+  // Wire update — called each frame on live wired torpedoes.
+  // The wire's only job: compute bearing from torpedo to estimated target position,
+  // write it to torp.targetBrg. Torpedo.js does all the steering.
+  // Does NOT steer when torpedo has a seeker lock — seeker owns targetBrg then.
   function wireUpdate(b, dt){
     if(!b.wire||!b.wire.live) return;
-    const {wireContacts,world:w}=window.G;
+    const {world:w, player, sonarContacts}=window.G;
 
-    // Range check — measure from SUB not launch point (sub moves)
+    // Range check — cut wire if torpedo is too far from sub
     let dx=b.x-player.wx; if(dx>w.w/2)dx-=w.w; if(dx<-w.w/2)dx+=w.w;
-    let dy=b.y-player.wy; if(dy>w.h/2)dy-=w.h; if(dy<-w.h/2)dy+=w.h;
+    let dy=b.y-player.wy;
     const wirePaidOut=Math.hypot(dx,dy);
     b.wire.paidOut=wirePaidOut;
     if(wirePaidOut>C.player.torpWireMaxRange){
@@ -110,31 +113,43 @@
       return;
     }
 
-    // Per-frame prevAng tracking (used for panel heading display only)
-    b.wire.prevAng = Math.atan2(b.vy, b.vx);
+    b.wire.prevAng=Math.atan2(b.vy,b.vx);
 
-    // Commanded bearing steering — if a cmdBrg has been set, steer torpedo toward it
-    if(b.wire.cmdBrg != null){
-      const desired = b.wire.cmdBrg;
-      const cur = Math.atan2(b.vy, b.vx);
-      let dAng = angleNorm(desired - cur);
-      const maxTurn = b.turnRate * dt;
-      dAng = clamp(dAng, -maxTurn, maxTurn);
-      const newAng = cur + dAng;
-      const speed = Math.hypot(b.vx, b.vy);
-      b.vx = Math.cos(newAng) * speed;
-      b.vy = Math.sin(newAng) * speed;
+    // If seeker has a lock, wire yields — torpedo.js is already homing
+    if(b.target || b.seducedBy) return;
+
+    // Compute bearing from torpedo to estimated target position.
+    // We know: bearing from sub to target (latestBrg), estimated range (_estRange).
+    // Project that point, then compute torpedo→point bearing.
+    const ref=b.wire.lockedTarget;
+    if(ref){
+      const sc=sonarContacts?.get(ref);
+      const bestBrg=sc?.latestHullBrg ?? sc?.latestBrg;
+      if(bestBrg!=null){
+        const estRange=sc?._estRange ?? C.tma.defaultRange;
+        // Point along sub's observed bearing at estimated range
+        const estTx=(player.wx + Math.cos(bestBrg)*estRange + w.w)%w.w;
+        const estTy= player.wy + Math.sin(bestBrg)*estRange;
+        // Bearing from torpedo to that point
+        const tdx=AI.wrapDx(b.x, estTx);
+        const tdy=estTy - b.y;
+        b.targetBrg=Math.atan2(tdy, tdx);
+      }
+    } else if(b.wire.cmdBrg!=null){
+      // Fallback: use baked-in launch bearing (no designated target)
+      b.targetBrg=b.wire.cmdBrg;
     }
 
-    // Sensor sweep — feed back to player via wireContacts
+    // Sensor sweep — feed contacts back to player via wireContacts
     const wireRange=C.torpedo.seekRange*1.4;
     for(const e of enemies){
+      if(e.dead) continue;
       let edx=AI.wrapDx(b.x,e.x);
       let edy=e.y-b.y;
       const dist=Math.hypot(edx,edy);
       if(dist>wireRange) continue;
       const u=60+dist*0.08;
-      wireContacts.push({
+      window.G.wireContacts.push({
         x:(e.x+rand(-u,u)+w.w)%w.w,
         y:(e.y+rand(-u,u)+w.h)%w.h,
         u, life:1.8, kind:e.type,
@@ -164,19 +179,21 @@
   function torpAcquire(torp){
     const aAng=Math.atan2(torp.vy,torp.vx);
     const vertW=C.torpedo.vertWindow||120;
-    const speedKts=Math.hypot(torp.vx,torp.vy)*1.944;
+    const spd=Math.hypot(torp.vx,torp.vy); // wu/s
 
     // Two distinct seeker modes:
     // PASSIVE SEARCH (no target): wide passive hydrophones, nearly omnidirectional.
-    //   Self-noise degrades range heavily — slower = much better hearing.
+    //   Self-noise degrades range — calibrated in wu/s (approachSpeed≈15, sprintSpeed≈28)
+    //   At approach speed (15 wu/s): ~5% degradation — torpedo can hear well
+    //   At sprint speed (28 wu/s): ~60% degradation — nearly deaf passively
     // ACTIVE HOMING (has target): narrow active sonar cone, full range, speed matters less.
     const activeHoming = !!torp.target;
     const fov = activeHoming
       ? (torp.seekFOV ?? C.torpedo.seekFOV)
-      : (C.torpedo.passiveFOV ?? 2.4);           // ~137° half-angle ≈ nearly all-around
+      : (C.torpedo.passiveFOV ?? 2.4);
     const noiseDegr = activeHoming
-      ? clamp((speedKts-20)/22, 0, 0.30)          // active: minor speed degradation
-      : clamp((speedKts-14)/12, 0, 0.65);          // passive: heavy — sprint speed = nearly deaf
+      ? clamp((spd-22)/12, 0, 0.25)           // active: minor degradation above 22 wu/s
+      : clamp((spd-16)/14, 0, 0.60);           // passive: 0 at 16wu/s, max 60% at 30wu/s
     const effectiveRange = (torp.seekRange ?? C.torpedo.seekRange) * (1-noiseDegr);
 
     let best=null, bestScore=-1;
