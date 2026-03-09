@@ -1655,11 +1655,6 @@
           ctx.textAlign='left';
           const qStr=q>=0.6?'SOLID':q>=0.2?'BUILDING':'BEARING ONLY';
           ctx.fillText(qStr, barX+2*DPR, ry-3*DPR);
-          if(baselineM>0 && barColW>50*DPR){
-            ctx.font=`${5*DPR}px ui-rounded,system-ui,Arial`;
-            ctx.fillStyle=`rgba(17,24,39,${rowAlpha*0.40})`;
-            ctx.fillText(`${(baselineM/100).toFixed(1)}km base`, barX+2*DPR, ry+3.5*DPR);
-          }
           ctx.fillStyle=`rgba(17,24,39,${rowAlpha*0.70})`;
           ctx.font=`${9*DPR}px ui-monospace,monospace`;
           ctx.textAlign='right';
