@@ -25,34 +25,14 @@
   let _nextId=1;
   function assignId(){ return 'S'+(_nextId++); }
 
-  // ── TMA solver ─────────────────────────────────────────────────────────────────
-  // Weighted least-squares — weight = 1/u_brg² so tight hull bearings dominate
-  // wide towed bearings. Velocity estimated from consecutive solutions; never
-  // cheated by reading the enemy's actual vx/vy.
+  // ── TMA quality solver ──────────────────────────────────────────────────────
+  // Computes a quality score from bearing geometry. No position stored.
+  // Quality drives TDC tier display and wire behaviour — bearing is the only output.
   function solveTMA(c){
     const TMA=C.tma;
     const T=game.missionT||0;
-    if(c.fixLockedUntil && T < c.fixLockedUntil) return;
     const obs=c.bearings;
-    if(obs.length < TMA.minObs){ c.tmaQuality=0; c.tmaX=null; c.tmaY=null; return; }
-
-    let M11=0, M12=0, M22=0, b1=0, b2=0;
-    for(const o of obs){
-      const w=1/Math.max((o.u_brg||0.10)*(o.u_brg||0.10), 0.0004);
-      const s=Math.sin(o.bearing), cs=Math.cos(o.bearing);
-      M11+=w*s*s; M12+=w*(-s*cs); M22+=w*cs*cs;
-      const d=-s*o.fromX+cs*o.fromY;
-      b1+=w*d*(-s); b2+=w*d*cs;
-    }
-    const det=M11*M22-M12*M12;
-    if(Math.abs(det)<1e-8){ c.tmaQuality=0; return; }
-    const px=(M22*b1-M12*b2)/det;
-    const py=(M11*b2-M12*b1)/det;
-
-    for(const o of obs){
-      const dot=(px-o.fromX)*Math.cos(o.bearing)+(py-o.fromY)*Math.sin(o.bearing);
-      if(dot<-100){ c.tmaQuality=0; return; }
-    }
+    if(obs.length < TMA.minObs){ c.tmaQuality=0; return; }
 
     let maxBase=0;
     for(let i=0;i<obs.length;i++)
@@ -61,15 +41,6 @@
         if(bd>maxBase) maxBase=bd;
       }
     if(maxBase<TMA.minBaseline){ c.tmaQuality=0; return; }
-
-    // Sanity: solution must be within 110° of mean bearing direction
-    let mBX=0, mBY=0;
-    for(const o of obs){ mBX+=Math.cos(o.bearing); mBY+=Math.sin(o.bearing); }
-    const meanBrg=Math.atan2(mBY,mBX);
-    const lastO=obs[obs.length-1];
-    const solDir=Math.atan2(py-lastO.fromY, px-lastO.fromX);
-    const solErr=Math.abs(((solDir-meanBrg+3*Math.PI)%(Math.PI*2))-Math.PI);
-    if(solErr>110*Math.PI/180){ c.tmaQuality=0; return; }
 
     const qBase=clamp(maxBase/TMA.goodBaseline,0,1);
     const qObs=clamp(obs.length/TMA.goodObs,0,1);
@@ -82,38 +53,13 @@
       }
     const qCross=clamp((maxCross-5*Math.PI/180)/((25-5)*Math.PI/180),0,1);
 
-    // Velocity: estimated from solution position history every 10s.
-    // Only when baseline is meaningful — otherwise zero (honest: we don't know).
-    const prevT=c._tmaHistT||0;
-    if(T-prevT>=10 && c._tmaHistX!=null && qBase>0.4){
-      c.tmVx=clamp((px-c._tmaHistX)/(T-prevT),-25,25);
-      c.tmVy=clamp((py-c._tmaHistY)/(T-prevT),-25,25);
-    }
-    if(T-prevT>=10 || c._tmaHistX==null){
-      c._tmaHistX=px; c._tmaHistY=py; c._tmaHistT=T;
-    }
-    if(c.tmVx==null){ c.tmVx=0; c.tmVy=0; }
-
-    c.tmaX=px; c.tmaY=py; c.tmaBaseline=maxBase; c.tmaT=T;
-
     let q=qBase*qObs*qCross;
-    // Unresolved towed contact with no recent hull coverage — cap at DEGRADED.
-    // We may be tracking the wrong ambiguous side; don't allow SOLID on uncertain data.
+    // Unresolved towed ambiguity with no recent hull coverage — cap at DEGRADED
     const hullAge=T-(c.lastHullBrgT||0);
     if(c.towedCandA && c.towedResolved===null && hullAge>30) q=Math.min(q,0.45);
     c.tmaQuality=q;
   }
 
-  function updateLastPos(c){
-    const TMA=C.tma;
-    if(c.tmaQuality>=TMA.qualityThresholdBlob && c.tmaX!=null){
-      c.lastX=c.tmaX; c.lastY=c.tmaY;
-    } else if(c.bearings.length>0){
-      const last=c.bearings[c.bearings.length-1];
-      c.lastX=(last.fromX+Math.cos(last.bearing)*TMA.defaultRange+world.w)%world.w;
-      c.lastY=last.fromY+Math.sin(last.bearing)*TMA.defaultRange;
-    }
-  }
 
   function registerBearing(e, bearing, u_brg, source='hull'){
     const T=game.missionT||0;
@@ -146,7 +92,6 @@
                 const corrObs=(c.towedCandB||[]).filter(o=>T-o.t<TMA.maxBearingAge);
                 for(const o of corrObs) c.bearings.push({...o,source:'towed'});
                 if(c.bearings.length>TMA.maxBearings) c.bearings=c.bearings.slice(-TMA.maxBearings);
-                c._tmaHistX=null; c.tmVx=0; c.tmVy=0;
               }
               const relBrg=((bearing-player.heading+3*Math.PI)%(Math.PI*2))-Math.PI;
               const sideStr=relBrg>=0?'starboard':'port';
@@ -162,6 +107,27 @@
       c.latestBrg=bearing;
       if(source==='hull'){ c.latestHullBrg=bearing; c.lastHullBrgT=T; }
       c.latestFromX=player.wx; c.latestFromY=player.wy;
+
+      // Bearing rate: smooth derivative from last two hull bearings
+      // Used for lead-angle at SOLID tier (only source of target motion estimate)
+      if(source==='hull' && c._prevHullBrg!=null && c._prevHullBrgT!=null){
+        const dt2=T-c._prevHullBrgT;
+        if(dt2>0.5 && dt2<30){
+          const dBrg=((bearing-c._prevHullBrg+3*Math.PI)%(Math.PI*2))-Math.PI;
+          const rawRate=dBrg/dt2;
+          c._brgRate=c._brgRate!=null ? c._brgRate*0.7+rawRate*0.3 : rawRate;
+        }
+      }
+      if(source==='hull'){ c._prevHullBrg=bearing; c._prevHullBrgT=T; }
+
+      // Estimated range from bearing-rate and own-speed (CBDR approximation)
+      // rangeEst = ownSpeed / bearingRate when bearing rate is meaningful
+      if(c._brgRate!=null && Math.abs(c._brgRate)>0.001){
+        const ownSpd=Math.hypot(player.vx??0, player.vy??0)||0.5;
+        const estR=Math.abs(ownSpd/c._brgRate);
+        c._estRange=clamp(estR, 200, 8000);
+      }
+
       const prevQ=c.tmaQuality??0;
       const prevTier=prevQ<0.35?0:prevQ<0.70?1:2;
       solveTMA(c);
@@ -170,19 +136,16 @@
         if(newTier===1) addLog('SONAR',`${c.id} — solution DEGRADED`);
         if(newTier===2) addLog('SONAR',`${c.id} — solution SOLID`);
       }
-      updateLastPos(c);
     } else {
       const id=assignId();
       const newC={
         id, kind:e.type,
         bearings:[{fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T,source}],
         latestBrg:bearing, latestFromX:player.wx, latestFromY:player.wy,
-        tmaX:null, tmaY:null, tmaQuality:0, tmaBaseline:0,
-        lastX:0, lastY:0, lastObsT:T, activeT:3.0, tmVx:0, tmVy:0,
+        tmaQuality:0,
+        lastObsT:T, activeT:3.0,
       };
       if(source==='hull'){ newC.latestHullBrg=bearing; newC.lastHullBrgT=T; }
-      newC.lastX=(player.wx+Math.cos(bearing)*TMA.defaultRange+world.w)%world.w;
-      newC.lastY=player.wy+Math.sin(bearing)*TMA.defaultRange;
       newC._ref=e;
       sonarContacts.set(e,newC);
       const typeLabel=e.type==='boat'?'surface contact':'subsurface contact';
@@ -196,67 +159,31 @@
     }
   }
 
+  // Active ping or proximity — very tight bearing, boosts quality to SOLID directly.
+  // No position stored anywhere — bearing only, always.
   function registerFix(e, fx, fy, u, source){
-    const TMA=C.tma; const T=game.missionT||0;
-    const brg=Math.atan2(fy-player.wy,AI.wrapDx(player.wx,fx));
-    const dist=Math.hypot(AI.wrapDx(player.wx,fx),fy-player.wy);
-    const u_brg=clamp(u/Math.max(dist,50),0.02,0.15);
-    if(sonarContacts.has(e)){
-      const c=sonarContacts.get(e);
-      // If the fix is far from the old TMA position, flush stale bearings
-      if(c.tmaX!=null){
-        const shift=Math.hypot(fx-c.tmaX, fy-c.tmaY);
-        if(shift > 400) c.bearings=[];
-      }
-      c.tmaX=fx; c.tmaY=fy;
-      c.tmaT=T; c.tmVx=e.vx??0; c.tmVy=e.vy??0;
-      c.tmaQuality=Math.max(c.tmaQuality,0.95);
-      c.tmaBaseline=Math.max(c.tmaBaseline||0,9999);
-      c.fixLockedUntil=(T+8); // solveTMA cannot overwrite for 8s after a fix
-      c.lastX=fx; c.lastY=fy; c.lastObsT=T;
-      c.activeT=source==='active'?5.0:3.0;
-      c.latestBrg=brg; c.latestHullBrg=brg; c.lastHullBrgT=T;
-      c.latestFromX=player.wx; c.latestFromY=player.wy;
-      c.bearings=c.bearings||[];
-      c.bearings.push({fromX:player.wx,fromY:player.wy,bearing:brg,u_brg,t:T});
-      if(c.bearings.length>TMA.maxBearings) c.bearings.shift();
-    } else {
-      const id=assignId();
-      const newC={
-        id, kind:e.type,
-        bearings:[{fromX:player.wx,fromY:player.wy,bearing:brg,u_brg,t:T}],
-        latestBrg:brg, latestHullBrg:brg, lastHullBrgT:T,
-        latestFromX:player.wx, latestFromY:player.wy,
-        tmaX:fx, tmaY:fy, tmaQuality:0.95, tmaBaseline:9999,
-        tmaT:T, tmVx:e.vx??0, tmVy:e.vy??0,
-        fixLockedUntil:(T+8),
-        lastX:fx, lastY:fy, lastObsT:T,
-        activeT:source==='active'?5.0:3.0,
-        _ref:e,
-      };
-      sonarContacts.set(e,newC);
-      const typeLabel=e.type==='boat'?'surface contact':'subsurface contact';
-      // Use compass bearing conversion (consistent with registerBearing log)
-      const brgDeg=(((Math.atan2(Math.cos(brg),-Math.sin(brg))*180/Math.PI)+360)%360);
-      const srcLabel=source==='active'?'active sonar':'close aboard';
-      addLog('SONAR',`New ${typeLabel} ${id} — brg ${Math.round(brgDeg).toString().padStart(3,'0')}° ${srcLabel} (fix)`);
-    }
+    const brg=Math.atan2(fy-player.wy, AI.wrapDx(player.wx,fx));
+    const dist=Math.hypot(AI.wrapDx(player.wx,fx), fy-player.wy);
+    const u_brg=clamp(u/Math.max(dist,50), 0.01, 0.05);
+    registerBearing(e, brg, u_brg, 'hull');
+    const c=sonarContacts.get(e);
+    if(c){ c.tmaQuality=Math.max(c.tmaQuality, 0.90); c.activeT=source==='active'?5.0:3.0; }
   }
+
 
   function clearContact(e){ sonarContacts.delete(e); }
 
   // Contacts persist for living enemies — never deleted, quality decays when stale
   function tickContacts(dt){
     const T=game.missionT||0;
-    const STALE_GRACE=12;   // seconds of no obs before decay starts
-    const DECAY_RATE=0.018; // quality/second — stale fix decays to zero in ~55s
+    const STALE_GRACE=12;
+    const DECAY_RATE=0.018;
     for(const [e,c] of sonarContacts){
       c.activeT=Math.max(0,(c.activeT||0)-dt);
-      if(e.dead) continue; // dead contacts kept as-is until reset
+      if(e.dead) continue;
       const timeSinceObs=T-(c.lastObsT||0);
       if(timeSinceObs>STALE_GRACE && c.tmaQuality>0){
         c.tmaQuality=Math.max(0,c.tmaQuality-DECAY_RATE*dt);
-        if(c.tmaQuality<=0){ c.tmaX=null; c.tmaY=null; c.tmaBaseline=0; }
       }
     }
   }

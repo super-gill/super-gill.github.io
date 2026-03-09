@@ -1599,7 +1599,6 @@
       const latestBrg=sc?.latestBrg??null;
       const age=sc ? cqNow-sc.lastT : 0;
       const fresh=(sc?.activeT??0)>0;
-      const baselineM=sc?.tmaBaseline??0;
       const isDead=entry.isDead===true;
       // Highlight row if designated
       if(isDesignated){
@@ -1858,10 +1857,7 @@
         const alpha=Math.max(0.18, 0.80 - Math.min(1,staleSecs/120)*0.62);
         const age=t2-c.lastT; // wall-clock for staleness label
         const q=c.tmaQuality??0;
-        // Only draw blob when we have a real range estimate — below this threshold we
-        // only have a bearing, and planting a dot at defaultRange misleads the player.
-        let hasPos=q>=(TMA_CFG.qualityThresholdRange??0.20) && c.tmaX!=null;
-        const goodLabel=q>=(TMA_CFG.qualityThresholdLabel??0.35);
+        // ── Quality tick on bearing line shown below ─────────────────────────
 
         // ── Past bearing lines — ghosted history ──────────────────────────
         const obs=c.bearings||[];
@@ -1916,62 +1912,7 @@
           }
         }
 
-        // ── TMA position blob — sanity check before drawing ─────────────────
-        // Propagate position forward using velocity snapshotted at solve time
-        let blobX=c.tmaX, blobY=c.tmaY;
-        if(c.tmaX!=null && c.tmaT!=null){
-          const age=Math.min((window.G.game?.missionT||0)-c.tmaT, 60);
-          blobX = c.tmaX + (c.tmVx||0)*age;
-          blobY = c.tmaY + (c.tmVy||0)*age;
-        }
-        // If the solved TMA position is behind the player relative to the latest
-        // bearing, it landed on the mirror side. Suppress it rather than mislead.
-        if(hasPos && c.latestBrg!=null){
-          const blobDx=blobX-player.wx, blobDy=blobY-player.wy;
-          const dot=blobDx*Math.cos(c.latestBrg)+blobDy*Math.sin(c.latestBrg);
-          if(dot<-100) hasPos=false; // wrong side
-        }
-        // ── TMA position blob ─────────────────────────────────────────────────
-        if(hasPos){
-          const [bx,by]=w2s(blobX, blobY);
-          if(bx>-80 && bx<plotW+80){
-            // Uncertainty radius shrinks as quality improves
-            const uncertWU=TMA_CFG.defaultRange*(1-clamp(q,0,1))*0.5+30;
-            const uR=wScale(uncertWU);
-
-            // Fuzzy halo
-            ctx.strokeStyle=`rgba(17,24,39,${alpha*clamp(q,0,1)*0.25})`;
-            ctx.lineWidth=1;
-            ctx.setLineDash([2,4]);
-            ctx.beginPath(); ctx.arc(bx,by,uR,0,Math.PI*2); ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Central symbol — solid dot, size grows with quality
-            const dotR=clamp(q*5+1.5, 2, 5.5);
-            ctx.fillStyle=`rgba(17,24,39,${alpha})`;
-            ctx.beginPath(); ctx.arc(bx,by,dotR,0,Math.PI*2); ctx.fill();
-
-            // Kind symbol
-            doodleText(c.kind==='boat'?'▲':'●', bx+6*DPR, by+5*DPR, 7*DPR, 'left');
-
-            // Label — only when good enough quality
-            if(goodLabel){
-              ctx.fillStyle=`rgba(17,24,39,${alpha})`;
-              doodleText(c.id, bx+6*DPR, by-5*DPR, 9*DPR, 'left');
-              // Quality indicator (dots: 1-3)
-              const qDots=q>=0.8?'●●●':q>=0.5?'●●○':'●○○';
-              ctx.fillStyle=`rgba(17,24,39,${alpha*0.5})`;
-              doodleText(qDots, bx+6*DPR, by-14*DPR, 6*DPR, 'left');
-            }
-
-            // Staleness clock
-            if(age>4){
-              const mins=Math.floor(age/60), secs=Math.floor(age%60);
-              ctx.fillStyle=`rgba(17,24,39,${alpha*0.55})`;
-              doodleText(`${mins}:${secs.toString().padStart(2,'0')}`, bx+6*DPR, by+14*DPR, 7*DPR, 'left');
-            }
-          }
-        }
+        // ── Quality tick on bearing line shown below ─────────────────────────
       }
     }
 
@@ -2658,16 +2599,6 @@
         ctx.textAlign='left';
         ctx.fillStyle='rgba(255,0,220,0.90)';
         ctx.fillText(label, ex+r+3*DPR, ey+3*DPR);
-        // Thin line from true pos to TMA blob if one exists
-        const sc=sonarContacts?.get(e);
-        if(sc?.tmaX!=null){
-          const [bx,by]=w2s(sc.tmaX,sc.tmaY);
-          ctx.strokeStyle='rgba(255,0,220,0.30)';
-          ctx.lineWidth=1;
-          ctx.setLineDash([3,4]);
-          ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(bx,by); ctx.stroke();
-          ctx.setLineDash([]);
-        }
       }
       // Corner badge
       ctx.fillStyle='rgba(255,0,220,0.80)';

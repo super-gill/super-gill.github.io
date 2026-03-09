@@ -230,74 +230,34 @@
         const tmaQ=sc?.tmaQuality??1.0;
         const TMA=C.tma;
 
-        // Use TMA position when quality earns SOLID tier. Below that, bearing only.
-        // hasTMAPos never falls back to real enemy position — that would be cheating.
-        let hasTMAPos=!ref._isTorp && sc && sc.tmaX!=null && tmaQ>=TMA.qualityThresholdSolid;
-        if(hasTMAPos && (sc.latestHullBrg ?? sc.latestBrg) != null){
-          const checkBrg = sc.latestHullBrg ?? sc.latestBrg;
-          const tmaDx=sc.tmaX-player.wx, tmaDy=sc.tmaY-player.wy;
-          const tmaAng=Math.atan2(tmaDy,tmaDx);
-          const angDiff=Math.abs(((tmaAng-checkBrg+3*Math.PI)%(Math.PI*2))-Math.PI);
-          if(angDiff>Math.PI/4) hasTMAPos=false; // >45° discrepancy — stale or wrong
-        }
-        // Propagate using estimated velocity (from solver history, not enemy object)
-        let tx, ty;
-        if(hasTMAPos){
-          const age = Math.min((game.missionT||0) - (sc.tmaT||0), 45);
-          const tvx=sc.tmVx??0, tvy=sc.tmVy??0;
-          tx = sc.tmaX + tvx*age;
-          ty = sc.tmaY + tvy*age;
-        } else if(sc && sc.tmaX!=null && tmaQ>=TMA.qualityThresholdRange){
-          // DEGRADED: use snapshot position, no propagation
-          tx = sc.tmaX; ty = sc.tmaY;
-        } else {
-          // BEARING only — no position
-          tx = null; ty = null;
-        }
-
-        const dx= tx!=null ? AI.wrapDx(player.wx,tx) : 0;
-        const dy= ty!=null ? ty-player.wy : 0;
-        const range= tx!=null ? Math.hypot(dx,dy) : null;
-        if(tx!=null) tdc.bearing=((Math.atan2(dx,-dy)*180/Math.PI)+360)%360;
-
-        // Raw bearing from actual sonar observations only — never TMA-derived
+        // Purely bearing-based TDC. No position stored or used — ever.
+        // Quality drives the confidence tier shown to player and fire permission.
+        // SOLID fires on latest bearing with lead-angle from estimated bearing rate.
+        // DEGRADED fires directly on raw bearing. BEARING blocks fire.
         const bestBrg = sc ? (sc.latestHullBrg ?? sc.latestBrg) : null;
         if(sc && bestBrg!=null){
-          const rb=bestBrg;
-          tdc.rawBrg = ((Math.atan2(Math.cos(rb), -Math.sin(rb))*180/Math.PI)+360)%360;
+          tdc.rawBrg = ((Math.atan2(Math.cos(bestBrg), -Math.sin(bestBrg))*180/Math.PI)+360)%360;
         } else {
           tdc.rawBrg = null;
         }
         tdc.depth=ref._isTorp ? (ref.depth??200) : (ref.depth??200);
         tdc.tmaQuality=tmaQ;
+        tdc.range=null; tdc.course=null; tdc.speed=null;
 
-        const hasRange=range!=null && tmaQ>=TMA.qualityThresholdRange;
-        tdc.range=hasRange ? range : null;
-
-        // Course/speed from estimated velocity (solver history) — not real enemy velocity
-        const tvx=sc?.tmVx??0, tvy=sc?.tmVy??0;
-        const tspd=Math.hypot(tvx,tvy);
-        tdc.course=hasRange&&tspd>0.5 ? ((Math.atan2(tvx,-tvy)*180/Math.PI)+360)%360 : null;
-        tdc.speed=hasRange&&tspd>0.5 ? Math.round(tspd) : null;
-
-        // Intercept bearing — lead-angle only for SOLID with position
-        const torpSpd=C.torpedo.speed;
-        if(hasTMAPos && tx!=null){
-          let intBearing=Math.atan2(dy,dx);
-          if(tspd>0.5){
-            let t=range/torpSpd;
-            for(let i=0;i<6;i++){
-              const ex=tx+tvx*t, ey=ty+tvy*t;
-              const edx=AI.wrapDx(player.wx,ex), edy=ey-player.wy;
-              t=Math.hypot(edx,edy)/torpSpd;
-            }
-            const ex=tx+tvx*t, ey=ty+tvy*t;
-            intBearing=Math.atan2(ey-player.wy,AI.wrapDx(player.wx,ex));
-          }
-          tdc.intercept=intBearing;
-        } else {
-          tdc.intercept=null;
+        // Bearing rate: compute from last two hull bearings to get lead angle
+        // Only used for SOLID tier — DEGRADED just uses raw bearing directly
+        let intBearing=null;
+        if(tmaQ>=TMA.qualityThresholdSolid && bestBrg!=null){
+          const brgRate=sc._brgRate??0; // rad/s, computed in passiveUpdate
+          // Lead angle: torpedo flight time * bearing rate gives angular correction
+          const torpSpd=C.torpedo.speed;
+          const estRange=(sc._estRange??TMA.defaultRange);
+          const tof=estRange/torpSpd;
+          intBearing=bestBrg + brgRate*tof*0.6; // 0.6 damp — we're estimating
+        } else if(bestBrg!=null && tmaQ>=TMA.qualityThresholdRange){
+          intBearing=bestBrg; // DEGRADED: no lead, fire down the bearing
         }
+        tdc.intercept=intBearing!=null ? intBearing : null;
       }
     }
 
@@ -373,49 +333,29 @@
           const tmaQ=sc?.tmaQuality??0;
           const TMA=C.tma;
 
-          // Three tiers — behaviour changes at each threshold:
-          // BEARING  (< 0.35): hold launch bearing, no updates
-          // SOLUTION (0.35-0.70): steer toward TMA snapshot, no lead angle, no propagation
-          // SOLID    (≥ 0.70): full propagated lead-angle intercept with estimated velocity
-          if(tmaQ < TMA.qualityThresholdRange) continue; // BEARING — hold, no update
-          if(!sc || sc.tmaX==null) continue; // no position yet
+          // Below DEGRADED threshold — hold launch bearing
+          if(tmaQ < TMA.qualityThresholdRange) continue;
 
-          const solidTier=tmaQ >= TMA.qualityThresholdSolid;
-          let tx, ty;
-          if(solidTier){
-            const age=Math.min((game.missionT||0)-(sc.tmaT||0), 45);
-            tx=sc.tmaX+(sc.tmVx??0)*age;
-            ty=sc.tmaY+(sc.tmVy??0)*age;
-          } else {
-            // SOLUTION: snapshot position, no propagation
-            tx=sc.tmaX; ty=sc.tmaY;
-          }
+          const bestBrg=sc?.latestHullBrg ?? sc?.latestBrg;
+          if(bestBrg==null) continue;
 
-          const dx=AI.wrapDx(torp.x,tx), dy=ty-torp.y;
-          const range=Math.hypot(dx,dy);
-
-          // Passed target area — hold bearing, seeker searches autonomously
+          // Convert bearing (FROM sub) to torpedo-relative bearing
+          // The wire sends a direction, not a position — always safe
           const torpHdg=Math.atan2(torp.vy,torp.vx);
-          const fwdDot=dx*Math.cos(torpHdg)+dy*Math.sin(torpHdg);
-          if(fwdDot < -100) continue;
 
-          let intBearing=Math.atan2(dy,dx);
-
-          // Lead angle only for SOLID tier with meaningful estimated velocity
-          if(solidTier){
-            const tvx=sc.tmVx??0, tvy=sc.tmVy??0;
-            if(Math.hypot(tvx,tvy)>0.5){
-              let t=range/torpSpd;
-              for(let k=0;k<6;k++){
-                const ex=tx+tvx*t, ey=ty+tvy*t;
-                t=Math.hypot(AI.wrapDx(torp.x,ex),ey-torp.y)/torpSpd;
-              }
-              const ex=tx+tvx*t, ey=ty+tvy*t;
-              intBearing=Math.atan2(ey-torp.y, AI.wrapDx(torp.x,ex));
-            }
+          // SOLID: apply bearing-rate lead angle
+          // DEGRADED: fly directly down the latest observed bearing
+          let cmdBrg=bestBrg;
+          if(tmaQ >= TMA.qualityThresholdSolid && sc._brgRate!=null){
+            const estRange=sc._estRange??TMA.defaultRange;
+            const tof=estRange/torpSpd;
+            cmdBrg=bestBrg + (sc._brgRate??0)*tof*0.6;
           }
 
-          torp.wire.cmdBrg=intBearing;
+          // Re-express bearing as absolute math angle from torpedo's current position.
+          // The wire bearing is measured from the sub, so we use it directly as a
+          // heading command — the torpedo just steers in that direction.
+          torp.wire.cmdBrg=cmdBrg;
         }
       }
 
