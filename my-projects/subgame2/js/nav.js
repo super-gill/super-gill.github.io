@@ -206,6 +206,9 @@
 
     player.wx=(nx+world.w)%world.w;
     player.wy=(ny+world.h)%world.h;
+    // Horizontal velocity for TMA range estimation (sensors.js _estRange)
+    player.vx=Math.cos(player.heading)*spWU;
+    player.vxRaw=player.vx; // alias — vy is used for depth so keep separate
 
     // ── Depth ─────────────────────────────────────────────────────────────────
     const errD=(player.depthOrder??player.depth)-player.depth;

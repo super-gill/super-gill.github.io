@@ -53,11 +53,25 @@
       }
     const qCross=clamp((maxCross-5*Math.PI/180)/((25-5)*Math.PI/180),0,1);
 
-    let q=qBase*qObs*qCross;
+    // Straight-leg floor: even without bearing divergence, a long baseline with many
+    // observations gives some Doppler/level information. Creeps up slowly so a
+    // patient player driving straight eventually gets DEGRADED but never SOLID.
+    // (SOLID still requires a real maneuver to get bearing crossing angle.)
+    const straightFloor=qBase*qObs*0.28;  // max ~0.28 on a pure straight leg
+    let q=Math.max(qBase*qObs*qCross, straightFloor*0.5);
+
     // Unresolved towed ambiguity with no recent hull coverage — cap at DEGRADED
     const hullAge=T-(c.lastHullBrgT||0);
     if(c.towedCandA && c.towedResolved===null && hullAge>30) q=Math.min(q,0.45);
     c.tmaQuality=q;
+
+    // Maneuver hint: good baseline + many obs but no crossing angle → stuck below DEGRADED
+    const stuck = qBase>0.6 && qObs>0.7 && qCross<0.15 && q<0.30;
+    if(stuck && !c._hintedManeuver){
+      c._hintedManeuver=true;
+      window.G.addLog('SONAR',`${c.id}: maneuver needed — turn 20°+ for solution`);
+    }
+    if(!stuck) c._hintedManeuver=false;
   }
 
 
@@ -123,7 +137,9 @@
       // Estimated range from bearing-rate and own-speed (CBDR approximation)
       // rangeEst = ownSpeed / bearingRate when bearing rate is meaningful
       if(c._brgRate!=null && Math.abs(c._brgRate)>0.001){
-        const ownSpd=Math.hypot(player.vx??0, player.vy??0)||0.5;
+        // player.vx is horizontal speed (set by nav.js). player.vy is depth-rate.
+        // Use horizontal speed — that's what drives bearing-rate changes.
+        const ownSpd=Math.abs(player.vx??0)||Math.abs(player.speed??0)||0.5;
         const estR=Math.abs(ownSpd/c._brgRate);
         c._estRange=clamp(estR, 200, 8000);
       }
@@ -176,8 +192,8 @@
   // Contacts persist for living enemies — never deleted, quality decays when stale
   function tickContacts(dt){
     const T=game.missionT||0;
-    const STALE_GRACE=12;
-    const DECAY_RATE=0.018;
+    const STALE_GRACE=28;    // raised from 12 — 12s was too tight at 7kt tick interval
+    const DECAY_RATE=0.012;  // slightly slower decay — SOLID should survive a layer dip
     for(const [e,c] of sonarContacts){
       c.activeT=Math.max(0,(c.activeT||0)-dt);
       if(e.dead) continue;

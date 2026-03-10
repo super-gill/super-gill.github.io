@@ -118,22 +118,23 @@
     // If seeker has a lock, wire yields — torpedo.js is already homing
     if(b.target || b.seducedBy) return;
 
-    // Compute bearing from torpedo to estimated target position.
-    // We know: bearing from sub to target (latestBrg), estimated range (_estRange).
-    // Project that point, then compute torpedo→point bearing.
+    // Wire sends a steering bearing (compass direction to fly), not a homing course
+    // to an estimated position. This avoids circling when range estimate is short.
     const ref=b.wire.lockedTarget;
     if(ref){
       const sc=sonarContacts?.get(ref);
       const bestBrg=sc?.latestHullBrg ?? sc?.latestBrg;
       if(bestBrg!=null){
-        const estRange=sc?._estRange ?? C.tma.defaultRange;
-        // Point along sub's observed bearing at estimated range
-        const estTx=(player.wx + Math.cos(bestBrg)*estRange + w.w)%w.w;
-        const estTy= player.wy + Math.sin(bestBrg)*estRange;
-        // Bearing from torpedo to that point
-        const tdx=AI.wrapDx(b.x, estTx);
-        const tdy=estTy - b.y;
-        b.targetBrg=Math.atan2(tdy, tdx);
+        // Apply lead angle for SOLID TMA quality
+        const tmaQ=sc?.tmaQuality??0;
+        const TMA=C.tma;
+        if(tmaQ>=(TMA.qualityThresholdSolid??0.70) && sc._brgRate!=null){
+          const estRange=sc._estRange??TMA.defaultRange??2000;
+          const tof=estRange/(C.torpedo.speed??28);
+          b.targetBrg = bestBrg + (sc._brgRate??0)*tof*0.6;
+        } else {
+          b.targetBrg = bestBrg;  // raw bearing — fly the direction sub is looking
+        }
       }
     } else if(b.wire.cmdBrg!=null){
       // Fallback: use baked-in launch bearing (no designated target)

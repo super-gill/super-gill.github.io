@@ -56,7 +56,7 @@
       qualityThresholdRange: 0.35,  // SOLUTION tier floor — range fed to TDC, DEGRADED fire allowed
       qualityThresholdSolid: 0.70,  // SOLID tier — full lead-angle intercept, wire position updates
     },
-    torpedo:{speed:28, approachSpeed:15, life:210, dmg:55,
+    torpedo:{speed:50, approachSpeed:18, life:210, dmg:55,
              seekRange:500, seekFOV:0.85,        // active homing — narrow cone
              passiveFOV: 2.4,                    // passive search — ~137° half-angle, nearly omnidirectional
              turnRate:1.55, reacquireChance:0.022, arming:0.30, searchSnake:0.18,
@@ -87,8 +87,8 @@
       subTorpArcDeg:55,
       subTubes:2, subTorpStock:6, subReloadTime:40,
       // Enemy torpedo parameters — Soviet-era: same model, slightly behind the curve
-      subTorpSpeed:26,          // slightly slower sprint
-      subTorpApproachSpeed:13,  // slower passive approach
+      subTorpSpeed:45,          // slightly slower sprint
+      subTorpApproachSpeed:16,  // slower passive approach
       subTorpSeekRange:400,     // shorter seeker range
       subTorpReacquire:0.010,   // less reliable reacquisition
       subTorpLife:220,          // slightly longer run (heavier fuel load, less efficient)

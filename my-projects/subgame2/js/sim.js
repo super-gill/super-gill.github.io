@@ -348,27 +348,85 @@
       }
 
       SENSE.proximityDetect();
-      // Inbound torpedo detection — probabilistic, masked by own noise
-      // Torpedoes are loud (cavitating props) but own flow noise can mask them
+
+      // ── Inbound torpedo crew alert system ────────────────────────────────────
+      // Four escalating phases, each fires once per torpedo.
+      // _crewPhase: 0=undetected, 1=CONTACT, 2=SEARCHING, 3=CLOSING, 4=ATTACK
       for(const b of bullets){
         if(b.kind!=='torpedo'||b.friendly||b.life<=0) continue;
-        if(b._alertedPlayer) continue;
+        if(!b._crewPhase) b._crewPhase=0;
+
         const dx=AI.wrapDx(b.x,player.wx), dy=b.y-player.wy;
         const dist=Math.hypot(dx,dy);
-        if(dist>1200) continue;
-        // Signal: torpedo noise falls off with range; own noise masks it
-        const torpNoise=0.85; // torpedoes are very loud
-        const layer=AI.layerPenalty(player.depth, b.depth??200);
-        const signal=torpNoise*layer*(1-dist/1200);
-        const detect=signal-player.noise*0.80;
-        if(detect<=0) continue;
-        // Probability per tick — rises sharply as it gets close
-        const pDetect=clamp(0.08+detect*0.60, 0, 0.85)*dt;
-        if(Math.random()<pDetect){
-          const brg=((Math.atan2(AI.wrapDx(player.wx,b.x), b.y-player.wy)*180/Math.PI)+360)%360;
-          setMsg('TORPEDO IN THE WATER!', 2.5);
-          addLog('SONAR', `Torpedo brg ${Math.round(brg).toString().padStart(3,'0')}° — high-speed contact`);
-          b._alertedPlayer=true;
+        const brgMath=Math.atan2(dy,dx);
+        const brgDeg=((Math.atan2(dx,dy)*180/Math.PI)+360)%360;
+        const brgStr=Math.round(brgDeg).toString().padStart(3,'0');
+
+        // ── Phase 1: CONTACT — torpedo first heard acoustically ───────────────
+        if(b._crewPhase<1){
+          const detectRange=1200;
+          if(dist>detectRange){ b._crewPhase=0; continue; }
+          const torpNoise=0.85;
+          const layer=AI.layerPenalty(player.depth, b.depth??200);
+          const signal=torpNoise*layer*(1-dist/detectRange);
+          const detect=signal-player.noise*0.80;
+          if(detect<=0) continue;
+          const pDetect=clamp(0.08+detect*0.60, 0, 0.85)*dt;
+          if(Math.random()<pDetect){
+            b._alertedPlayer=true;
+            b._crewPhase=1;
+            contacts.push({fromX:player.wx,fromY:player.wy,bearing:brgMath,u_brg:0.12,life:3.0,kind:'torpedo'});
+            setMsg('TORPEDO IN THE WATER!', 3.0);
+            addLog('SONAR', `Conn, Sonar — new contact, high-speed screws, bears ${brgStr}, classify torpedo`);
+            addLog('CONN',  `Sonar, Conn — aye. Battle stations torpedo`);
+          }
+          continue;
+        }
+
+        // Detected — keep bearing flash updated
+        if(b._brgFlashT==null) b._brgFlashT=0;
+        b._brgFlashT=(b._brgFlashT||0)-dt;
+        if(b._brgFlashT<=0){
+          b._brgFlashT=rand(1.2,2.0);
+          contacts.push({fromX:player.wx,fromY:player.wy,bearing:brgMath,u_brg:0.08,life:2.5,kind:'torpedo'});
+        }
+
+        // ── Phase 2: SEARCHING — seeker active, torpedo hunting ───────────────
+        if(b._crewPhase<2){
+          const seekerOn=b.traveled>=(b.enableDist||300);
+          if(seekerOn && dist<800){
+            b._crewPhase=2;
+            addLog('SONAR', `Conn, Sonar — torpedo bears ${brgStr}, active seeker, weapon is hunting`);
+            addLog('CONN',  `All stations, Conn — stand by for evasion`);
+            setMsg('TORPEDO SEEKER ACTIVE', 2.5);
+          }
+        }
+
+        // ── Phase 3: CLOSING — high closing rate inside 450wu ─────────────────
+        if(b._crewPhase<3 && b._crewPhase>=2){
+          const vToPlayer=(b.vx*(-dx)+b.vy*(-dy))/Math.max(dist,1);
+          const closing=vToPlayer>8;
+          if(closing && dist<450){
+            b._crewPhase=3;
+            const torpRelAng=angleNorm(brgMath-player.heading);
+            const turnDir=torpRelAng>0?'LEFT':'RIGHT';
+            addLog('SONAR', `Conn, Sonar — torpedo bears ${brgStr}, high closing rate`);
+            addLog('CONN',  `Diving Officer — emergency evasion, hard ${turnDir}`);
+            setMsg(`HARD ${turnDir} — TORPEDO CLOSING`, 3.0);
+          }
+        }
+
+        // ── Phase 4: ATTACK — seeker locked on player ─────────────────────────
+        if(b._crewPhase<4 && b._crewPhase>=2){
+          if(b.target===player){
+            b._crewPhase=4;
+            const torpRelAng=angleNorm(brgMath-player.heading);
+            const turnDir=torpRelAng>0?'LEFT':'RIGHT';
+            addLog('SONAR', `Conn, Sonar — weapon has acquisition, brg ${brgStr}, impact imminent`);
+            addLog('CONN',  `All hands brace for impact — hard ${turnDir}, deploy countermeasures`);
+            setMsg('WEAPON HAS ACQUISITION', 4.0);
+            contacts.push({fromX:player.wx,fromY:player.wy,bearing:brgMath,u_brg:0.04,life:4.0,kind:'torpedo'});
+          }
         }
       }
       if(I.keys.has(" ")&&player.pingCd<=0){I.keys.delete(" "); SENSE.activePing(); setMsg("PING!",0.8);}
