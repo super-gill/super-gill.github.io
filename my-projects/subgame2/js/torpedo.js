@@ -27,7 +27,7 @@
     const range= torp.seekRange ?? cfg.seekRange;
 
     // Depth window — generous: ±200wu (~200m). Enough to catch targets at different depths.
-    const depthWin = 200;
+    const depthWin = 175; // tightened from 200 — crash dive alone just barely clears
 
     const candidates = torp.friendly ? enemies : [player];
 
@@ -47,8 +47,10 @@
       if(dist < bestDist){ bestDist=dist; best=t; }
     }
 
-    // Also scan decoys for seduction (only if not already locked on real target)
-    if(!best && !torp.seducedBy){
+    // Decoy seduction — can compete even post-lock if decoy is louder than target.
+    // A silent target running quiet can be out-competed by a noisemaker.
+    // A sprinting noisy target overwhelms the decoy — can't break lock that way.
+    if(!torp.seducedBy){
       const seduceRange=cfg.seduceRange??300;
       const seduceFOV  =cfg.seduceFOV??2.8;
       for(const d of decoys){
@@ -60,11 +62,31 @@
         if(Math.hypot(dx,dy)>seduceRange) continue;
         const angTo=Math.atan2(dy,dx);
         if(Math.abs(angleNorm(angTo-torpAng)) > seduceFOV/2) continue;
+
+        // If already locked on a real target, decoy must out-compete acoustically.
+        // Decoy signature vs target noise (player.noise or enemy equivalent).
+        if(best){
+          const targetNoise = torp.friendly
+            ? (best.noise??0.3)        // enemy sub noise
+            : (G().player.noise??0.2); // player noise
+          const decoySig = d.signature??1.0;
+          // Decoy wins if it's louder than the target's self-noise.
+          // Formula: 1 - (noise * 3 / decoySig) — maps noise onto decoy scale.
+          // Silent (noise~0.07) → 84% chance. Sprinting (noise~0.40) → 14%.
+          // Encourages players to go quiet BEFORE deploying countermeasures.
+          const seduceChance = clamp(1.0 - (targetNoise * 3.0) / decoySig, 0, 1);
+          if(Math.random() > seduceChance) continue; // decoy fails to compete
+        }
+
         torp.seducedBy=d;
         torp.seduceT=cfg.seduceTime??7.0;
         torp.target=null;
-        if(torp.friendly){
-          G().setMsg('TORP: SEDUCED BY NOISEMAKER',1.0);
+        best=null; // clear lock
+        if(!torp.friendly){
+          const g=G();
+          g.setMsg('CM SEDUCED TORPEDO!', 2.0);
+          g.addLog('SONAR','Torpedo seduced — chasing countermeasure');
+        } else {
           G().addLog('WEPS',`${torp.torpId} seduced — chasing decoy`);
         }
         break;

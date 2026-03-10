@@ -377,8 +377,10 @@
     }
 
     // Torpedoes — T# label, colour-coded friendly/enemy/seduced
+    // Enemy torpedoes only shown after acoustic detection (_alertedPlayer)
     for(const b of bullets){
       if(b.kind!=='torpedo'||b.life<=0||b.depth==null) continue;
+      if(!b.friendly && !b._alertedPlayer) continue;
       if(b.depth<winTop-60||b.depth>winBot+60) continue;
       const ty=dToY(b.depth);
       const seduced=!!b.seducedBy;
@@ -437,175 +439,321 @@
 
   // ── Command Panel (bottom) ────────────────────────────────────────────────────
   // ── Message Log Board ────────────────────────────────────────────────────────
-  function drawSonarFeed(W,H,panelH){
-    const log=game.sonarLog;
-    if(!log||log.length===0) return;
 
-    const maxRows=16;
-    const rowH=13*DPR;
-    const padX=8*DPR, padY=6*DPR;
-    const boardW=210*DPR;
-    const headerH=14*DPR;
-    const boardH=rowH*maxRows+padY*2+headerH;
+  // ── Start Screen ────────────────────────────────────────────────────────────
+  function drawStartScreen(W,H){
+    const PANEL=window.PANEL;
+    const game=window.G.game;
+    PANEL.clearBtns();
 
-    // Position: bottom-right of chart area just above panel
-    const bx=W-88*DPR-boardW-4*DPR;
-    const by=H-panelH-boardH-2*DPR;
+    // Deep ocean background
+    const grad=ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,'#0a1628');
+    grad.addColorStop(1,'#05101e');
+    ctx.fillStyle=grad;
+    ctx.fillRect(0,0,W,H);
 
-    // Background
-    ctx.fillStyle='rgba(4,20,30,0.82)';
-    ctx.strokeStyle='rgba(0,180,160,0.20)';
+    // Subtle grid lines
+    ctx.strokeStyle='rgba(30,80,120,0.12)';
     ctx.lineWidth=1;
-    ctx.beginPath(); ctx.roundRect(bx,by,boardW,boardH,4*DPR); ctx.fill(); ctx.stroke();
+    const gs=60*DPR;
+    for(let x=0;x<W;x+=gs){ ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke(); }
+    for(let y=0;y<H;y+=gs){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
 
-    // Header
-    ctx.fillStyle='rgba(0,200,180,0.70)';
-    ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
-    ctx.textAlign='left';
-    ctx.fillText('SONAR RAW FEED',bx+padX,by+padY+8*DPR);
-    ctx.fillStyle='rgba(0,160,140,0.40)';
-    ctx.fillRect(bx,by+padY+headerH,boardW,1);
+    // Title
+    ctx.textAlign='center';
+    ctx.fillStyle='rgba(180,220,255,0.95)';
+    ctx.font=`bold ${36*DPR}px ui-rounded,system-ui,Arial`;
+    ctx.fillText('DEEP WATER',W/2, H*0.13);
+    ctx.fillStyle='rgba(100,160,220,0.55)';
+    ctx.font=`${12*DPR}px ui-monospace,monospace`;
+    ctx.fillText('CAPTAIN SIM  ▸  CHOOSE SCENARIO', W/2, H*0.13+24*DPR);
 
-    // Entries — most recent at bottom
-    const entries=log.slice(-maxRows);
-    const T=game.missionT||0;
-    for(let i=0;i<entries.length;i++){
-      const e=entries[i];
-      const ry=by+padY+headerH+4*DPR+i*rowH;
-      const age=T-e.t;
-      const alpha=Math.max(0.25, 1.0-age/30); // fade over 30s
+    // Scenario cards
+    const scenarios=[
+      {
+        id:'waves',
+        title:'WOLFPACK HUNT',
+        sub:'Escalating threat',
+        lines:[
+          'Survive successive waves of Soviet',
+          'submarines using sprint-drift tactics,',
+          'wolfpack datum sharing and interceptors.',
+          'Each wave escalates in composition.',
+        ],
+        colour:'rgba(22,100,160,0.90)',
+        accent:'rgba(80,180,255,0.85)',
+        tag:'PROGRESSIVE',
+      },
+      {
+        id:'duel',
+        title:'1V1 DUEL',
+        sub:'Equal adversary',
+        lines:[
+          'One enemy submarine. Same class,',
+          'similar capability. Pure skill — the',
+          'first to build a firing solution',
+          'and shoot wins.',
+        ],
+        colour:'rgba(120,40,40,0.90)',
+        accent:'rgba(255,120,80,0.85)',
+        tag:'SINGLE CONTACT',
+      },
+      {
+        id:'ambush',
+        title:'AMBUSH',
+        sub:'Already surrounded',
+        lines:[
+          'Four submarines have your datum.',
+          'They are already closing from all',
+          'quadrants. Evade, counter, and',
+          'thin the pack before they fire.',
+        ],
+        colour:'rgba(100,50,10,0.90)',
+        accent:'rgba(255,180,40,0.85)',
+        tag:'HIGH THREAT',
+      },
+      {
+        id:'patrol',
+        title:'BARRIER TRANSIT',
+        sub:'Break through the line',
+        lines:[
+          'A 4-contact barrier patrol blocks',
+          'your transit route. Pingers are',
+          'active. Go deep, go quiet, or',
+          'fight through the screen.',
+        ],
+        colour:'rgba(20,90,50,0.90)',
+        accent:'rgba(80,220,120,0.85)',
+        tag:'STEALTH/COMBAT',
+      },
+    ];
 
-      // Array badge colour
-      const arrCol=e.array==='HULL'?`rgba(100,200,255,${alpha})`:`rgba(0,200,160,${alpha})`;
-      ctx.fillStyle=arrCol;
+    const cols=2, rows=2;
+    const cardW=Math.min(320*DPR, (W-80*DPR)/cols);
+    const cardH=200*DPR;
+    const gapX=20*DPR, gapY=18*DPR;
+    const gridW=cols*cardW+(cols-1)*gapX;
+    const gridH=rows*cardH+(rows-1)*gapY;
+    const gridX=(W-gridW)/2;
+    const gridY=H*0.20;
+
+    for(let i=0;i<scenarios.length;i++){
+      const s=scenarios[i];
+      const col=i%cols, row=Math.floor(i/cols);
+      const cx=gridX+col*(cardW+gapX);
+      const cy=gridY+row*(cardH+gapY);
+      const selected=game.scenario===s.id;
+
+      // Card background
+      ctx.fillStyle=selected?s.colour.replace('0.90','1.0'):'rgba(8,20,35,0.80)';
+      ctx.strokeStyle=selected?s.accent:'rgba(30,80,120,0.35)';
+      ctx.lineWidth=selected?2:1;
+      ctx.beginPath(); ctx.roundRect(cx,cy,cardW,cardH,8*DPR); ctx.fill(); ctx.stroke();
+
+      // Selection glow
+      if(selected){
+        ctx.shadowColor=s.accent;
+        ctx.shadowBlur=18*DPR;
+        ctx.strokeStyle=s.accent;
+        ctx.lineWidth=2;
+        ctx.beginPath(); ctx.roundRect(cx,cy,cardW,cardH,8*DPR); ctx.stroke();
+        ctx.shadowBlur=0;
+      }
+
+      // Tag pill
+      ctx.fillStyle=selected?s.accent:'rgba(30,80,120,0.55)';
       ctx.font=`bold ${7*DPR}px ui-monospace,monospace`;
       ctx.textAlign='left';
-      ctx.fillText(e.array, bx+padX, ry+rowH*0.75);
+      const tagW=ctx.measureText(s.tag).width+10*DPR;
+      ctx.beginPath(); ctx.roundRect(cx+12*DPR,cy+12*DPR,tagW,14*DPR,3*DPR); ctx.fill();
+      ctx.fillStyle=selected?'rgba(0,0,0,0.80)':'rgba(180,220,255,0.80)';
+      ctx.fillText(s.tag,cx+17*DPR,cy+22*DPR);
 
-      // Contact ID
-      ctx.fillStyle=`rgba(200,230,255,${alpha*0.85})`;
-      ctx.font=`${7*DPR}px ui-monospace,monospace`;
-      ctx.fillText(e.id, bx+padX+38*DPR, ry+rowH*0.75);
+      // Title
+      ctx.fillStyle=selected?'#ffffff':s.accent;
+      ctx.font=`bold ${15*DPR}px ui-rounded,system-ui,Arial`;
+      ctx.textAlign='left';
+      ctx.fillText(s.title,cx+12*DPR,cy+46*DPR);
 
-      // Bearing
-      ctx.fillStyle=`rgba(255,220,100,${alpha*0.90})`;
-      ctx.fillText(`${e.brgStr}°`, bx+padX+62*DPR, ry+rowH*0.75);
+      // Sub title
+      ctx.fillStyle=selected?'rgba(255,255,255,0.65)':'rgba(120,180,220,0.60)';
+      ctx.font=`${9*DPR}px ui-rounded,system-ui,Arial`;
+      ctx.fillText(s.sub,cx+12*DPR,cy+60*DPR);
 
-      // Signal tier
-      const sigCol=e.tierLabel==='STRONG'?`rgba(100,255,120,${alpha})`
-                  :e.tierLabel==='MOD'   ?`rgba(255,200,60,${alpha})`
-                                         :`rgba(180,180,180,${alpha*0.70})`;
-      ctx.fillStyle=sigCol;
-      ctx.fillText(e.tierLabel, bx+padX+100*DPR, ry+rowH*0.75);
+      // Description lines
+      ctx.fillStyle=selected?'rgba(255,255,255,0.80)':'rgba(140,180,210,0.70)';
+      ctx.font=`${9*DPR}px ui-rounded,system-ui,Arial`;
+      for(let li=0;li<s.lines.length;li++){
+        ctx.fillText(s.lines[li],cx+12*DPR,cy+80*DPR+li*14*DPR);
+      }
 
-      // Type
-      ctx.fillStyle=`rgba(160,180,200,${alpha*0.65})`;
-      ctx.fillText(e.typeLabel, bx+padX+148*DPR, ry+rowH*0.75);
-
-      // Age indicator — tiny bar
-      const ageFrac=Math.max(0,1-age/30);
-      ctx.fillStyle=`rgba(0,160,140,${alpha*0.35})`;
-      ctx.fillRect(bx+boardW-padX-40*DPR, ry+rowH*0.30, 40*DPR*ageFrac, 2*DPR);
+      // Click handler — select scenario
+      const _s=s;
+      window.PANEL?.btn2(ctx,'',cx,cy,cardW,cardH,'transparent',()=>{
+        game.scenario=_s.id;
+      });
     }
+
+    // Launch button
+    const btnW=220*DPR, btnH=44*DPR;
+    const btnX=(W-btnW)/2, btnY=gridY+gridH+30*DPR;
+    const selScen=scenarios.find(s=>s.id===game.scenario)||scenarios[0];
+    ctx.fillStyle=selScen.colour.replace('0.90','1.0');
+    ctx.strokeStyle=selScen.accent;
+    ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(btnX,btnY,btnW,btnH,8*DPR); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#ffffff';
+    ctx.font=`bold ${14*DPR}px ui-rounded,system-ui,Arial`;
+    ctx.textAlign='center';
+    ctx.fillText('DIVE — BEGIN MISSION',W/2,btnY+btnH*0.65);
+
+    window.PANEL?.btn2(ctx,'',btnX,btnY,btnW,btnH,'transparent',()=>{
+      game.started=true;
+      game.scenario=game.scenario||'waves';
+      window.SIM.resetScenario(game.scenario);
+    });
+
+    // Controls hint
+    ctx.fillStyle='rgba(80,120,160,0.45)';
+    ctx.font=`${8*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='center';
+    ctx.fillText('A/D SPEED  ·  W/S DEPTH  ·  SHIFT+CLICK FIRE  ·  R RESTART  ·  ` DEBUG', W/2, btnY+btnH+20*DPR);
   }
 
-  function drawMsgLog(W,H,panelH){
-    const log=game.msgLog;
-    if(!log||log.length===0) return;
+  // ── Combined Log Panel (Ship Log + Sonar Raw Feed) with tabs ─────────────
+  function drawLogPanel(W,H,panelH){
+    const game=window.G.game;
+    const msgLog=game.msgLog||[];
+    const sonarLog=game.sonarLog||[];
+    const tab=game.logTab||'log';
+    const T_game=game.missionT||0;
 
-    const CAT_COL={
-      CONN:'#1e3a5f',   // navy
-      SONAR:'#0e7490',  // teal
-      WEPS:'#991b1b',   // crimson
-      ENG:'#92400e',    // amber
-    };
-    const CAT_BG={
-      CONN:'rgba(30,58,95,0.18)',
-      SONAR:'rgba(14,116,144,0.15)',
-      WEPS:'rgba(153,27,27,0.15)',
-      ENG:'rgba(146,64,14,0.14)',
-    };
-
-    const maxRows=14;
-    const rowH=16*DPR;
-    const padX=10*DPR, padY=8*DPR;
-    const catW=50*DPR;
-    const boardW=320*DPR;
-    const boardH=rowH*maxRows+padY*2+14*DPR;  // +14 for header
-
-    // Position: bottom-left of chart area, just above panel
+    const maxRows=28;
+    const rowH=19*DPR;
+    const padX=10*DPR, padY=6*DPR;
+    const tabH=20*DPR;
+    const boardW=560*DPR;
+    const boardH=tabH+rowH*maxRows+padY*2+4*DPR;
     const bx=0;
     const by=H-panelH-boardH-2*DPR;
 
     // Background
-    ctx.fillStyle='rgba(248,246,240,0.82)';
-    ctx.strokeStyle='rgba(17,24,39,0.12)';
+    ctx.fillStyle='rgba(248,246,240,0.90)';
+    ctx.strokeStyle='rgba(17,24,39,0.14)';
     ctx.lineWidth=1;
     ctx.beginPath(); ctx.roundRect(bx,by,boardW,boardH,0); ctx.fill(); ctx.stroke();
 
-    // Header
-    ctx.fillStyle='rgba(17,24,39,0.60)';
-    ctx.font=`bold ${9*DPR}px ui-monospace,monospace`;
-    ctx.textAlign='left';
-    ctx.fillText('SHIP LOG',bx+padX,by+padY+6*DPR);
-    // time display
-    const mt=game.missionT||0;
-    const mm=Math.floor(mt/60).toString().padStart(2,'0');
-    const ss=Math.floor(mt%60).toString().padStart(2,'0');
-    ctx.textAlign='right';
-    ctx.fillText(`T+${mm}:${ss}`,bx+boardW-padX,by+padY+8*DPR);
-    ctx.textAlign='left';
-
-    // Divider
-    ctx.strokeStyle='rgba(17,24,39,0.10)';
-    ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(bx,by+padY+13*DPR); ctx.lineTo(bx+boardW,by+padY+13*DPR); ctx.stroke();
-
-    // Rows — most recent at bottom
-    const visible=log.slice(-maxRows);
-    const startY=by+padY+rowH*0.5+13*DPR;
-    for(let i=0;i<visible.length;i++){
-      const entry=visible[i];
-      const ry=startY+i*rowH;
-      const age=visible.length-1-i; // 0=newest
-      const alpha=Math.max(0.25, 1-age*0.065);
-
-      // Cat pill
-      ctx.fillStyle=(CAT_BG[entry.cat]||'rgba(17,24,39,0.10)').replace(')',`,${alpha})`).replace('rgba(','rgba(');
-      ctx.beginPath(); ctx.roundRect(bx+padX,ry-rowH*0.72,catW,rowH*0.85,2*DPR); ctx.fill();
-      ctx.fillStyle=(CAT_COL[entry.cat]||'#111827');
-      ctx.globalAlpha=alpha;
-      ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
+    // Tab bar
+    const tabs=[{id:'log',label:'SHIP LOG'},{id:'sonar',label:'SONAR RAW'}];
+    const tabW=boardW/tabs.length;
+    for(let ti=0;ti<tabs.length;ti++){
+      const t=tabs[ti];
+      const tx=bx+ti*tabW;
+      const active=tab===t.id;
+      ctx.fillStyle=active?'rgba(17,24,39,0.90)':'rgba(17,24,39,0.12)';
+      ctx.fillRect(tx,by,tabW,tabH);
+      ctx.fillStyle=active?'#f8f6f0':'rgba(17,24,39,0.50)';
+      ctx.font=`bold ${8.5*DPR}px ui-monospace,monospace`;
       ctx.textAlign='center';
-      ctx.fillText(entry.cat,bx+padX+catW/2,ry-1*DPR);
+      ctx.fillText(t.label,tx+tabW/2,by+tabH*0.68);
+      // Clickable tab
+      const _t=t;
+      window.PANEL?.btn2(ctx,'',tx,by,tabW,tabH,'transparent',()=>{ game.logTab=_t.id; });
+    }
+    // Divider below tabs
+    ctx.strokeStyle='rgba(17,24,39,0.15)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(bx,by+tabH); ctx.lineTo(bx+boardW,by+tabH); ctx.stroke();
 
-      // Timestamp
-      const et=entry.t||0;
-      const em=Math.floor(et/60).toString().padStart(2,'0');
-      const es=Math.floor(et%60).toString().padStart(2,'0');
-      ctx.font=`${7.5*DPR}px ui-monospace,monospace`;
-      ctx.fillStyle='rgba(17,24,39,0.50)';
-      ctx.textAlign='left';
-      ctx.fillText(`${em}:${es}`,bx+padX+catW+4*DPR,ry-1*DPR);
+    const contentY=by+tabH+padY;
 
-      // Message text
-      ctx.fillStyle='rgba(17,24,39,0.88)';
-      ctx.font=`${9*DPR}px ui-rounded,system-ui,Arial`;
-      ctx.textAlign='left';
-      // Clip long text
-      const textX=bx+padX+catW+32*DPR;
-      const maxTextW=boardW-textX+bx-padX;
-      ctx.save();
-      ctx.beginPath(); ctx.rect(textX,ry-rowH,maxTextW,rowH*1.1); ctx.clip();
-      ctx.fillText(entry.text,textX,ry-1*DPR);
-      ctx.restore();
+    if(tab==='log'){
+      // ── Ship Log ────────────────────────────────────────────
+      const CAT_COL={CONN:'#1e3a5f',SONAR:'#0e7490',WEPS:'#991b1b',ENG:'#92400e'};
+      const CAT_BG={CONN:'rgba(30,58,95,0.18)',SONAR:'rgba(14,116,144,0.15)',WEPS:'rgba(153,27,27,0.15)',ENG:'rgba(146,64,14,0.14)'};
+      const catW=50*DPR;
+      const mt=T_game;
+      const mm=Math.floor(mt/60).toString().padStart(2,'0');
+      const ss=Math.floor(mt%60).toString().padStart(2,'0');
+      ctx.fillStyle='rgba(17,24,39,0.35)'; ctx.font=`${8*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='right';
+      ctx.fillText(`T+${mm}:${ss}`,bx+boardW-padX,contentY-2*DPR);
 
-      ctx.globalAlpha=1;
+      const visible=msgLog.slice(-maxRows);
+      const startY=contentY+rowH*0.7;
+      for(let i=0;i<visible.length;i++){
+        const entry=visible[i];
+        const ry=startY+i*rowH;
+        ctx.globalAlpha=1;
+
+        ctx.fillStyle=(CAT_BG[entry.cat]||'rgba(17,24,39,0.10)');
+        ctx.beginPath(); ctx.roundRect(bx+padX,ry-rowH*0.72,catW,rowH*0.85,2*DPR); ctx.fill();
+        ctx.fillStyle=(CAT_COL[entry.cat]||'#111827');
+        ctx.font=`bold ${8.5*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillText(entry.cat,bx+padX+catW/2,ry-1*DPR);
+
+        const et=entry.t||0;
+        const em=Math.floor(et/60).toString().padStart(2,'0');
+        const es=Math.floor(et%60).toString().padStart(2,'0');
+        ctx.font=`${7.5*DPR}px ui-monospace,monospace`; ctx.fillStyle='rgba(17,24,39,0.50)'; ctx.textAlign='left';
+        ctx.fillText(`${em}:${es}`,bx+padX+catW+5*DPR,ry-1*DPR);
+
+        ctx.fillStyle='rgba(17,24,39,0.90)';
+        ctx.font=`${10*DPR}px ui-rounded,system-ui,Arial`; ctx.textAlign='left';
+        const textX=bx+padX+catW+36*DPR;
+        const maxTextW=boardW-textX+bx-padX;
+        ctx.save(); ctx.beginPath(); ctx.rect(textX,ry-rowH,maxTextW,rowH*1.1); ctx.clip();
+        ctx.fillText(entry.text,textX,ry-1*DPR); ctx.restore();
+
+      }
+
+    } else {
+      // ── Sonar Raw Feed ────────────────────────────────────────
+      const entries=sonarLog.slice(-maxRows);
+      const colArray=38*DPR, colID=28*DPR, colBrg=36*DPR, colSig=54*DPR, colType=32*DPR;
+      // Header row
+      ctx.fillStyle='rgba(17,24,39,0.35)'; ctx.font=`bold ${7.5*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      const hx=bx+padX;
+      const hy=contentY+4*DPR;
+      ctx.fillText('ARRAY', hx, hy);
+      ctx.fillText('ID',    hx+colArray, hy);
+      ctx.fillText('BRG',   hx+colArray+colID, hy);
+      ctx.fillText('SIGNAL',hx+colArray+colID+colBrg, hy);
+      ctx.fillText('TYPE',  hx+colArray+colID+colBrg+colSig, hy);
+      ctx.fillText('AGE',   hx+colArray+colID+colBrg+colSig+colType, hy);
+
+      for(let i=0;i<entries.length;i++){
+        const e=entries[i];
+        const ry=contentY+rowH*(i+1)+4*DPR;
+        const age=T_game-e.t;
+        const alpha=1.0;
+
+        const arrCol=e.array==='HULL'?`rgba(60,160,220,${alpha})`:`rgba(0,180,140,${alpha})`;
+        ctx.fillStyle=arrCol; ctx.font=`bold ${8.5*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+        ctx.fillText(e.array, hx, ry);
+
+        ctx.fillStyle=`rgba(17,24,39,${alpha*0.80})`; ctx.font=`${9*DPR}px ui-monospace,monospace`;
+        ctx.fillText(e.id,     hx+colArray, ry);
+        ctx.fillStyle=`rgba(180,140,0,${alpha*0.90})`;
+        ctx.fillText(`${e.brgStr}°`, hx+colArray+colID, ry);
+
+        const sigCol=e.tierLabel==='STRONG'?`rgba(22,163,74,${alpha})`
+                    :e.tierLabel==='MOD'   ?`rgba(217,119,6,${alpha})`
+                                           :`rgba(120,120,120,${alpha*0.65})`;
+        ctx.fillStyle=sigCol;
+        ctx.fillText(e.tierLabel, hx+colArray+colID+colBrg, ry);
+
+        ctx.fillStyle=`rgba(100,120,140,${alpha*0.70})`;
+        ctx.fillText(e.typeLabel, hx+colArray+colID+colBrg+colSig, ry);
+
+        const ageStr=age<60?Math.round(age)+'s':Math.floor(age/60)+'m'+Math.floor(age%60).toString().padStart(2,'0')+'s';
+        ctx.fillStyle=`rgba(17,24,39,${alpha*0.45})`;
+        ctx.fillText(ageStr, hx+colArray+colID+colBrg+colSig+colType, ry);
+      }
     }
   }
 
-  // ── Damage Control Overlay (H to toggle, or DMG button) ──────────────────
-  function drawDamagePanel(W,H,panelH){
+    function drawDamagePanel(W,H,panelH){
     if(!game.showDmgPanel) return;
     const dmg=player.damage;
     if(!dmg) return;
@@ -1367,7 +1515,8 @@
       tdcContacts.push({ref:e, id:sc.id, sc, isTorp:false, isDead});
     }
     for(const b of bullets){
-      if(b.kind==='torpedo'&&b.life>0){
+      // Only friendly torpedoes in TDC — for wire guidance designation
+      if(b.kind==='torpedo'&&b.life>0&&b.friendly){
         b._isTorp=true;
         tdcContacts.push({ref:b, id:b.torpId, sc:null, isTorp:true, isDead:false});
       }
@@ -1421,9 +1570,14 @@
       cbX+=cbW+cbGap;
       if(cbX+cbW>fcX+fcW-38*DPR) break;
     }
-    btn('CLR',fcX+fcW-32*DPR,cbY,32*DPR,cbH,false,
-      ()=>{ game.tdc.target=null; game.tdc.targetId=null; setMsg('TDC: CLEARED',0.8); },
-      '#7f1d1d');
+    // CLR: clear TDC designation + remove all dead contacts from sonarContacts map
+    btn('CLR',fcX+fcW-32*DPR,cbY,32*DPR,cbH,false,()=>{
+      game.tdc.target=null; game.tdc.targetId=null;
+      // Remove dead entries from sonarContacts so they vanish from contacts list
+      const sc=window.G.sonarContacts;
+      if(sc){ for(const [e,c] of sc){ if(c.dead||e.dead) sc.delete(e); } }
+      setMsg('TDC: CLEARED',0.8);
+    },'#7f1d1d');
 
     // Fire control readouts — 3 columns: BRG | RNG | INT BRG
     const fcCol=fcW/3;
@@ -1441,8 +1595,8 @@
     ctx.fillText('RNG',    fc2,  rdY);
     ctx.fillText('INT BRG',fc3,  rdY);
 
-    const brg=tdc.bearing!=null?Math.round(tdc.bearing).toString().padStart(3,'0')+'°':'---';
-    const rng=hasRange?(tdc.range/100).toFixed(1)+'km':'---';
+    const brg=tdc.rawBrg!=null?Math.round(tdc.rawBrg).toString().padStart(3,'0')+'°':'---';
+    const rng=hasRange?((tdc.range/185.2).toFixed(1)+'nm~'):'---';
     // INT BRG: convert screen-space math angle to compass
     const intBrg=tdc.intercept!=null
       ?(((Math.atan2(Math.cos(tdc.intercept),-Math.sin(tdc.intercept))*180/Math.PI)+360)%360).toFixed(0).padStart(3,'0')+'°'
@@ -1462,9 +1616,9 @@
     ctx.fillText('CRS',fc2,rdY2);
     ctx.fillText('SPD',fc3,rdY2);
 
-    const dep=tdc.depth!=null?Math.round(tdc.depth)+'m':'---';
-    const crs=tdc.course!=null?Math.round(tdc.course).toString().padStart(3,'0')+'°':'---';
-    const spd=tdc.speed!=null?Math.round(tdc.speed)+'kt':'---';
+    const dep=tdc.depth!=null?Math.round(tdc.depth)+'m~':'---';
+    const crs=tdc.course!=null?Math.round(tdc.course).toString().padStart(3,'0')+'°~':'---';
+    const spd=tdc.speed!=null?Math.round(tdc.speed)+'kt~':'---';
     ctx.font=`${14*DPR}px ui-rounded,system-ui,Arial`;
     ctx.fillStyle=rdValCol;                    ctx.fillText(dep,fcX,rdY2+16*DPR);
     ctx.fillStyle=hasRange?rdValCol:rdDimCol;  ctx.fillText(crs,fc2,rdY2+16*DPR);
@@ -1532,6 +1686,16 @@
     ctx.fillText('SOLUTION',cqX+idColW+brgColW,             hdrY);
     ctx.fillText('OBS',  cqX+idColW+brgColW+barColW,        hdrY);
     ctx.fillText('AGE',  cqX+idColW+brgColW+barColW+obsColW,hdrY);
+
+    // PURGE DEAD button — top-right of contacts header
+    const hasDeadContacts=[...sonarContacts.values()].some(s=>s.dead)||[...sonarContacts.keys()].some(e=>e.dead);
+    if(hasDeadContacts){
+      btn('PURGE DEAD', cqX+cqW-62*DPR, panelY+22*DPR, 62*DPR, 14*DPR, false, ()=>{
+        const sc=window.G.sonarContacts;
+        if(sc){ for(const [e,cv] of sc){ if(cv.dead||e.dead){ if(game.tdc.target===e){ game.tdc.target=null; game.tdc.targetId=null; } sc.delete(e); } } }
+        setMsg('Dead contacts cleared',0.8);
+      }, 'rgba(127,29,29,0.70)');
+    }
 
     // All established contacts always shown — quality drives appearance
     const allContacts=[];
@@ -1749,6 +1913,12 @@
 
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,W,H);
+
+    // ── Start screen ────────────────────────────────────────────────────────
+    if(!game.started){
+      drawStartScreen(W,H);
+      return;
+    }
 
     const seaColour=window.MAPS?.getMap()?.seaColour||'#daeaf7';
     ctx.fillStyle=seaColour;
@@ -2121,7 +2291,8 @@
         doodleText(`T${b.torpId} ARM`, tx2+8*DPR, ty2-6*DPR, 8*DPR, 'left');
       }
 
-      drawTorpedoTopDown(b);
+      // Enemy torpedoes only visible once acoustically detected
+      if(!b.friendly && !b._alertedPlayer) { /* not yet detected — skip */ } else drawTorpedoTopDown(b);
       // Wire line
       if(b.wire&&b.wire.live){
         ctx.strokeStyle='rgba(17,24,39,0.28)';
@@ -2447,14 +2618,11 @@
     // ── Depth strip ───────────────────────────────────────────────────────────
     drawDepthStrip(W,H,panelH);
 
-    // ── Message log board ─────────────────────────────────────────────────────
-    drawMsgLog(W,H,panelH);
-
-    // ── Sonar raw feed ────────────────────────────────────────────────────────
-    drawSonarFeed(W,H,panelH);
-
     // ── Command Panel ─────────────────────────────────────────────────────────
     drawPanel(W,H);
+
+    // ── Message log board — drawn AFTER drawPanel so btn2 registrations survive clearBtns
+    drawLogPanel(W,H,panelH);
 
     // ── Threat bar ────────────────────────────────────────────────────────────
     drawThreatBar(W);
@@ -2595,11 +2763,38 @@
         ctx.fillStyle='rgba(255,0,220,0.90)';
         ctx.fillText(label, ex+r+3*DPR, ey+3*DPR);
       }
+      // ── All torpedoes ──────────────────────────────────────────────────────
+      for(const b of bullets){
+        if(b.kind!=='torpedo'||b.life<=0) continue;
+        const [tx,ty]=w2s(b.x,b.y);
+        if(tx<-40||tx>plotW+40) continue;
+        const isFriendly=b.friendly;
+        // Friendly = cyan, enemy = orange
+        const col=isFriendly?'rgba(0,230,255,0.90)':'rgba(255,140,0,0.90)';
+        ctx.strokeStyle=col; ctx.fillStyle=col;
+        ctx.lineWidth=1.5;
+        // Arrow showing heading direction
+        const bvx=b.vx||0, bvy=b.vy||0;
+        const bspd=Math.hypot(bvx,bvy);
+        const bAng=bspd>0?Math.atan2(bvy,bvx):0;
+        const ar=12*DPR;
+        ctx.beginPath();
+        ctx.moveTo(tx-Math.cos(bAng)*ar, ty-Math.sin(bAng)*ar);
+        ctx.lineTo(tx+Math.cos(bAng)*ar, ty+Math.sin(bAng)*ar);
+        ctx.stroke();
+        // Diamond marker at tip
+        ctx.beginPath(); ctx.arc(tx+Math.cos(bAng)*ar,ty+Math.sin(bAng)*ar,3*DPR,0,Math.PI*2); ctx.fill();
+        // Label
+        const tLabel=`${isFriendly?'OWN':'ENM'} ${b.torpId||'?'} d${Math.round(b.depth||0)}m${b.target===player?' ●HOM':''}`;
+        ctx.font=`${7.5*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+        ctx.fillText(tLabel, tx+ar+3*DPR, ty+3*DPR);
+      }
+
       // Corner badge
       ctx.fillStyle='rgba(255,0,220,0.80)';
       ctx.font=`bold ${9*DPR}px ui-monospace,monospace`;
       ctx.textAlign='left';
-      ctx.fillText('⬛ DEBUG: TRUE POS', 12*DPR, (H-panelH)-10*DPR);
+      ctx.fillText('⬛ DEBUG: TRUE POS + TORPEDOES', 12*DPR, (H-panelH)-10*DPR);
       ctx.restore();
     }
   }

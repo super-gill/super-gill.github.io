@@ -56,15 +56,20 @@
   const game={score:0,over:false,msg:"",msgT:0,lastT:performance.now(),contactsScroll:0,wepsProposal:null,
     tdc:{target:null, targetId:null, bearing:null, range:null, depth:null, course:null, speed:null, intercept:null},
     missionT:0,
-    msgLog:[],
+    msgLog:[], logTab:'log',
+    scenario:'waves', started:false,
   };
   function addLog(cat, text){
     game.msgLog.push({t:game.missionT||0, cat, text});
-    if(game.msgLog.length>60) game.msgLog.shift();
+    if(game.msgLog.length>120) game.msgLog.shift();
   }
   const setMsg=(s,t=1.2)=>{game.msg=s;game.msgT=t;};
 
   function nextTorpId(){ return 'T'+(_nextTorpId++); }
   function resetTorpIds(){ _nextTorpId=1; }
-  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,ghostContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,wrecks};
+  function queueLog(station,msg,delayS){
+    if(!player.pendingLogs) player.pendingLogs=[];
+    player.pendingLogs.push({t:delayS,station,msg});
+  }
+  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,ghostContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,queueLog,wrecks};
 })();

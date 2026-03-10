@@ -3,15 +3,15 @@
   const W = ()=>window.W; // lazy ref — weapons.js loads before panel.js calls it
 
   const SPEED_STATES=[
-    {label:'AHEAD FLANK',    kts:28,  dir:1},
-    {label:'AHEAD FULL',     kts:20,  dir:1},
-    {label:'AHEAD STD',      kts:14,  dir:1},
-    {label:'AHEAD SLOW',     kts:7,   dir:1},
-    {label:'AHEAD CREEP',    kts:3,   dir:1},
-    {label:'ALL STOP',       kts:0,   dir:0},
-    {label:'BACK SLOW',      kts:5,   dir:-1},
-    {label:'BACK FULL',      kts:10,  dir:-1},
-    {label:'BACK EMERGENCY', kts:18,  dir:-1},
+    {label:'AHEAD FLANK',    kts:28,  dir:1,  connOrder:'Eng, Conn — all ahead flank',    engAck:'Conn, Eng — all ahead flank, aye'},
+    {label:'AHEAD FULL',     kts:20,  dir:1,  connOrder:'Eng, Conn — all ahead full',     engAck:'Conn, Eng — all ahead full, aye'},
+    {label:'AHEAD STD',      kts:14,  dir:1,  connOrder:'Eng, Conn — all ahead standard', engAck:'Conn, Eng — all ahead standard, aye'},
+    {label:'AHEAD SLOW',     kts:7,   dir:1,  connOrder:'Eng, Conn — ahead slow',         engAck:'Conn, Eng — ahead slow, aye'},
+    {label:'AHEAD CREEP',    kts:3,   dir:1,  connOrder:'Eng, Conn — ahead creep',        engAck:'Conn, Eng — ahead creep, aye'},
+    {label:'ALL STOP',       kts:0,   dir:0,  connOrder:'All stop',                       engAck:'Conn, Eng — all stop, aye. Answering all stop'},
+    {label:'BACK SLOW',      kts:5,   dir:-1, connOrder:'Eng, Conn — back slow',          engAck:'Conn, Eng — back slow, aye'},
+    {label:'BACK FULL',      kts:10,  dir:-1, connOrder:'Eng, Conn — back full',          engAck:'Conn, Eng — back full, aye'},
+    {label:'BACK EMERGENCY', kts:18,  dir:-1, connOrder:'Eng, Conn — back emergency',     engAck:'Conn, Eng — back emergency, aye'},
   ];
 
   let _telegraphIdx=5; // default ALL STOP
@@ -36,7 +36,8 @@
     const p=window.G?.player;
     if(p){ p.speedOrderKts=s.kts; p.speedDir=s.dir; }
     window.G?.setMsg(s.label,1.0);
-    window.G?.addLog('CONN', s.label);
+    window.G?.addLog('CONN', s.connOrder);
+    window.G?.queueLog('ENG', s.engAck, 1.2);
   }
 
   function depthStep(delta){
@@ -47,7 +48,13 @@
     p.depthOrder=Math.max(20,Math.min(ground-60,(p.depthOrder??p.depth)+delta*step));
     const ordStr=`${Math.round(p.depthOrder)}m`;
     window.G.setMsg(`ORDERED ${ordStr}`,0.8);
-    window.G.addLog('CONN', delta>0 ? `Dive to ${ordStr}` : `Come up to ${ordStr}`);
+    if(delta>0){
+      window.G.addLog('CONN',`Helm, Conn — make your depth ${ordStr}`);
+      window.G.queueLog('HELM',`Conn, Helm — aye, making my depth ${ordStr}`,1.0);
+    } else {
+      window.G.addLog('CONN',`Helm, Conn — come up to ${ordStr}`);
+      window.G.queueLog('HELM',`Conn, Helm — aye, coming up to ${ordStr}`,1.0);
+    }
   }
 
   function comeToPD(){
@@ -55,7 +62,8 @@
     if(!p) return;
     p.depthOrder=window.CONFIG?.player?.periscopeDepth??140;
     window.G.setMsg('COME TO PD',1.0);
-    window.G.addLog('CONN','Come to periscope depth');
+    window.G.addLog('CONN','Helm, Conn — come to periscope depth');
+    window.G.queueLog('HELM','Conn, Helm — aye, coming to periscope depth',1.0);
   }
 
   function toggleSilent(){
@@ -90,8 +98,9 @@
     p.vy=-(C.player.depthRateMax??170)*1.6;
     p.noiseTransient=Math.min(1,(p.noiseTransient||0)+0.25);
     window.G.setMsg('EMERGENCY BLOW!',1.2);
-    window.G.addLog('CONN','Emergency blow!');
-    window.G.addLog('ENG','Emergency blow — main ballast tanks venting');
+    window.G.addLog('CONN','Blow all main ballast. Emergency surface');
+    window.G.queueLog('ENG','Conn, Eng — emergency blow, main ballast tanks venting',0.5);
+    window.G.queueLog('ENG','Conn, Eng — blow complete, rising fast',2.5);
   }
 
   function allStop(){ setTelegraph(5); }
@@ -103,6 +112,11 @@
     if(!game||!player||!C) return;
     const wp=game.wepsProposal;
     if(!wp){window.G.addLog('WEPS','No solution — designate a contact first'); return;}
+    if((player.pendingFires||[]).length>0){
+      window.G.setMsg('FIRING IN PROGRESS',0.8);
+      window.G.addLog('WEPS','Conn, Weps — unable, firing sequence in progress');
+      return;
+    }
     // Use reserveTube from sim context — call into sim module
     if(typeof window._reserveTube!=='function'){window.G.addLog('WEPS','Fire control offline'); return;}
     const tubeIdx=window._reserveTube();
@@ -115,10 +129,8 @@
       const a=wp.bearing-player.heading;
       return ((a+Math.PI)%(2*Math.PI))-Math.PI;
     })());
-    const confLabel=wp.confidence==='solid'?'SOLID solution':wp.confidence==='degraded'?'DEGRADED solution':'BEARING ONLY — no range';
-    const tdcStr=game.tdc.targetId?` on ${game.tdc.targetId}`:'';
-    window.G.addLog('CONN',`Shoot${tdcStr}`);
-    window.G.addLog('WEPS',`Tube ${tubeIdx+1} — firing on ${confLabel}`);
+    const trackStr=game.tdc.targetId?`, track ${game.tdc.targetId}`:'';
+    window.G.addLog('CONN',`Weps, Conn — firing point procedures${trackStr}, tube ${tubeIdx+1}`);
     window.G.setMsg('FIRING…',0.6);
     if(!player.pendingFires) player.pendingFires=[];
     player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth:wp.depth, wire:true, lockedTarget:game.tdc.target});
@@ -130,20 +142,24 @@
     const ta=p.towedArray;
     if(!ta) return;
     if(ta.state==='destroyed'){
-      window.G.addLog('ENG','Array destroyed — cannot deploy'); return;
+      window.G.addLog('ENG','Conn, Eng — array destroyed, cannot deploy'); return;
     }
     if(ta.state==='stowed'||ta.state==='retracting'){
       // Check speed before deploying
       if(p.speed>12){
-        window.G.addLog('ENG',`Array deployment requires speed below 12kt (currently ${Math.round(p.speed)}kt)`);
+        window.G.addLog('CONN','Eng, Conn — deploy towed array');
+        window.G.queueLog('ENG',`Conn, Eng — unable. Speed ${Math.round(p.speed)}kt, array rated 12kt for deployment. Reduce speed and retry`,0.5);
         return;
       }
       ta.state='deploying';
       ta.progress=ta.progress||0;
-      window.G.addLog('ENG','Towed array deploying — 30 seconds to operational');
+      ta._halfwayLogged=false;
+      window.G.addLog('CONN','Eng, Conn — deploy towed array');
+      window.G.queueLog('ENG','Conn, Eng — aye, deploying array. Thirty seconds to operational',1.0);
     } else if(ta.state==='deploying'||ta.state==='operational'||ta.state==='damaged'){
       ta.state='retracting';
-      window.G.addLog('ENG','Retracting towed array');
+      window.G.addLog('CONN','Eng, Conn — retract towed array');
+      window.G.queueLog('ENG','Conn, Eng — aye, hauling in. Twenty seconds',1.0);
     }
   }
 

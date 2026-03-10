@@ -95,6 +95,8 @@
 
     // ── Crew casualties ──────────────────────────────────────────────────────
     const crewLeft = d.crew.total - d.crew.killed;
+    // Store casualties to log after delay
+    let _casualtiesKilled=0, _casualtiesWounded=0;
     if(severity > 0.25){
       const killed  = Math.max(1, Math.round(rand(1, severity*7)));
       const wounded = Math.round(rand(0, severity*5));
@@ -102,7 +104,7 @@
       d.crew.wounded = Math.min(crewLeft-killed, d.crew.wounded + wounded);
       d.crew.woundedRecoverT = 150;
       _alert(`${killed} CREW KIA${wounded>0?`, ${wounded} WOUNDED`:''}`);
-      addLog('DMG', `Casualties: ${killed} killed, ${wounded} wounded`);
+      _casualtiesKilled=killed; _casualtiesWounded=wounded;
     }
 
     // ── Determine compartment ────────────────────────────────────────────────
@@ -111,20 +113,26 @@
       : COMPARTMENTS[Math.floor(rand(0,4))];
 
     // ── Damage systems in that compartment ──────────────────────────────────
+    addLog('ENG','Conn, Eng — we have damage, assessing');
     const sysList = [...COMP_SYSTEMS[comp]].sort(()=>rand(-1,1));
     const numHit  = severity>0.75 ? sysList.length : severity>0.45 ? 2 : 1;
     for(let i=0; i<Math.min(numHit, sysList.length); i++){
       const steps  = severity>0.85 ? 2 : 1;
       const newSt  = damageSystem(sysList[i], steps);
       _alert(`${SYS_LABEL[sysList[i]]} ${newSt.toUpperCase()}`);
-      addLog('DMG', `${SYS_LABEL[sysList[i]]} → ${newSt}`);
+      window.G.queueLog('ENG', `Conn, Eng — ${SYS_LABEL[sysList[i]]} is ${newSt}`, 1.5+i*0.6);
     }
 
     // ── Flooding ─────────────────────────────────────────────────────────────
     if(severity > 0.45 && rand(0,1) < severity*0.65){
       d.flooding[comp] = Math.min(1, (d.flooding[comp]||0) + severity*0.9);
       _alert(`FLOODING: ${comp.toUpperCase()} COMPARTMENT`);
-      addLog('DMG', `Flooding: ${comp}`);
+      window.G.queueLog('ENG', `Conn, Eng — flooding in ${comp} compartment. DC party responding`, 3.0);
+    }
+
+    // ── Staged casualty report ───────────────────────────────────────────────
+    if(_casualtiesKilled>0){
+      window.G.queueLog('CONN',`All stations, Conn — casualty report: ${_casualtiesKilled} KIA${_casualtiesWounded>0?`, ${_casualtiesWounded} wounded`:''}`,5.0);
     }
 
     // ── Legacy HP — keeps game-over logic working ────────────────────────────
@@ -159,7 +167,7 @@
     if(st==='nominal'||st==='destroyed') return;
     const totalTime = REPAIR_TIME[st] || 70;
     d.repairs.push({system:sys, progress:0, totalTime});
-    addLog('DC', `Repair started: ${SYS_LABEL[sys]}`);
+    addLog('ENG',  `Conn, DC — repair underway, ${SYS_LABEL[sys]}`);
     setMsg(`DC: REPAIRING ${SYS_LABEL[sys]}`, 1.0);
   }
 
@@ -182,7 +190,7 @@
     }
     // Cancel any repairs in that compartment
     d.repairs = d.repairs.filter(r=>!COMP_SYSTEMS[comp].includes(r.system));
-    addLog('DC', `${comp} compartment sealed — watertight door closed`);
+    addLog('ENG',  `Conn, DC — ${comp} compartment sealed, watertight`);
     setMsg(`${comp.toUpperCase()} SEALED`, 1.5);
   }
 
@@ -190,7 +198,7 @@
     if(!player.damage) return;
     player.damage.deptPriority = p;
     setMsg(`PRIORITY: ${p.toUpperCase()}`, 0.8);
-    addLog('CONN', `Crew priority: ${p}`);
+    addLog('CONN',  `Conn, aye — crew priority set to ${p}`);
   }
 
   // ── Tick (called every frame from sim.js) ─────────────────────────────────
@@ -208,7 +216,7 @@
         const cur = stateIndex(r.system);
         if(cur > 0){
           d.systems[r.system] = STATES[cur-1];
-          addLog('DC', `${SYS_LABEL[r.system]} restored to ${STATES[cur-1]}`);
+          addLog('ENG',  `Conn, DC — ${SYS_LABEL[r.system]} restored to ${STATES[cur-1]}`);
           setMsg(`${SYS_LABEL[r.system]} REPAIRED`, 1.5);
           _alert(`${SYS_LABEL[r.system]} REPAIRED`);
         }
@@ -222,7 +230,7 @@
       if(d.crew.woundedRecoverT <= 0 && d.crew.wounded > 0){
         const rec = Math.max(1, Math.floor(d.crew.wounded * 0.65));
         d.crew.wounded = Math.max(0, d.crew.wounded - rec);
-        if(rec>0){ addLog('MED', `${rec} crew recovered from wounds`); }
+        if(rec>0){ addLog('CONN', `Conn, aye — medical report: ${rec} crew returned to duty`); }
       }
     }
 
@@ -294,7 +302,7 @@
 
     // Depth limit — hull stress from casualties
     const integ = Math.max(0, 1 - d.crew.killed/(d.crew.total||30));
-    const maxDepth = integ<0.35 ? 120 : integ<0.55 ? 220 : (C.world?.maxDepth||450);
+    const maxDepth = integ<0.35 ? 120 : integ<0.55 ? 250 : (C.world?.maxDepth||500);
 
     return {
       speedCap, sonarRangeMult, bearingNoiseMult,
@@ -318,13 +326,26 @@
       reloadMult:1.0, depthRateMult:1.0, noisePenalty:0,
       tdcErrDeg:0, tubesAvail:C.player.torpTubes||4,
       towedOk:true, periscopeOk:true,
-      maxDepth:C.world?.maxDepth||450, totalFlood:0,
+      maxDepth:C.world?.maxDepth||500, totalFlood:0,
     };
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
+  // Progressive crush flooding — called by nav.js when below crush depth
+  // amount: hull fraction to flood per call (e.g. 0.002 * dt per second at just below crush)
+  function applyHullStress(amount, reason){
+    const d = player.damage;
+    if(!d) return;
+    // Distribute flooding to a random compartment, biased toward hull/ballast
+    const comps=['hull','ballast_tanks','forward','aft'];
+    const comp=comps[Math.floor(Math.random()*comps.length)];
+    d.flooding[comp]=Math.min(1,(d.flooding[comp]||0)+amount*2.5);
+    // Also tick HP so game-over still works
+    player.hp=Math.max(0,(player.hp||100)-amount*8);
+  }
+
   window.DMG = {
-    initDamage, hit, tick, assignRepair, cancelRepair,
+    initDamage, hit, tick, applyHullStress, assignRepair, cancelRepair,
     sealFlooding, setDeptPriority, getEffects, maxDCTeams,
     COMP_SYSTEMS, COMPARTMENTS, STATES, SYS_LABEL,
   };

@@ -69,16 +69,23 @@
         game.tdc.target=best;
         game.tdc.targetId=bestId;
         window.G.setMsg(`TDC: ${bestId} DESIGNATED`,1.0);
-        addLog('CONN',`TDC — designate ${bestId}`);
+        addLog('CONN',`Weps, Conn — TDC, designate track ${bestId}`);
         const sc=best._isTorp?null:window.G?.sonarContacts?.get(best);
-        if(sc) addLog('SONAR',`${bestId} brg ${Math.round(game.tdc.bearing??0).toString().padStart(3,'0')}° — solution locked`);
+        if(sc) addLog('SONAR',`Conn, Sonar — track ${bestId} locked in TDC`);
       } else {
         // Normal waypoint
         const snapped=window.MAPS.snapToSea(
           (wx+world.w)%world.w,
           (wy+world.h)%world.h
         );
+        const firstWP = route.length===0;
         route.push(snapped);
+        if(firstWP){
+          const brgToWP = Math.atan2(snapped.wy-player.wy, snapped.wx-player.wx);
+          const crsStr = Math.round(((brgToWP*180/Math.PI)+360)%360).toString().padStart(3,'0');
+          addLog('CONN',`Helm, Conn — come to course ${crsStr}`);
+          window.G.queueLog('HELM',`Conn, Helm — aye, coming to course ${crsStr}`,1.5);
+        }
       }
     }
 
@@ -122,33 +129,49 @@
       I.keys.delete("z");
       player.silent=!player.silent;
       setMsg(player.silent?"SILENT RUNNING":"NORMAL RUN",1.0);
-      addLog('CONN', player.silent ? 'Rig for silent running' : 'Normal running');
-      if(player.silent) addLog('ENG','All non-essential machinery secured');
+      if(player.silent){
+        addLog('CONN','All stations, Conn — rig for silent running');
+        window.G.queueLog('ENG', 'Conn, Eng — propulsion to one-third, non-essential machinery securing',1.5);
+        window.G.queueLog('ENG', 'Conn, Eng — pumps and ventilation secured',3.0);
+        window.G.queueLog('SONAR','Conn, Sonar — passive suite only, active sonar safed',5.0);
+        window.G.queueLog('WEPS', 'Conn, Weps — weapon systems in standby',6.5);
+        window.G.queueLog('ENG', 'Conn, Eng — ship is rigged for silent running. Duty watch in place',8.0);
+      } else {
+        addLog('CONN','All stations, Conn — secure from silent running');
+        window.G.queueLog('ENG','Conn, Eng — restoring normal operations',1.5);
+        window.G.queueLog('ENG','Conn, Eng — secured. All systems normal',3.5);
+      }
     }
 
     // ── Emergency turn (Q) ────────────────────────────────────────────────────
     if(I.keys.has("q")&&player.emergTurnCd<=0&&player.emergTurnT<=0){
-      {const ta=player.towedArray; if(ta.state==='operational'){ta.state='damaged';window.G.addLog('ENG','Array damaged — emergency turn');}else if(ta.state==='damaged'){ta.state='destroyed';window.G.addLog('ENG','Array lost — emergency turn [DESTROYED]');}}
+      {const ta=player.towedArray; if(ta.state==='operational'){ta.state='damaged';window.G.addLog('ENG','Conn, Eng — array took stress on that manoeuvre, degraded');}else if(ta.state==='damaged'){ta.state='destroyed';window.G.addLog('ENG','Conn, Eng — array cable parted on that manoeuvre. Array lost');}}
       I.keys.delete("q");
       player.emergTurnT=C.player.emergencyTurn.dur;
       player.emergTurnCd=C.player.emergencyTurn.cd;
       player.noiseTransient=Math.min(1,player.noiseTransient+C.player.emergencyTurn.noiseSpike);
       route.length=0;
       setMsg("EMERGENCY TURN!",1.2);
-      addLog('CONN','Emergency turn — hard over!');
+      addLog('CONN','Helm, Conn — hard over, emergency turn');
     }
 
     // ── Crash dive (C) ────────────────────────────────────────────────────────
     if(I.keys.has("c")&&player.crashDiveCd<=0&&player.crashDiveT<=0){
-      {const ta=player.towedArray; if(ta.state==='operational'){ta.state='damaged';window.G.addLog('ENG','Array damaged — crash dive');}else if(ta.state==='damaged'){ta.state='destroyed';window.G.addLog('ENG','Array lost — crash dive [DESTROYED]');}}
+      {const ta=player.towedArray; if(ta.state==='operational'){ta.state='damaged';window.G.addLog('ENG','Conn, Eng — array took stress on crash dive, degraded');}else if(ta.state==='damaged'){ta.state='destroyed';window.G.addLog('ENG','Conn, Eng — array cable parted on crash dive. Array lost');}}
       I.keys.delete("c");
       player.crashDiveT=C.player.crashDive.dur;
       player.crashDiveCd=C.player.crashDive.cd;
+      // Large noise spike — blowing tanks is very loud
       player.noiseTransient=Math.min(1,player.noiseTransient+C.player.crashDive.noiseSpike);
-      player.depthOrder=clamp((player.depthOrder??player.depth)+420,20,world.ground-60);
-      setMsg("CRASH DIVE!",1.2);
-      addLog('CONN','Crash dive!');
-      addLog('ENG','Flood all ballast tanks — max down angle');
+      // Dive 600m from current position — straight down
+      player.depthOrder=clamp((player.depthOrder??player.depth)+600,20,world.ground-60);
+      // Tau override — instant response, bypass normal sluggish depth control
+      player._crashTauOverride=C.player.crashDive.tauOverride??0.4;
+      setMsg("CRASH DIVE!",2.0);
+      player._crashDepthCalled=new Set();
+      addLog('CONN','Helm, Conn — emergency deep, all ahead flank');
+      window.G.queueLog('ENG','Conn, Eng — flooding all tanks, full dive planes, max down angle',0.8);
+      window.G.queueLog('ENG','Conn, Eng — steep down angle, rate of descent high',2.0);
     }
   }
 
@@ -161,6 +184,15 @@
     const err=orderKts-player.speed;
     player.speed+=(err/Math.max(0.05,C.player.speedTau))*dt;
     player.speed=clamp(player.speed,0,Math.min(C.player.flankKts, dmgFx.speedCap??Infinity));
+    // Helm speed report — fires once when actual speed settles within 0.8kt of order
+    if(Math.abs(player.speed-orderKts)<0.8 && Math.abs((player._lastReportedKts??-99)-orderKts)>1.0){
+      player._lastReportedKts=orderKts;
+      if(orderKts>0){
+        window.G.queueLog('HELM',`Conn, Helm — making ${Math.round(player.speed)} knots`,0.5);
+      } else {
+        window.G.queueLog('HELM',`Conn, Helm — all stop, speed zero`,0.5);
+      }
+    }
 
     // ── Heading — steer toward next waypoint ──────────────────────────────────
     // Speed-scaled turn rate
@@ -179,6 +211,14 @@
       const arriveR=clamp(ktsToWU(player.speed)*2.0, 80, 300);
       if(dist<arriveR){
         route.shift();
+        if(route.length>0){
+          const nx2=route[0];
+          const brgToNext = Math.atan2(nx2.wy-player.wy, nx2.wx-player.wx);
+          const crsNext = Math.round(((brgToNext*180/Math.PI)+360)%360).toString().padStart(3,'0');
+          addLog('HELM',`Conn, Helm — waypoint reached, coming to course ${crsNext}`);
+        } else {
+          addLog('HELM',`Conn, Helm — final waypoint reached, steady on course ${Math.round(((player.heading*180/Math.PI)+360)%360).toString().padStart(3,'0')}`);
+        }
       } else {
         const desired=Math.atan2(dy,dx);
         let dAng=angleNorm(desired-player.heading);
@@ -212,13 +252,43 @@
 
     // ── Depth ─────────────────────────────────────────────────────────────────
     const errD=(player.depthOrder??player.depth)-player.depth;
-    const tau=Math.max(0.08,C.player.depthTau||1.4);
-    const rateMax=(C.player.depthRateMax||170)*(player.crashDiveT>0?C.player.crashDiveRateMult:1.0)*(dmgFx.depthRateMult??1.0);
+    // Crash dive: use tauOverride for instant response; clear once dive settles
+    const crashActive=player.crashDiveT>0;
+    if(crashActive && player._crashTauOverride>0){
+      // Bleed off override as the dive progresses — snappy start, settles to normal
+      player._crashTauOverride=Math.max(0, (player._crashTauOverride||0)-dt*0.3);
+    } else {
+      player._crashTauOverride=0;
+    }
+    const tau=Math.max(0.08, player._crashTauOverride>0
+      ? player._crashTauOverride
+      : (C.player.depthTau||3.0));
+    const rateMult=crashActive?(C.player.crashDive.rateMult??2.2):1.0;
+    const rateMax=(C.player.depthRateMax||5.0)*rateMult*(dmgFx.depthRateMult??1.0);
     const desiredVy=clamp(errD/tau,-rateMax,rateMax);
     player.vy=lerp(player.vy,desiredVy,0.18);
-    // Enforce max depth from hull integrity
-    const depthLimit = dmgFx.maxDepth ?? (world.ground-40);
-    player.depth=clamp(player.depth+player.vy*dt, 0, Math.min(world.ground-40, depthLimit));
+    // Depth physics — no hard wall at crush depth, just flood damage
+    player.depth=clamp(player.depth+player.vy*dt, 0, world.ground-40);
+
+    // Crush depth — progressive flooding below rated depth
+    const crushDepth = dmgFx.maxDepth ?? (world.maxDepth ?? 500);
+    if(player.depth > crushDepth){
+      const overDepth = player.depth - crushDepth;
+      // Flood rate scales with overage: 1%/s at 10m over, 10%/s at 100m over
+      const floodRate = clamp(overDepth / 1000, 0.002, 0.12); // hull% per second
+      if(window.DMG?.applyHullStress){
+        window.DMG.applyHullStress(floodRate * dt, 'crush depth exceeded');
+      }
+      // Log once per 10m band to warn player
+      const band = Math.floor(overDepth/10);
+      if(band !== (player._crushBand??-1)){
+        player._crushBand = band;
+        window.G.addLog('ENG', `Conn, Eng — hull stress. Depth ${Math.round(player.depth)}m exceeds crush limit`);
+        window.G.setMsg('CRUSH DEPTH EXCEEDED', 1.5);
+      }
+    } else {
+      player._crushBand = -1;
+    }
 
     // Sync aliases
     player.y=player.depth;

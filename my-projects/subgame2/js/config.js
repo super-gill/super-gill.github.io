@@ -5,8 +5,9 @@
       w:12000, h:12000,
       seaLevel:0,
       ground:1900,
-      layerY1:360,
-      layerY2:480,
+      layerY1:180,
+      layerY2:280,
+      maxDepth:500,   // nominal crush depth — exceeded = progressive flooding
     },
     camera:{
       zoom:0.12,
@@ -20,18 +21,18 @@
       speedTau:10,            // seconds to close speed gap (sluggish acceleration)
       turnRateDeg:3.5,        // °/s at flank — gives ~2.4nm turning radius at 28kt
       turnRateMinDeg:0.6,     // °/s at creep
-      periscopeDepth:140, crashDiveRateMult:1.6,
+      periscopeDepth:140,
       depthStep:60, depthHoldRepeat:0.10,
-      depthTau:8.0, depthRateMax:1.8,   // 1.8 m/s normal depth rate — realistic
+      depthTau:3.0, depthRateMax:5.0,   // 5.0 m/s normal depth rate — SSN realistic
       ballast:0.0, ballastRate:0.85, buoyAccel:210, buoyDamp:0.85, vyMax:190,
       flankNoiseBoost:0.42, flankTransient:0.28,
       silentRunning:{speedCap:8, noiseMult:0.55},
       emergencyTurn:{dur:2.2, cd:8.0, rudderDeg:35, noiseSpike:0.28},
-      crashDive:{dur:2.4, cd:8.0, noiseSpike:0.18},
+      crashDive:{dur:3.5, cd:12.0, noiseSpike:0.35, tauOverride:0.4, rateMult:2.2},
       noiseFloor:0.04, flowNoiseDiv:32, turnNoise:0.07,
       cavitationDepthRef:380, cavitationKtsRef:18, cavitationSlope:0.018, cavitationSpike:0.22,
       torpCd:0.45, cmCd:4.5, pingCd:9.0, pingPulse:1.25,
-      torpTubes:4, torpStock:32, torpReloadTime:28, fireDelay:1.8,
+      torpTubes:4, torpStock:32, torpReloadTime:28, fireDelay:4.5,
       torpArcDeg:55, torpEnableDist:300,
       torpWireMaxRange:3000,      // world units ~30km (Spearfish class runout)
       torpWireBreakTurnDeg:90,    // generous cumulative turn — wire-guided shots need to manoeuvre
@@ -83,7 +84,7 @@
       subNoiseMin:0.58, subNoiseMax:0.82,  // enemy subs run louder than player
       subSprintKtsMin:13, subSprintKtsMax:18,  // faster wolfpack sprints
 
-      subTorpReactR:1200, boatTorpReactR:400,
+      subTorpReactR:1600, boatTorpReactR:400,
       subTorpArcDeg:55,
       subTubes:2, subTorpStock:6, subReloadTime:40,
       // Enemy torpedo parameters — Soviet-era: same model, slightly behind the curve

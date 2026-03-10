@@ -108,7 +108,7 @@
     if(wirePaidOut>C.player.torpWireMaxRange){
       b.wire.live=false;
       window.G.setMsg('WIRE CUT: runout',0.8);
-      window.G.addLog('WEPS','Wire parted — runout');
+      window.G.addLog('WEPS','Conn, Weps — wire parted, runout. Tube reloading');
       window.G._onWireCut?.(b);
       return;
     }
@@ -118,27 +118,70 @@
     // If seeker has a lock, wire yields — torpedo.js is already homing
     if(b.target || b.seducedBy) return;
 
-    // Wire sends a steering bearing (compass direction to fly), not a homing course
-    // to an estimated position. This avoids circling when range estimate is short.
+    // Wire guidance — bearing-only steering, no position oscillation.
+    //
+    // Key insight: estimating a target position and position-homing to it causes
+    // the torpedo to oscillate around the estimate when it overshoots. Instead:
+    //
+    // Phase 1 (torpedo short of estimated range): steer FROM TORPEDO toward estimated
+    //   position — this corrects heading errors early in the run.
+    // Phase 2 (torpedo at/past estimated range): fly the raw bearing forever.
+    //   Phase 2 is a one-way latch — once set, never reverts to phase 1.
+    //   This eliminates the turn-around bug where the torpedo gets commanded back
+    //   toward a point it has already passed.
     const ref=b.wire.lockedTarget;
     if(ref){
       const sc=sonarContacts?.get(ref);
-      const bestBrg=sc?.latestHullBrg ?? sc?.latestBrg;
-      if(bestBrg!=null){
-        // Apply lead angle for SOLID TMA quality
+      const latestBrg=sc?.latestHullBrg ?? sc?.latestBrg;
+      if(latestBrg!=null){
         const tmaQ=sc?.tmaQuality??0;
         const TMA=C.tma;
-        if(tmaQ>=(TMA.qualityThresholdSolid??0.70) && sc._brgRate!=null){
-          const estRange=sc._estRange??TMA.defaultRange??2000;
-          const tof=estRange/(C.torpedo.speed??28);
-          b.targetBrg = bestBrg + (sc._brgRate??0)*tof*0.6;
+
+        // How far has the torpedo traveled from the player? (straight-line)
+        let pdx=b.x-player.wx; if(pdx>w.w/2)pdx-=w.w; if(pdx<-w.w/2)pdx+=w.w;
+        let pdy=b.y-player.wy; if(pdy>w.h/2)pdy-=w.h; if(pdy<-w.h/2)pdy+=w.h;
+        const torpDistFromPlayer = Math.hypot(pdx, pdy);
+
+        // Estimated target range (used only for phase switch)
+        const estRange = Math.max(500, sc?._estRange ?? 3000);
+
+        // One-way latch: once torpedo reaches 75% of estimated range, fly bearing forever
+        if(!b.wire._bearingMode && torpDistFromPlayer >= estRange * 0.75){
+          b.wire._bearingMode = true;
+        }
+
+        let rawTargetBrg;
+        if(b.wire._bearingMode){
+          // Phase 2: raw bearing direction — no position to overshoot
+          rawTargetBrg = latestBrg;
+          // Apply lead angle at SOLID quality
+          if(tmaQ>=(TMA?.qualityThresholdSolid??0.70) && sc?._brgRate!=null){
+            const estSpd = C.torpedo.speed ?? 50;
+            const estTof = Math.max(100, estRange - torpDistFromPlayer) / estSpd;
+            rawTargetBrg = latestBrg + (sc._brgRate) * estTof * 0.5;
+          }
         } else {
-          b.targetBrg = bestBrg;  // raw bearing — fly the direction sub is looking
+          // Phase 1: steer toward estimated position to correct heading errors
+          const estTX = player.wx + Math.cos(latestBrg)*estRange;
+          const estTY = player.wy + Math.sin(latestBrg)*estRange;
+          let tdx = estTX - b.x; if(tdx>w.w/2)tdx-=w.w; if(tdx<-w.w/2)tdx+=w.w;
+          let tdy = estTY - b.y; if(tdy>w.h/2)tdy-=w.h; if(tdy<-w.h/2)tdy+=w.h;
+          rawTargetBrg = Math.atan2(tdy, tdx);
+        }
+
+        // Smooth bearing so noisy sonar ticks don't jink the torpedo.
+        // Use a 2s time constant — fast enough to respond, slow enough to filter noise.
+        if(b.targetBrg == null){
+          b.targetBrg = rawTargetBrg;
+        } else {
+          const diff = angleNorm(rawTargetBrg - b.targetBrg);
+          const alpha = Math.min(1.0, dt / 2.0);
+          b.targetBrg = b.targetBrg + diff * alpha;
         }
       }
     } else if(b.wire.cmdBrg!=null){
-      // Fallback: use baked-in launch bearing (no designated target)
-      b.targetBrg=b.wire.cmdBrg;
+      // No designated target — fly launch bearing
+      b.targetBrg = b.wire.cmdBrg;
     }
 
     // Sensor sweep — feed contacts back to player via wireContacts
@@ -164,7 +207,7 @@
     if(!b?.wire?.live) return;
     b.wire.live=false;
     window.G.setMsg('WIRE CUT: manual',0.8);
-    window.G.addLog('WEPS','Wire cut — manual');
+    window.G.addLog('WEPS','Conn, Weps — wire cut, manual. Torpedo running free');
     window.G._onWireCut?.(b);
   }
 

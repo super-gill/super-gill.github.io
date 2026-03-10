@@ -69,7 +69,7 @@
     const stuck = qBase>0.6 && qObs>0.7 && qCross<0.15 && q<0.30;
     if(stuck && !c._hintedManeuver){
       c._hintedManeuver=true;
-      window.G.addLog('SONAR',`${c.id}: maneuver needed — turn 20°+ for solution`);
+      window.G.addLog('SONAR',`Conn, Sonar — ${c.id} solution degrading, towed ambiguity unresolved. Recommend 20° course change`);
     }
     if(!stuck) c._hintedManeuver=false;
   }
@@ -109,7 +109,8 @@
               }
               const relBrg=((bearing-player.heading+3*Math.PI)%(Math.PI*2))-Math.PI;
               const sideStr=relBrg>=0?'starboard':'port';
-              addLog('SONAR',`${c.id} ambiguity resolved — contact is ${sideStr}`);
+              addLog('SONAR',`Conn, Sonar — ${c.id} ambiguity resolved, contact is ${sideStr}`);
+              window.G.queueLog('CONN',`Sonar, Conn — aye, ${c.id} resolved`,1.0);
             }
           }
         }
@@ -117,7 +118,7 @@
 
       if(c.bearings.length>=TMA.maxBearings) c.bearings.shift();
       c.bearings.push({fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T,source});
-      c.lastObsT=T; c.activeT=3.0;
+      c.lastObsT=T; c.lastT=window.M.now(); c.activeT=3.0;
       c.latestBrg=bearing;
       if(source==='hull'){ c.latestHullBrg=bearing; c.lastHullBrgT=T; }
       c.latestFromX=player.wx; c.latestFromY=player.wy;
@@ -134,14 +135,28 @@
       }
       if(source==='hull'){ c._prevHullBrg=bearing; c._prevHullBrgT=T; }
 
-      // Estimated range from bearing-rate and own-speed (CBDR approximation)
-      // rangeEst = ownSpeed / bearingRate when bearing rate is meaningful
-      if(c._brgRate!=null && Math.abs(c._brgRate)>0.001){
-        // player.vx is horizontal speed (set by nav.js). player.vy is depth-rate.
-        // Use horizontal speed — that's what drives bearing-rate changes.
-        const ownSpd=Math.abs(player.vx??0)||Math.abs(player.speed??0)||0.5;
-        const estR=Math.abs(ownSpd/c._brgRate);
-        c._estRange=clamp(estR, 200, 8000);
+      // Estimated range from bearing-rate and own-speed.
+      // Corrected formula: R = ownSpd * |sin(θ)| / |brgRate|
+      // where θ is the angle between own heading and the bearing to target.
+      // Pure CBDR (θ=0) gives infinite range — clamped. Cross-track (θ=90°) is most accurate.
+      if(c._brgRate!=null && Math.abs(c._brgRate)>0.0005){
+        const ownSpd=Math.hypot(player.vx??0, player.speed ? Math.cos(player.heading)*player.speed : 0)
+                     || Math.abs(player.speed??0) || 0.5;
+        // Angle between own heading and bearing to contact
+        const latestB = c.latestBrg ?? 0;
+        const ownH = player.heading ?? 0;
+        const relAngle = latestB - ownH;
+        const sinTheta = Math.abs(Math.sin(relAngle));
+        // Only update when geometry is reasonable (sin > 0.2 = >12° off CBDR)
+        if(sinTheta > 0.20){
+          const rawR = (ownSpd * sinTheta) / Math.abs(c._brgRate);
+          const clamped = clamp(rawR, 200, 12000);
+          // Smooth heavily — range estimates are noisy, 8s time constant
+          c._estRange = c._estRange != null
+            ? c._estRange * 0.92 + clamped * 0.08
+            : clamped;
+        }
+        // else: geometry too close to CBDR, don't update _estRange
       }
 
       const prevQ=c.tmaQuality??0;
@@ -149,8 +164,14 @@
       solveTMA(c);
       const newTier=c.tmaQuality<0.35?0:c.tmaQuality<0.70?1:2;
       if(newTier>prevTier){
-        if(newTier===1) addLog('SONAR',`${c.id} — solution DEGRADED`);
-        if(newTier===2) addLog('SONAR',`${c.id} — solution SOLID`);
+        if(newTier===1){
+          addLog('SONAR',`Conn, Sonar — ${c.id}, TMA degraded, solution building`);
+          window.G.queueLog('CONN',`Weps, Conn — TDC, update solution on ${c.id}`,1.5);
+        }
+        if(newTier===2){
+          addLog('SONAR',`Conn, Sonar — ${c.id}, TMA solution solid. Ready for firing point procedures`);
+          window.G.queueLog('CONN',`Weps, Conn — firing point procedures authorised on ${c.id}`,2.0);
+        }
       }
     } else {
       const id=assignId();
@@ -159,7 +180,7 @@
         bearings:[{fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T,source}],
         latestBrg:bearing, latestFromX:player.wx, latestFromY:player.wy,
         tmaQuality:0,
-        lastObsT:T, activeT:3.0,
+        lastObsT:T, lastT:window.M.now(), activeT:3.0,
       };
       if(source==='hull'){ newC.latestHullBrg=bearing; newC.lastHullBrgT=T; }
       newC._ref=e;
@@ -167,10 +188,14 @@
       const typeLabel=e.type==='boat'?'surface contact':'subsurface contact';
       const brgDeg=(((Math.atan2(Math.cos(bearing),-Math.sin(bearing))*180/Math.PI)+360)%360);
       if(source==='hull'){
-        addLog('SONAR',`New ${typeLabel} ${id} — brg ${Math.round(brgDeg).toString().padStart(3,'0')}° passive`);
+        addLog('SONAR',`Conn, Sonar — possible contact, investigating`);
+        window.G.queueLog('SONAR',`Conn, Sonar — new ${typeLabel}, track ${id}, bears ${Math.round(brgDeg).toString().padStart(3,'0')}°, passive`,2.5);
+        window.G.queueLog('CONN', `Sonar, Conn — aye, track ${id}. Maintain track`,4.0);
       } else {
-        addLog('SONAR',`New ${typeLabel} ${id} — brg ${Math.round(brgDeg).toString().padStart(3,'0')}° towed (ambiguous)`);
-        addLog('SONAR',`${id}: turn 10-20° to resolve port/starboard`);
+        addLog('SONAR',`Conn, Sonar — possible contact, towed array, investigating`);
+        window.G.queueLog('SONAR',`Conn, Sonar — new ${typeLabel}, track ${id}, bears ${Math.round(brgDeg).toString().padStart(3,'0')}°, towed array, ambiguous`,2.5);
+        window.G.queueLog('SONAR',`Conn, Sonar — ${id} port/starboard ambiguous. Recommend 10-20° course change to resolve`,3.5);
+        window.G.queueLog('CONN', `Sonar, Conn — aye, track ${id}. Maintain track`,5.0);
       }
     }
   }
@@ -263,11 +288,17 @@
     const DEPLOY_TIME = 30, RETRACT_TIME = 20;
     if(ta.state === 'deploying'){
       ta.progress = clamp(ta.progress + dt/DEPLOY_TIME, 0, 1);
+      if(!ta._halfwayLogged && ta.progress>=0.5){
+        ta._halfwayLogged=true;
+        addLog('ENG','Conn, Eng — array halfway out, no issues');
+      }
       if(ta.progress >= 1){
         ta.state = 'operational';
         ta.progress = 1;
-        addLog('SONAR', 'Towed array fully deployed — long-range passive listening active');
-        addLog('SONAR', 'Bearing ambiguity shown as two lines — turn to resolve');
+        ta._halfwayLogged=false;
+        addLog('ENG','Conn, Eng — array fully streamed');
+        window.G.queueLog('SONAR','Conn, Sonar — towed array online, long-range passive active',1.0);
+        window.G.queueLog('SONAR','Conn, Sonar — note bearing ambiguity on towed contacts. Recommend 10-20° course change to resolve',2.0);
       }
       return; // don't sense while deploying
     }
@@ -276,7 +307,7 @@
       if(ta.progress <= 0){
         ta.state = 'stowed';
         ta.progress = 0;
-        addLog('ENG', 'Towed array retracted');
+        addLog('ENG',  'Conn, Eng — array inboard and stowed');
       }
       return;
     }
@@ -289,20 +320,25 @@
       ta.state = prev==='operational' ? 'damaged' : 'destroyed';
       ta.overspeedT = 0;
       addLog('ENG', ta.state==='destroyed'
-        ? 'Array lost — cable parted at high speed [DESTROYED]'
-        : 'Array damaged — overspeed [DEGRADED]');
+        ? 'Conn, Eng — array cable has parted at high speed. Array lost'
+        : 'Conn, Eng — array overspeed damage. Array degraded');
     } else if(player.speed >= MAX_SPD){
       ta.overspeedT = (ta.overspeedT||0) + dt;
+      if(ta.overspeedT > 0.5 && !ta._overspeedWarned){
+        ta._overspeedWarned=true;
+        addLog('ENG',`Conn, Eng — array overspeed, ${Math.round(player.speed)}kt. Risk of cable loss`);
+      }
       if(ta.overspeedT > 5){
         ta.overspeedT = 0;
         const prev = ta.state;
         ta.state = prev==='operational' ? 'damaged' : 'destroyed';
         addLog('ENG', ta.state==='destroyed'
-          ? 'Array lost — sustained overspeed [DESTROYED]'
-          : 'Array damaged — sustained overspeed [DEGRADED]');
+          ? 'Conn, Eng — array cable has parted, sustained overspeed. Array lost'
+          : 'Conn, Eng — array cable stressed, sustained overspeed. Array degraded');
       }
     } else {
       ta.overspeedT = Math.max(0, (ta.overspeedT||0) - dt);
+      if(ta.overspeedT<=0) ta._overspeedWarned=false;
     }
     if(ta.state === 'destroyed') return;
 
@@ -419,7 +455,7 @@
       sc.activeT=Math.max(sc.activeT||0, 4.0);
       sc.lastObsT=game.missionT||0;
     }
-    addLog('SONAR',`Launch transient — brg ${Math.round(brgDeg).toString().padStart(3,'0')}°`);
+    addLog('SONAR',`Conn, Sonar — launch transient, bears ${Math.round(brgDeg).toString().padStart(3,'0')}°. Torpedo in the water`);
   }
   window._playerHearTransient=playerHearTransient;
 
@@ -499,7 +535,7 @@
         hits++;
       }
     }
-    addLog('SONAR', hits>0 ? `Active ping — ${hits} return${hits>1?'s':''}` : 'Active ping — no returns');
+    addLog('SONAR', hits>0 ? `Conn, Sonar — active ping, ${hits} return${hits>1?'s':''}` : 'Conn, Sonar — active ping, no returns');
 
     // DATUM — ping is heard by ALL enemies in a very wide radius
     // This is the primary cost of going active
@@ -514,7 +550,7 @@
         if(Math.hypot(dx,dy)<datumRange) alerted++;
       }
     }
-    if(alerted>0) addLog('SONAR',`WARNING: ping datum — ${alerted} contact${alerted>1?'s':''} alerted`);
+    if(alerted>0) addLog('SONAR',`Conn, Sonar — ping datum. ${alerted} contact${alerted>1?'s':''} alerted to our position`);
     return true;
   }
 
