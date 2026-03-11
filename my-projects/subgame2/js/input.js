@@ -23,6 +23,7 @@
     if(e.key==="Control") input.ctrlHeld=true;
     // Home — re-centre camera on player
     if(e.key==="Home"){ const cam=window.G?.cam; const p=window.G?.player; if(cam&&p){cam.free=false;cam.x=p.wx;cam.y=p.wy;} }
+    if(k==='j'&&window.G?.game){ window.G.game.logTab = window.G.game.logTab==='dc'?'log':'dc'; }
     if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) e.preventDefault();
   });
   addEventListener("keyup",(e)=>{
@@ -57,6 +58,19 @@
     return mx >= canvas.width - 56*DPR;
   }
 
+  // Log panel sits above the bottom panel, bottom-left corner
+  // Must absorb clicks so they don't fall through to chart waypoints
+  function inLogPanel(mx, my){
+    const canvas=getCanvas(); if(!canvas) return false;
+    const DPR=getDPR();
+    const panelH=190*DPR;
+    const boardW=560*DPR;
+    // tabH=20, rowH=19, maxRows=28, padY=6*2, +4 → boardH=568
+    const boardH=568*DPR;
+    const by=canvas.height - panelH - boardH - 2*DPR;
+    return mx >= 0 && mx <= boardW && my >= by && my <= canvas.height - panelH;
+  }
+
   addEventListener("mousemove",(e)=>{
     updateMouse(e);
     if(input._camDragActive && input.mouseDownR && input.ctrlHeld){
@@ -76,11 +90,18 @@
     updateMouse(e);
     if(e.button===0){
       input.mouseDownL=true;
-      // Panel and depth strip absorb clicks — don't route to chart
-      if(inPanel(input.mouseY)||inDepthStrip(input.mouseX)){
+      // Start screen — all clicks go to PANEL
+      if(window.G?.game?.started===false){
         window.PANEL?.handleClick(input.mouseX, input.mouseY);
         return;
       }
+      // Panel and depth strip absorb clicks — don't route to chart
+      if(inPanel(input.mouseY)||inDepthStrip(input.mouseX)||inLogPanel(input.mouseX,input.mouseY)){
+        window.PANEL?.handleClick(input.mouseX, input.mouseY);
+        return;
+      }
+      // Try overlay buttons (damage panel, etc.) before routing to chart
+      if(window.PANEL?.handleClick(input.mouseX, input.mouseY)) return;
       if(input.shiftHeld){
         input.torpAimClick=true;
       } else {

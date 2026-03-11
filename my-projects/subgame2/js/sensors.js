@@ -2,6 +2,7 @@
   'use strict';
   const C=window.CONFIG; const {rand,clamp}=window.M;
   const {world,player,enemies,contacts,sonarContacts,game,addLog}=window.G;
+  const COMMS=window.COMMS;
   const AI=window.AI;
 
   // Throttled sonar raw feed — one entry per contact per ~4s, per array
@@ -53,11 +54,25 @@
       }
     const qCross=clamp((maxCross-5*Math.PI/180)/((25-5)*Math.PI/180),0,1);
 
-    let q=qBase*qObs*qCross;
+    // Straight-leg floor: even without bearing divergence, a long baseline with many
+    // observations gives some Doppler/level information. Creeps up slowly so a
+    // patient player driving straight eventually gets DEGRADED but never SOLID.
+    // (SOLID still requires a real maneuver to get bearing crossing angle.)
+    const straightFloor=qBase*qObs*0.28;  // max ~0.28 on a pure straight leg
+    let q=Math.max(qBase*qObs*qCross, straightFloor*0.5);
+
     // Unresolved towed ambiguity with no recent hull coverage — cap at DEGRADED
     const hullAge=T-(c.lastHullBrgT||0);
     if(c.towedCandA && c.towedResolved===null && hullAge>30) q=Math.min(q,0.45);
     c.tmaQuality=q;
+
+    // Maneuver hint: good baseline + many obs but no crossing angle → stuck below DEGRADED
+    const stuck = qBase>0.6 && qObs>0.7 && qCross<0.15 && q<0.30;
+    if(stuck && !c._hintedManeuver){
+      c._hintedManeuver=true;
+      COMMS.sensors.tmaDegrading(c.id);
+    }
+    if(!stuck) c._hintedManeuver=false;
   }
 
 
@@ -95,7 +110,7 @@
               }
               const relBrg=((bearing-player.heading+3*Math.PI)%(Math.PI*2))-Math.PI;
               const sideStr=relBrg>=0?'starboard':'port';
-              addLog('SONAR',`${c.id} ambiguity resolved — contact is ${sideStr}`);
+              COMMS.sensors.ambiguityResolved(c.id, sideStr);
             }
           }
         }
@@ -103,7 +118,7 @@
 
       if(c.bearings.length>=TMA.maxBearings) c.bearings.shift();
       c.bearings.push({fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T,source});
-      c.lastObsT=T; c.activeT=3.0;
+      c.lastObsT=T; c.lastT=window.M.now(); c.activeT=3.0;
       c.latestBrg=bearing;
       if(source==='hull'){ c.latestHullBrg=bearing; c.lastHullBrgT=T; }
       c.latestFromX=player.wx; c.latestFromY=player.wy;
@@ -120,12 +135,28 @@
       }
       if(source==='hull'){ c._prevHullBrg=bearing; c._prevHullBrgT=T; }
 
-      // Estimated range from bearing-rate and own-speed (CBDR approximation)
-      // rangeEst = ownSpeed / bearingRate when bearing rate is meaningful
-      if(c._brgRate!=null && Math.abs(c._brgRate)>0.001){
-        const ownSpd=Math.hypot(player.vx??0, player.vy??0)||0.5;
-        const estR=Math.abs(ownSpd/c._brgRate);
-        c._estRange=clamp(estR, 200, 8000);
+      // Estimated range from bearing-rate and own-speed.
+      // Corrected formula: R = ownSpd * |sin(θ)| / |brgRate|
+      // where θ is the angle between own heading and the bearing to target.
+      // Pure CBDR (θ=0) gives infinite range — clamped. Cross-track (θ=90°) is most accurate.
+      if(c._brgRate!=null && Math.abs(c._brgRate)>0.0005){
+        const ownSpd=Math.hypot(player.vx??0, player.speed ? Math.cos(player.heading)*player.speed : 0)
+                     || Math.abs(player.speed??0) || 0.5;
+        // Angle between own heading and bearing to contact
+        const latestB = c.latestBrg ?? 0;
+        const ownH = player.heading ?? 0;
+        const relAngle = latestB - ownH;
+        const sinTheta = Math.abs(Math.sin(relAngle));
+        // Only update when geometry is reasonable (sin > 0.2 = >12° off CBDR)
+        if(sinTheta > 0.20){
+          const rawR = (ownSpd * sinTheta) / Math.abs(c._brgRate);
+          const clamped = clamp(rawR, 200, 12000);
+          // Smooth heavily — range estimates are noisy, 8s time constant
+          c._estRange = c._estRange != null
+            ? c._estRange * 0.92 + clamped * 0.08
+            : clamped;
+        }
+        // else: geometry too close to CBDR, don't update _estRange
       }
 
       const prevQ=c.tmaQuality??0;
@@ -133,8 +164,12 @@
       solveTMA(c);
       const newTier=c.tmaQuality<0.35?0:c.tmaQuality<0.70?1:2;
       if(newTier>prevTier){
-        if(newTier===1) addLog('SONAR',`${c.id} — solution DEGRADED`);
-        if(newTier===2) addLog('SONAR',`${c.id} — solution SOLID`);
+        if(newTier===1){
+          COMMS.sensors.tmaDegraded(c.id);
+        }
+        if(newTier===2){
+          COMMS.sensors.tmaSolid(c.id);
+        }
       }
     } else {
       const id=assignId();
@@ -143,7 +178,7 @@
         bearings:[{fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T,source}],
         latestBrg:bearing, latestFromX:player.wx, latestFromY:player.wy,
         tmaQuality:0,
-        lastObsT:T, activeT:3.0,
+        lastObsT:T, lastT:window.M.now(), activeT:3.0,
       };
       if(source==='hull'){ newC.latestHullBrg=bearing; newC.lastHullBrgT=T; }
       newC._ref=e;
@@ -151,10 +186,9 @@
       const typeLabel=e.type==='boat'?'surface contact':'subsurface contact';
       const brgDeg=(((Math.atan2(Math.cos(bearing),-Math.sin(bearing))*180/Math.PI)+360)%360);
       if(source==='hull'){
-        addLog('SONAR',`New ${typeLabel} ${id} — brg ${Math.round(brgDeg).toString().padStart(3,'0')}° passive`);
+        COMMS.sensors.newContact(id, typeLabel, Math.round(brgDeg).toString().padStart(3,'0')+'°');
       } else {
-        addLog('SONAR',`New ${typeLabel} ${id} — brg ${Math.round(brgDeg).toString().padStart(3,'0')}° towed (ambiguous)`);
-        addLog('SONAR',`${id}: turn 10-20° to resolve port/starboard`);
+        COMMS.sensors.newContactTowed(id, typeLabel, Math.round(brgDeg).toString().padStart(3,'0')+'°');
       }
     }
   }
@@ -176,8 +210,8 @@
   // Contacts persist for living enemies — never deleted, quality decays when stale
   function tickContacts(dt){
     const T=game.missionT||0;
-    const STALE_GRACE=12;
-    const DECAY_RATE=0.018;
+    const STALE_GRACE=28;    // raised from 12 — 12s was too tight at 7kt tick interval
+    const DECAY_RATE=0.012;  // slightly slower decay — SOLID should survive a layer dip
     for(const [e,c] of sonarContacts){
       c.activeT=Math.max(0,(c.activeT||0)-dt);
       if(e.dead) continue;
@@ -247,11 +281,15 @@
     const DEPLOY_TIME = 30, RETRACT_TIME = 20;
     if(ta.state === 'deploying'){
       ta.progress = clamp(ta.progress + dt/DEPLOY_TIME, 0, 1);
+      if(!ta._halfwayLogged && ta.progress>=0.5){
+        ta._halfwayLogged=true;
+        COMMS.sensors.arrayDeployHalfway();
+      }
       if(ta.progress >= 1){
         ta.state = 'operational';
         ta.progress = 1;
-        addLog('SONAR', 'Towed array fully deployed — long-range passive listening active');
-        addLog('SONAR', 'Bearing ambiguity shown as two lines — turn to resolve');
+        ta._halfwayLogged=false;
+        COMMS.sensors.arrayStreamed();
       }
       return; // don't sense while deploying
     }
@@ -260,7 +298,7 @@
       if(ta.progress <= 0){
         ta.state = 'stowed';
         ta.progress = 0;
-        addLog('ENG', 'Towed array retracted');
+        COMMS.sensors.arrayInboard();
       }
       return;
     }
@@ -272,21 +310,26 @@
       const prev = ta.state;
       ta.state = prev==='operational' ? 'damaged' : 'destroyed';
       ta.overspeedT = 0;
-      addLog('ENG', ta.state==='destroyed'
-        ? 'Array lost — cable parted at high speed [DESTROYED]'
-        : 'Array damaged — overspeed [DEGRADED]');
+      COMMS.sensors.arrayDamagedMsg(ta.state==='destroyed'
+        ? 'Conn, Eng — array cable has parted at high speed. Array lost'
+        : 'Conn, Eng — array overspeed damage. Array degraded');
     } else if(player.speed >= MAX_SPD){
       ta.overspeedT = (ta.overspeedT||0) + dt;
+      if(ta.overspeedT > 0.5 && !ta._overspeedWarned){
+        ta._overspeedWarned=true;
+        COMMS.sensors.arrayOverspeed(player.speed);
+      }
       if(ta.overspeedT > 5){
         ta.overspeedT = 0;
         const prev = ta.state;
         ta.state = prev==='operational' ? 'damaged' : 'destroyed';
-        addLog('ENG', ta.state==='destroyed'
-          ? 'Array lost — sustained overspeed [DESTROYED]'
-          : 'Array damaged — sustained overspeed [DEGRADED]');
+        COMMS.sensors.arrayDamagedMsg(ta.state==='destroyed'
+          ? 'Conn, Eng — array cable has parted, sustained overspeed. Array lost'
+          : 'Conn, Eng — array cable stressed, sustained overspeed. Array degraded');
       }
     } else {
       ta.overspeedT = Math.max(0, (ta.overspeedT||0) - dt);
+      if(ta.overspeedT<=0) ta._overspeedWarned=false;
     }
     if(ta.state === 'destroyed') return;
 
@@ -382,7 +425,7 @@
         strength:clamp(sig*0.85,0.3,0.9)
       };
     }
-    if(label) addLog('SONAR', label);
+    COMMS.sensors.contactLabel(label);
   }
   // Expose for weapons.js and sim.js
   window._broadcastTransient=broadcastTransient;
@@ -403,7 +446,7 @@
       sc.activeT=Math.max(sc.activeT||0, 4.0);
       sc.lastObsT=game.missionT||0;
     }
-    addLog('SONAR',`Launch transient — brg ${Math.round(brgDeg).toString().padStart(3,'0')}°`);
+    COMMS.sensors.launchTransient(Math.round(brgDeg).toString().padStart(3,'0')+'°');
   }
   window._playerHearTransient=playerHearTransient;
 
@@ -483,7 +526,7 @@
         hits++;
       }
     }
-    addLog('SONAR', hits>0 ? `Active ping — ${hits} return${hits>1?'s':''}` : 'Active ping — no returns');
+    COMMS.sensors.activePing(hits);
 
     // DATUM — ping is heard by ALL enemies in a very wide radius
     // This is the primary cost of going active
@@ -498,7 +541,7 @@
         if(Math.hypot(dx,dy)<datumRange) alerted++;
       }
     }
-    if(alerted>0) addLog('SONAR',`WARNING: ping datum — ${alerted} contact${alerted>1?'s':''} alerted`);
+    COMMS.sensors.pingDatum(alerted);
     return true;
   }
 

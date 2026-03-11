@@ -3,15 +3,15 @@
   const W = ()=>window.W; // lazy ref — weapons.js loads before panel.js calls it
 
   const SPEED_STATES=[
-    {label:'AHEAD FLANK',    kts:28,  dir:1},
-    {label:'AHEAD FULL',     kts:20,  dir:1},
-    {label:'AHEAD STD',      kts:14,  dir:1},
-    {label:'AHEAD SLOW',     kts:7,   dir:1},
-    {label:'AHEAD CREEP',    kts:3,   dir:1},
-    {label:'ALL STOP',       kts:0,   dir:0},
-    {label:'BACK SLOW',      kts:5,   dir:-1},
-    {label:'BACK FULL',      kts:10,  dir:-1},
-    {label:'BACK EMERGENCY', kts:18,  dir:-1},
+    {label:'AHEAD FLANK',    kts:28,  dir:1,  connOrder:'Eng, Conn — all ahead flank',    engAck:'Conn, Eng — all ahead flank, aye'},
+    {label:'AHEAD FULL',     kts:20,  dir:1,  connOrder:'Eng, Conn — all ahead full',     engAck:'Conn, Eng — all ahead full, aye'},
+    {label:'AHEAD STD',      kts:14,  dir:1,  connOrder:'Eng, Conn — all ahead standard', engAck:'Conn, Eng — all ahead standard, aye'},
+    {label:'AHEAD SLOW',     kts:7,   dir:1,  connOrder:'Eng, Conn — ahead slow',         engAck:'Conn, Eng — ahead slow, aye'},
+    {label:'AHEAD CREEP',    kts:3,   dir:1,  connOrder:'Eng, Conn — ahead creep',        engAck:'Conn, Eng — ahead creep, aye'},
+    {label:'ALL STOP',       kts:0,   dir:0,  connOrder:'All stop',                       engAck:'Conn, Eng — all stop, aye. Answering all stop'},
+    {label:'BACK SLOW',      kts:5,   dir:-1, connOrder:'Eng, Conn — back slow',          engAck:'Conn, Eng — back slow, aye'},
+    {label:'BACK FULL',      kts:10,  dir:-1, connOrder:'Eng, Conn — back full',          engAck:'Conn, Eng — back full, aye'},
+    {label:'BACK EMERGENCY', kts:18,  dir:-1, connOrder:'Eng, Conn — back emergency',     engAck:'Conn, Eng — back emergency, aye'},
   ];
 
   let _telegraphIdx=5; // default ALL STOP
@@ -35,41 +35,76 @@
     const s=SPEED_STATES[idx];
     const p=window.G?.player;
     if(p){ p.speedOrderKts=s.kts; p.speedDir=s.dir; }
-    window.G?.setMsg(s.label,1.0);
-    window.G?.addLog('CONN', s.label);
+    COMMS.panel.speedOrder(s.label, s.connOrder, s.engAck);
   }
 
   function depthStep(delta){
     const p=window.G?.player;
     const ground=window.G?.world?.ground??1900;
-    const step=window.CONFIG?.player?.depthStep??60;
     if(!p) return;
-    p.depthOrder=Math.max(20,Math.min(ground-60,(p.depthOrder??p.depth)+delta*step));
-    const ordStr=`${Math.round(p.depthOrder)}m`;
-    window.G.setMsg(`ORDERED ${ordStr}`,0.8);
-    window.G.addLog('CONN', delta>0 ? `Dive to ${ordStr}` : `Come up to ${ordStr}`);
+    p.depthOrder=Math.max(20,Math.min(ground-60,(p.depthOrder??p.depth)+delta));
+    // Debounce log — cancel pending, fire 1s after last press
+    // Cancel emergency blow if player issues a new depth order
+    if(p._blowVenting){
+      p._blowVenting = false;
+      p._blowVy = 0;
+      window.COMMS?.trim?.blowCancelledByOrder(Math.round(p.depth));
+    }
+    clearTimeout(p._depthLogTimer);
+    p._depthLogTimer=setTimeout(()=>{
+      const ordStr=`${Math.round(p.depthOrder)}m`;
+      COMMS.nav.depthOrder(ordStr, delta>0?'down':'up');
+    },1000);
   }
 
   function comeToPD(){
     const p=window.G?.player;
     if(!p) return;
     p.depthOrder=window.CONFIG?.player?.periscopeDepth??140;
-    window.G.setMsg('COME TO PD',1.0);
-    window.G.addLog('CONN','Come to periscope depth');
+    COMMS.nav.comeToPD();
   }
 
   function toggleSilent(){
     const p=window.G?.player;
     if(!p) return;
     p.silent=!p.silent;
-    window.G.setMsg(p.silent?'SILENT RUNNING':'NORMAL RUN',1.0);
-    window.G.addLog('CONN', p.silent ? 'Rig for silent running' : 'Normal running');
-    if(p.silent) window.G.addLog('ENG','All non-essential machinery secured');
+    COMMS.nav.silentRunning(p.silent);
+  }
+
+  function emergencyTurn(){
+    const p=window.G?.player;
+    const C=window.CONFIG;
+  const COMMS=window.COMMS;
+    const I=window.I;
+    if(!p||!C||!I) return;
+    if((p.emergTurnCd||0)>0){ COMMS.ui.emergencyTurnCooldown(); return; }
+    if((p.emergTurnT||0)>0) return;
+    // Towed array stress
+    const ta=p.towedArray;
+    if(ta){
+      if(ta.state==='operational'){ ta.state='damaged'; COMMS.nav.towedArrayStress('manoeuvre','damaged'); }
+      else if(ta.state==='damaged'){ ta.state='destroyed'; COMMS.nav.towedArrayStress('manoeuvre','destroyed'); }
+    }
+    // Clear waypoints
+    const route=window.G?.route; if(route) route.length=0;
+    p.emergTurnT=C.player.emergencyTurn.dur;
+    p.emergTurnCd=C.player.emergencyTurn.cd;
+    p.noiseTransient=Math.min(1,(p.noiseTransient||0)+C.player.emergencyTurn.noiseSpike);
+    // Check SCRAM risk — combo with crash dive
+    const emergRecent=(p.crashDiveCd||0) > (C.player.crashDive?.cd||12)*0.7;
+    if(emergRecent && p.speed>20 && Math.random()<0.45){
+      if(typeof window.G.triggerScram==='function') window.G.triggerScram('combo');
+      COMMS.reactor.scram('turn');
+      return;
+    }
+    COMMS.nav.emergencyTurn();
+    _partAllWires('turn');
   }
 
   function emergencyCrashDive(){
     const p=window.G?.player;
     const C=window.CONFIG;
+  const COMMS=window.COMMS;
     const ground=window.G?.world?.ground??1900;
     if(!p||!C) return;
     if(p.crashDiveCd>0) return;
@@ -77,51 +112,127 @@
     p.crashDiveCd=C.player.crashDive.cd;
     p.noiseTransient=Math.min(1,(p.noiseTransient||0)+C.player.crashDive.noiseSpike);
     p.depthOrder=Math.min(ground-60,(p.depthOrder??p.depth)+420);
-    window.G.setMsg('CRASH DIVE!',1.2);
-    window.G.addLog('CONN','Crash dive!');
-    window.G.addLog('ENG','Flood all ballast tanks — max down angle');
+    COMMS.nav.crashDive();
+    _partAllWires('dive');
   }
 
   function emergencyBlowBallast(){
     const p=window.G?.player;
     const C=window.CONFIG;
+    const COMMS=window.COMMS;
     if(!p||!C) return;
-    p.depthOrder=20;
-    p.vy=-(C.player.depthRateMax??170)*1.6;
-    p.noiseTransient=Math.min(1,(p.noiseTransient||0)+0.25);
-    window.G.setMsg('EMERGENCY BLOW!',1.2);
-    window.G.addLog('CONN','Emergency blow!');
-    window.G.addLog('ENG','Emergency blow — main ballast tanks venting');
+    const hpa=p.damage?.hpa;
+    const hpaC=C.player.hpa||{};
+    const ambient=(p.depth||0)*(hpaC.ambientPerMetre||0.1);
+
+    // Can we overcome ambient at all?
+    const totalAvail=(hpa?.pressure||0)+(hpa?.reserve||0);
+    if(totalAvail <= ambient){
+      COMMS.trim.blowFailNoHPA();
+      return;
+    }
+
+    // Commit reserve if group pressure alone is below ambient
+    if(hpa && hpa.pressure < ambient && hpa.reserve > 0){
+      hpa._reserveCommitted = true;
+      COMMS.trim.reserveHPACommitted();
+    }
+
+    // Open the blow valves — physics takes over from here in nav.js
+    p._blowVenting = true;
+    p.depthOrder = 20;
+    p.noiseTransient = Math.min(1,(p.noiseTransient||0)+0.30);
+    COMMS.trim.blowOpened(Math.round(ambient), Math.round(totalAvail));
+  }
+
+  function toggleHPARecharge(){
+    const d=window.G?.player?.damage;
+    if(!d?.hpa) return;
+    d.hpa.recharging=!d.hpa.recharging;
+    window.COMMS?.trim?.rechargeToggle?.(d.hpa.recharging);
   }
 
   function allStop(){ setTelegraph(5); }
+  function snapToAllStop(){ setTelegraph(5); }
 
   function wepsShoot(){
     const game=window.G?.game;
     const player=window.G?.player;
     const C=window.CONFIG;
+  const COMMS=window.COMMS;
     if(!game||!player||!C) return;
     const wp=game.wepsProposal;
-    if(!wp){window.G.addLog('WEPS','No solution — designate a contact first'); return;}
+    if(!wp){ COMMS.weapons.noSolution(); return; }
+    if((player.pendingFires||[]).length>0){
+      COMMS.weapons.unableFiring();
+      return;
+    }
     // Use reserveTube from sim context — call into sim module
-    if(typeof window._reserveTube!=='function'){window.G.addLog('WEPS','Fire control offline'); return;}
+    if(typeof window._reserveTube!=='function'){ COMMS.weapons.fireControlOffline(); return; }
     const tubeIdx=window._reserveTube();
     if(tubeIdx<0){
       const why=player.torpStock<=0?'No weapons remaining':'All tubes reloading';
-      window.G.setMsg(why.toUpperCase(),0.8); window.G.addLog('WEPS',why); return;
+      COMMS.weapons.error(why); return;
     }
     const ddx=Math.cos(wp.bearing), ddy=Math.sin(wp.bearing);
     const launchOffset=Math.abs((function(){
       const a=wp.bearing-player.heading;
       return ((a+Math.PI)%(2*Math.PI))-Math.PI;
     })());
-    const confLabel=wp.confidence==='solid'?'SOLID solution':wp.confidence==='degraded'?'DEGRADED solution':'BEARING ONLY — no range';
-    const tdcStr=game.tdc.targetId?` on ${game.tdc.targetId}`:'';
-    window.G.addLog('CONN',`Shoot${tdcStr}`);
-    window.G.addLog('WEPS',`Tube ${tubeIdx+1} — firing on ${confLabel}`);
-    window.G.setMsg('FIRING…',0.6);
+    const trackStr=game.tdc.targetId?`, track ${game.tdc.targetId}`:'';
+    // Launch speed cap — cannot fire wire-guided shot above wireMaxLaunchKts
+    const launchSpeedKts = player.speed ?? 0;
+    const launchCap = C.player.wireMaxLaunchKts ?? 15;
+    if(launchSpeedKts > launchCap){
+      COMMS.weapons.error(`Too fast to fire. Reduce to below ${launchCap}kt.`);
+      // Return tube
+      player.torpTubes[tubeIdx] = 0;
+      player.torpStock = (player.torpStock||0) + 1;
+      return;
+    }
+    // Auto action stations on first weapons fire
+    if(window.G.setTacticalState('action')){
+      COMMS.crewState.actionStations('attack');
+    }
+    COMMS.weapons.firingProcedures(false, trackStr, tubeIdx+1);
     if(!player.pendingFires) player.pendingFires=[];
     player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth:wp.depth, wire:true, lockedTarget:game.tdc.target});
+    // HPA cost for tube impulse air
+    window.DMG?.drawHPA?.( (C.player.hpa?.torpedoCost||2), false );
+  }
+
+  function _partAllWires(cause){
+    const p = window.G?.player;
+    const bullets = window.G?.bullets;
+    if(!p||!bullets) return;
+    const tubeWires = p.tubeWires||[];
+    let parted = false;
+    for(const b of bullets){
+      if(b.kind==='torpedo' && b.wire?.live){
+        b.wire.live = false;
+        window.G._onWireCut?.(b);
+        parted = true;
+      }
+    }
+    if(parted){
+      if(cause==='turn') COMMS.weapons.wireParted(null, 'turn');
+      else               COMMS.weapons.wireParted(null, 'dive');
+    }
+  }
+
+  function callActionStations(){
+    const game=window.G?.game;
+    if(!game) return;
+    if(game.tacticalState==='action'){
+      // Stand down — CO's decision only
+      if(window.G.setTacticalState('cruising')){
+        COMMS.crewState.standDown('action');
+      }
+    } else {
+      if(window.G.setTacticalState('action')){
+        COMMS.crewState.actionStations('manual');
+      }
+    }
   }
 
   function toggleTowedArray(){
@@ -130,20 +241,21 @@
     const ta=p.towedArray;
     if(!ta) return;
     if(ta.state==='destroyed'){
-      window.G.addLog('ENG','Array destroyed — cannot deploy'); return;
+      COMMS.sensors.arrayCannotDeploy(); return;
     }
     if(ta.state==='stowed'||ta.state==='retracting'){
       // Check speed before deploying
       if(p.speed>12){
-        window.G.addLog('ENG',`Array deployment requires speed below 12kt (currently ${Math.round(p.speed)}kt)`);
+        COMMS.sensors.arrayDeploySpeedLimit(p.speed);
         return;
       }
       ta.state='deploying';
       ta.progress=ta.progress||0;
-      window.G.addLog('ENG','Towed array deploying — 30 seconds to operational');
+      ta._halfwayLogged=false;
+      COMMS.sensors.arrayDeploy();
     } else if(ta.state==='deploying'||ta.state==='operational'||ta.state==='damaged'){
       ta.state='retracting';
-      window.G.addLog('ENG','Retracting towed array');
+      COMMS.sensors.arrayRetract();
     }
   }
 
@@ -155,7 +267,9 @@
     ctx.beginPath(); ctx.roundRect(x,y,w,h,2*DPR); ctx.fill();
     if(label){
       ctx.fillStyle='rgba(200,220,255,0.90)';
-      ctx.font=`bold ${7*DPR}px ui-monospace,monospace`;
+      // Font size scales with button height, min 9px
+      const fs=Math.max(9,Math.round(h/DPR*0.50))*DPR;
+      ctx.font=`bold ${fs}px ui-monospace,monospace`;
       ctx.textAlign='center';
       ctx.fillText(label,x+w/2,y+h*0.72);
     }
@@ -191,8 +305,9 @@
     getTelegraph,
     clearBtns, registerBtn, handleClick,
     setTelegraph, depthStep, comeToPD,
-    toggleSilent, emergencyCrashDive, emergencyBlowBallast, allStop, toggleTowedArray, wepsShoot,
+    toggleSilent, emergencyTurn, emergencyCrashDive, emergencyBlowBallast, toggleHPARecharge, allStop, snapToAllStop, toggleTowedArray, wepsShoot, callActionStations,
     btn2,
+    initiateEscape(type){ window.DMG?.initiateEscape(type); },
     get telegraphIdx(){ return _telegraphIdx; },
   };
 })();
