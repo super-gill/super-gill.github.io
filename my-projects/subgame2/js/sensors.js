@@ -2,6 +2,7 @@
   'use strict';
   const C=window.CONFIG; const {rand,clamp}=window.M;
   const {world,player,enemies,contacts,sonarContacts,game,addLog}=window.G;
+  const COMMS=window.COMMS;
   const AI=window.AI;
 
   // Throttled sonar raw feed — one entry per contact per ~4s, per array
@@ -69,7 +70,7 @@
     const stuck = qBase>0.6 && qObs>0.7 && qCross<0.15 && q<0.30;
     if(stuck && !c._hintedManeuver){
       c._hintedManeuver=true;
-      window.G.addLog('SONAR',`Conn, Sonar — ${c.id} solution degrading, towed ambiguity unresolved. Recommend 20° course change`);
+      COMMS.sensors.tmaDegrading(c.id);
     }
     if(!stuck) c._hintedManeuver=false;
   }
@@ -109,8 +110,7 @@
               }
               const relBrg=((bearing-player.heading+3*Math.PI)%(Math.PI*2))-Math.PI;
               const sideStr=relBrg>=0?'starboard':'port';
-              addLog('SONAR',`Conn, Sonar — ${c.id} ambiguity resolved, contact is ${sideStr}`);
-              window.G.queueLog('CONN',`Sonar, Conn — aye, ${c.id} resolved`,1.0);
+              COMMS.sensors.ambiguityResolved(c.id, sideStr);
             }
           }
         }
@@ -165,12 +165,10 @@
       const newTier=c.tmaQuality<0.35?0:c.tmaQuality<0.70?1:2;
       if(newTier>prevTier){
         if(newTier===1){
-          addLog('SONAR',`Conn, Sonar — ${c.id}, TMA degraded, solution building`);
-          window.G.queueLog('CONN',`Weps, Conn — TDC, update solution on ${c.id}`,1.5);
+          COMMS.sensors.tmaDegraded(c.id);
         }
         if(newTier===2){
-          addLog('SONAR',`Conn, Sonar — ${c.id}, TMA solution solid. Ready for firing point procedures`);
-          window.G.queueLog('CONN',`Weps, Conn — firing point procedures authorised on ${c.id}`,2.0);
+          COMMS.sensors.tmaSolid(c.id);
         }
       }
     } else {
@@ -188,14 +186,9 @@
       const typeLabel=e.type==='boat'?'surface contact':'subsurface contact';
       const brgDeg=(((Math.atan2(Math.cos(bearing),-Math.sin(bearing))*180/Math.PI)+360)%360);
       if(source==='hull'){
-        addLog('SONAR',`Conn, Sonar — possible contact, investigating`);
-        window.G.queueLog('SONAR',`Conn, Sonar — new ${typeLabel}, track ${id}, bears ${Math.round(brgDeg).toString().padStart(3,'0')}°, passive`,2.5);
-        window.G.queueLog('CONN', `Sonar, Conn — aye, track ${id}. Maintain track`,4.0);
+        COMMS.sensors.newContact(id, typeLabel, Math.round(brgDeg).toString().padStart(3,'0')+'°');
       } else {
-        addLog('SONAR',`Conn, Sonar — possible contact, towed array, investigating`);
-        window.G.queueLog('SONAR',`Conn, Sonar — new ${typeLabel}, track ${id}, bears ${Math.round(brgDeg).toString().padStart(3,'0')}°, towed array, ambiguous`,2.5);
-        window.G.queueLog('SONAR',`Conn, Sonar — ${id} port/starboard ambiguous. Recommend 10-20° course change to resolve`,3.5);
-        window.G.queueLog('CONN', `Sonar, Conn — aye, track ${id}. Maintain track`,5.0);
+        COMMS.sensors.newContactTowed(id, typeLabel, Math.round(brgDeg).toString().padStart(3,'0')+'°');
       }
     }
   }
@@ -290,15 +283,13 @@
       ta.progress = clamp(ta.progress + dt/DEPLOY_TIME, 0, 1);
       if(!ta._halfwayLogged && ta.progress>=0.5){
         ta._halfwayLogged=true;
-        addLog('ENG','Conn, Eng — array halfway out, no issues');
+        COMMS.sensors.arrayDeployHalfway();
       }
       if(ta.progress >= 1){
         ta.state = 'operational';
         ta.progress = 1;
         ta._halfwayLogged=false;
-        addLog('ENG','Conn, Eng — array fully streamed');
-        window.G.queueLog('SONAR','Conn, Sonar — towed array online, long-range passive active',1.0);
-        window.G.queueLog('SONAR','Conn, Sonar — note bearing ambiguity on towed contacts. Recommend 10-20° course change to resolve',2.0);
+        COMMS.sensors.arrayStreamed();
       }
       return; // don't sense while deploying
     }
@@ -307,7 +298,7 @@
       if(ta.progress <= 0){
         ta.state = 'stowed';
         ta.progress = 0;
-        addLog('ENG',  'Conn, Eng — array inboard and stowed');
+        COMMS.sensors.arrayInboard();
       }
       return;
     }
@@ -319,20 +310,20 @@
       const prev = ta.state;
       ta.state = prev==='operational' ? 'damaged' : 'destroyed';
       ta.overspeedT = 0;
-      addLog('ENG', ta.state==='destroyed'
+      COMMS.sensors.arrayDamagedMsg(ta.state==='destroyed'
         ? 'Conn, Eng — array cable has parted at high speed. Array lost'
         : 'Conn, Eng — array overspeed damage. Array degraded');
     } else if(player.speed >= MAX_SPD){
       ta.overspeedT = (ta.overspeedT||0) + dt;
       if(ta.overspeedT > 0.5 && !ta._overspeedWarned){
         ta._overspeedWarned=true;
-        addLog('ENG',`Conn, Eng — array overspeed, ${Math.round(player.speed)}kt. Risk of cable loss`);
+        COMMS.sensors.arrayOverspeed(player.speed);
       }
       if(ta.overspeedT > 5){
         ta.overspeedT = 0;
         const prev = ta.state;
         ta.state = prev==='operational' ? 'damaged' : 'destroyed';
-        addLog('ENG', ta.state==='destroyed'
+        COMMS.sensors.arrayDamagedMsg(ta.state==='destroyed'
           ? 'Conn, Eng — array cable has parted, sustained overspeed. Array lost'
           : 'Conn, Eng — array cable stressed, sustained overspeed. Array degraded');
       }
@@ -434,7 +425,7 @@
         strength:clamp(sig*0.85,0.3,0.9)
       };
     }
-    if(label) addLog('SONAR', label);
+    COMMS.sensors.contactLabel(label);
   }
   // Expose for weapons.js and sim.js
   window._broadcastTransient=broadcastTransient;
@@ -455,7 +446,7 @@
       sc.activeT=Math.max(sc.activeT||0, 4.0);
       sc.lastObsT=game.missionT||0;
     }
-    addLog('SONAR',`Conn, Sonar — launch transient, bears ${Math.round(brgDeg).toString().padStart(3,'0')}°. Torpedo in the water`);
+    COMMS.sensors.launchTransient(Math.round(brgDeg).toString().padStart(3,'0')+'°');
   }
   window._playerHearTransient=playerHearTransient;
 
@@ -535,7 +526,7 @@
         hits++;
       }
     }
-    addLog('SONAR', hits>0 ? `Conn, Sonar — active ping, ${hits} return${hits>1?'s':''}` : 'Conn, Sonar — active ping, no returns');
+    COMMS.sensors.activePing(hits);
 
     // DATUM — ping is heard by ALL enemies in a very wide radius
     // This is the primary cost of going active
@@ -550,7 +541,7 @@
         if(Math.hypot(dx,dy)<datumRange) alerted++;
       }
     }
-    if(alerted>0) addLog('SONAR',`Conn, Sonar — ping datum. ${alerted} contact${alerted>1?'s':''} alerted to our position`);
+    COMMS.sensors.pingDatum(alerted);
     return true;
   }
 

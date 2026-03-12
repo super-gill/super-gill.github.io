@@ -31,6 +31,7 @@
     torpCd:0, missileCd:0, pingCd:0, cmCd:0, sonarPulse:0,
     periscopeCd:0, periscopeT:0,
     silent:false,
+    scram:false, scramT:0, scramCause:null, scramEPM:false,
     emergTurnT:0, emergTurnCd:0,
     crashDiveT:0, crashDiveCd:0,
     passiveTick:0,
@@ -57,19 +58,43 @@
     tdc:{target:null, targetId:null, bearing:null, range:null, depth:null, course:null, speed:null, intercept:null},
     missionT:0,
     msgLog:[], logTab:'log',
+    dcLog:[], showDcPanel:false,
     scenario:'waves', started:false,
+    tacticalState:'cruising',   // cruising | patrol | action
+    casualtyState:'normal',     // normal | emergency | escape
+    _prevTactical:'cruising',   // for transition detection
+    _prevCasualty:'normal',
   };
-  function addLog(cat, text){
-    game.msgLog.push({t:game.missionT||0, cat, text});
+  function addLog(cat, text, priority=0){
+    game.msgLog.push({t:game.missionT||0, cat, text, priority});
     if(game.msgLog.length>120) game.msgLog.shift();
   }
   const setMsg=(s,t=1.2)=>{game.msg=s;game.msgT=t;};
 
   function nextTorpId(){ return 'T'+(_nextTorpId++); }
   function resetTorpIds(){ _nextTorpId=1; }
-  function queueLog(station,msg,delayS){
+  function queueLog(station,msg,delayS,priority=0){
     if(!player.pendingLogs) player.pendingLogs=[];
-    player.pendingLogs.push({t:delayS,station,msg});
+    player.pendingLogs.push({t:delayS,station,msg,priority});
   }
-  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,ghostContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,queueLog,wrecks};
+  function setTacticalState(s){
+    if(game.tacticalState===s) return false;
+    game._prevTactical=game.tacticalState;
+    game.tacticalState=s;
+    return true;
+  }
+  function setCasualtyState(s){
+    if(game.casualtyState===s) return false;
+    game._prevCasualty=game.casualtyState;
+    game.casualtyState=s;
+    return true;
+  }
+  function triggerScram(cause){
+    if(player.scram) return; // already scrammed
+    player.scram=true;
+    player.scramT=75; // full restart window
+    player.scramCause=cause||'unknown';
+    player.scramEPM=false;
+  }
+  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,ghostContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,queueLog,wrecks,triggerScram,setTacticalState,setCasualtyState};
 })();

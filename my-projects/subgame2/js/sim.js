@@ -2,7 +2,7 @@
   'use strict';
   const C=window.CONFIG; const {rand,clamp,lerp,now,angleNorm}=window.M;
   const {world,cam,canvas,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,player,game,setMsg,addLog}=window.G;
-  const I=window.I; const NAV=window.NAV; const {ktsToWU}=window.NAV; const SIG=window.SIG; const SENSE=window.SENSE; const W=window.W; const AI=window.AI; const DMG=window.DMG;
+  const COMMS=window.COMMS; const I=window.I; const NAV=window.NAV; const {ktsToWU}=window.NAV; const SIG=window.SIG; const SENSE=window.SENSE; const W=window.W; const AI=window.AI; const DMG=window.DMG;
 
   function wrapX(x){return (x+world.w)%world.w;}
   // Legacy shim — depth charges pass no position so we let DMG pick a random compartment
@@ -19,8 +19,7 @@
       // Permanent wreck marker
       window.G.wrecks.push({x:e.x, y:e.y, type:e.type, t:game.missionT||0});
       // Breaking-up noise is unmistakable — always logged regardless of detection state
-      addLog('SONAR',`Conn, Sonar — breaking-up noises. ${e.type==='boat'?'Surface contact':'Submerged contact'} destroyed`);
-      setMsg('TARGET DESTROYED',2.5);
+      COMMS.combat.targetDestroyed(e.type);
       // Freeze the sonarContact — keeps TDC data but stops updating
       const sc=window.G.sonarContacts?.get(e);
       if(sc){ sc.dead=true; sc.activeT=0; }
@@ -47,8 +46,8 @@
       // 1v1 — single capable hunter, close range, no pinger
       const brg=rand(0,Math.PI*2);
       AI.spawnSub(brg, rand(1800,2600), 'hunter', 0);
-      addLog('CONN','Conn, aye — single adversary contact. Battle stations');
-      addLog('SONAR',`Conn, Sonar — one contact, bears ${Math.round(((brg*180/Math.PI)+360)%360).toString().padStart(3,'0')}°, classify submerged`);
+      COMMS.tactical.battleStations('single');
+      COMMS.tactical.contact(Math.round(((brg*180/Math.PI)+360)%360).toString().padStart(3,'0')+'°');
     } else if(scenario==='ambush'){
       // Wolfpack ambush — already surrounded, close, all prosecuting from the start
       const count=4;
@@ -58,8 +57,7 @@
         const sub=AI.spawnSub(brg, rand(1200,2000), role, 0);
         // Pre-brief them — they know roughly where the player is
       }
-      addLog('SONAR','Conn, Sonar — multiple contacts, all bearings, close range');
-      addLog('CONN','All stations, Conn — battle stations. Prepare to evade and engage');
+      COMMS.tactical.battleStations('barrier');
     } else if(scenario==='patrol'){
       // Barrier patrol — line of 2 pingers + 2 hunters across a fixed bearing, spread wide
       const barrierBrg=rand(0,Math.PI*2);
@@ -67,8 +65,7 @@
       for(let i=0;i<roles.length;i++){
         AI.spawnSub(barrierBrg, rand(3000,4000), roles[i], (i-1.5)*900);
       }
-      addLog('SONAR','Conn, Sonar — four-contact barrier, spread across track');
-      addLog('CONN','Helm, Conn — all ahead one-third. Rig for ultra-quiet');
+      COMMS.tactical.battleStations('patrol');
     } else {
       // Default: waves
       game.wave=0; game.waveDelay=0;
@@ -111,6 +108,9 @@
 
   function spawnWave(waveNum){
     game.wave=waveNum;
+    if(waveNum > 1 && window.G.setTacticalState('action')){
+      COMMS.crewState.actionStations('wave');
+    }
     game.groupState='patrol';
     game.prosecutingT=0;
 
@@ -135,8 +135,7 @@
     const waveLabel=waveNum===1?'Conn, Sonar — first contacts. Patrol group, classify submerged'
       :waveNum===2?'Conn, Sonar — new group bearing. Prosecution force, classify submerged'
       :'Conn, Sonar — new contacts. Full group, classify submerged';
-    addLog('CONN', waveLabel);
-    addLog('SONAR', `Conn, Sonar — ${count} contact${count>1?'s':''}, group bears ${Math.round(((groupBrg*180/Math.PI)+360)%360).toString().padStart(3,'0')}°`);
+    COMMS.tactical.waveReport(waveLabel, count, Math.round(((groupBrg*180/Math.PI)+360)%360).toString().padStart(3,'0')+'°');
   }
   reset();
 
@@ -145,6 +144,7 @@
     // ` (backtick) — toggle debug true-position overlay
     if(I.keys.has("`")){ I.keys.delete("`"); game.debugOverlay=!game.debugOverlay; setMsg(game.debugOverlay?"[DEBUG] TRUE POS ON":"[DEBUG] TRUE POS OFF",1.2); }
     if(I.keys.has("h")){ I.keys.delete("h"); game.showDmgPanel=!game.showDmgPanel; }
+    if(I.keys.has("a")){ I.keys.delete("a"); window.PANEL?.callActionStations(); }
 
     player.torpCd=Math.max(0,player.torpCd-dt);
     // Tick tube reload timers (skip wire-occupied tubes: value -1)
@@ -177,7 +177,7 @@
         if(tubeWires[i]===b){
           tubeWires[i]=null;
           player.torpTubes[i]=Math.round((C.player.torpReloadTime||28)*(DMG.getEffects().reloadMult||1));
-          addLog('WEPS',`Conn, Weps — tube ${i+1}, wire parted. Reloading`);
+          COMMS.weapons.wireParted(i+1, 'runout');
           break;
         }
       }
@@ -203,21 +203,19 @@
 
       if(!pf._log1 && pf.t < FD-0.5){
         pf._log1=true;
-        addLog('WEPS',`Conn, Weps — tube ${pf.tubeIdx+1}, solution set`);
+        COMMS.weapons.solutionSet(pf.tubeIdx+1);
       }
       if(!pf._log2 && pf.t < FD-1.3){
         pf._log2=true;
-        addLog('WEPS',`Tube ${pf.tubeIdx+1}, flooding down`);
+        COMMS.weapons.floodingDown(pf.tubeIdx+1);
       }
       if(!pf._log3 && pf.t < FD-2.5){
         pf._log3=true;
-        addLog('WEPS',`Conn, Weps — tube ${pf.tubeIdx+1} ready in all respects, outer door open`);
+        COMMS.weapons.tubeReady(pf.tubeIdx+1);
       }
       if(!pf._log4 && pf.t < FD-3.5){
         pf._log4=true;
-        addLog('CONN', pf.manual
-          ? 'Shoot, manual bearing'
-          : `Shoot on generated bearing`);
+        COMMS.weapons.shootOrder(pf.manual);
       }
 
       // Launch
@@ -238,27 +236,77 @@
           } else {
             player.torpTubes[pf.tubeIdx]=Math.round((C.player.torpReloadTime||28)*(DMG.getEffects().reloadMult||1));
           }
-          addLog('WEPS',`Tube ${pf.tubeIdx+1} fired electrically`);
-          if(wireSnapped){
-            addLog('WEPS',`Conn, Weps — tube ${pf.tubeIdx+1}, wire parted on launch, unit running free`);
-          } else {
-            addLog('SONAR',`Conn, Sonar — own unit is away, running normally. Wire live`);
-          }
+          COMMS.weapons.fired(pf.tubeIdx+1, !wireSnapped);
+          if(wireSnapped) COMMS.weapons.wireParted(pf.tubeIdx+1, 'launch');
         } else {
           W.fireTorpedo(sx,sy,pf.ddx,pf.ddy,true,C.player.torpEnableDist,false,0,player.depth,pf.fireDepth);
           player.torpTubes[pf.tubeIdx]=Math.round((C.player.torpReloadTime||28)*(DMG.getEffects().reloadMult||1));
-          addLog('WEPS',`Tube ${pf.tubeIdx+1} fired electrically`);
-          addLog('SONAR',`Conn, Sonar — own unit is away, running normally`);
+          COMMS.weapons.fired(pf.tubeIdx+1, false);
         }
-        setMsg('TORPEDO AWAY',1.2);
+        COMMS.weapons.away();
       }
     }
     player.pendingFires=player.pendingFires.filter(pf=>!pf.done);
 
     // ── Pending log queue — staged crew comms ─────────────────────────────────
     if(!player.pendingLogs) player.pendingLogs=[];
-    for(const pl of player.pendingLogs){ pl.t-=dt; if(pl.t<=0){ pl.done=true; addLog(pl.station,pl.msg); } }
+    for(const pl of player.pendingLogs){ pl.t-=dt; if(pl.t<=0){ pl.done=true; addLog(pl.station,pl.msg,pl.priority||0); } }
     player.pendingLogs=player.pendingLogs.filter(pl=>!pl.done);
+
+    // ── Reactor SCRAM tick ───────────────────────────────────────────────────
+    if(player.scram){
+      const wasT = player.scramT;
+      player.scramT = Math.max(0, player.scramT - dt);
+      const t = player.scramT;
+      const wT = wasT; // previous value
+
+      // T+0 — MANV immediate call (fired from triggerScram, not here)
+      // T+3 — EPM online
+      if(wT>72 && t<=72 && !player.scramEPM){
+        player.scramEPM=true;
+        COMMS.reactor.epmon();
+      }
+      // T+4 — CONN ack
+      if(wT>71 && t<=71){
+        // (ack included in COMMS.reactor.epmon)
+      }
+      // T+8 — ENG start recovery
+      if(wT>67 && t<=67){
+        COMMS.reactor.recoveryStart();
+      }
+      // T+9 — CONN maintain silence
+      if(wT>66 && t<=66){
+        // (included in COMMS.reactor.recoveryStart)
+      }
+      // T+20 — primary coolant circulating
+      if(wT>55 && t<=55){
+        COMMS.reactor.recoveryProgress(0);
+      }
+      // T+35 — pulling rods
+      if(wT>40 && t<=40){
+        COMMS.reactor.recoveryProgress(1);
+      }
+      // T+50 — self-sustaining reaction
+      if(wT>25 && t<=25){
+        COMMS.reactor.recoveryProgress(2);
+      }
+      // T+65 — turbines online
+      if(wT>10 && t<=10){
+        COMMS.reactor.recoveryProgress(3);
+        COMMS.reactor.recoveryProgress(4);
+      }
+      // T+70 — reactor back in band, scram clears
+      if(wT>5 && t<=5){
+        COMMS.reactor.recoveryProgress(5);
+      }
+      if(t<=0){
+        player.scram=false;
+        player.scramEPM=false;
+        player.scramCause=null;
+        COMMS.reactor.online();
+      }
+    }
+
 
     // ── Crash dive depth-passing calls ────────────────────────────────────────
     if((player.crashDiveT??0)>0){
@@ -266,7 +314,7 @@
       const band=Math.floor(player.depth/50)*50;
       if(band>=100 && !player._crashDepthCalled.has(band)){
         player._crashDepthCalled.add(band);
-        addLog('HELM',`Conn, Helm — passing ${band} metres`);
+        COMMS.nav.depthReport(band);
       }
     } else if(player._crashDepthCalled?.size>0){
       player._crashDepthCalled=new Set();
@@ -274,6 +322,24 @@
 
     player.missileCd=Math.max(0,player.missileCd-dt);
     player.pingCd=Math.max(0,player.pingCd-dt);
+
+    // ── Sustained flank at depth SCRAM risk ──────────────────────────────────
+    if(!player.scram){
+      const atFlank  = player.speed >= (C.player.flankKts||28)*0.90;
+      const atDepth  = player.depth >= (C.world?.layerY2||280) + 60; // below layer
+      const damaged  = player.damage?.systems?.reactor === 'degraded';
+      if(atFlank && atDepth){
+        player._flankDepthT = (player._flankDepthT||0) + dt;
+        const threshold = damaged ? 12 : 22; // degraded reactor more vulnerable
+        const risk = clamp((player._flankDepthT - threshold) * 0.012, 0, 0.35) * dt;
+        if(risk>0 && Math.random() < risk){
+          window.G.triggerScram('depth_flank');
+          COMMS.reactor.scram('depth');
+        }
+      } else {
+        player._flankDepthT = Math.max(0,(player._flankDepthT||0)-dt*2); // bleed off risk
+      }
+    }
     player.cmCd=Math.max(0,player.cmCd-dt);
     player.invuln=Math.max(0,player.invuln-dt);
     DMG.tick(dt);
@@ -399,9 +465,9 @@
 
       // Cavitation onset/clearance log
       if(player.cavitating && !player._wasCav){
-        addLog('ENG','Conn, Eng — cavitating. Noise signature elevated');
+        COMMS.nav.cavitation(true);
       } else if(!player.cavitating && player._wasCav){
-        addLog('ENG','Conn, Eng — cavitation clear');
+        COMMS.nav.cavitation(false);
       }
       player._wasCav=player.cavitating;
 
@@ -410,7 +476,7 @@
         const prev=player._prevTubes?.[i]??0;
         const cur=player.torpTubes[i];
         if(prev>0 && cur===0 && player.torpStock>=0){
-          addLog('WEPS',`Conn, Weps — tube ${i+1} reloaded, ready in all respects`);
+          COMMS.weapons.reloaded(i+1);
         }
       }
       player._prevTubes=(player.torpTubes||[]).slice();
@@ -451,7 +517,7 @@
       if(I.keys.has("o") && player.periscopeCd<=0){
         I.keys.delete("o");
         if(player.depth>C.player.periscopeDepth){
-          setMsg("PERISCOPE: TOO DEEP", 1.0);
+          COMMS.ui.periscopeTooDeep();
         } else {
           player.periscopeCd = C.player.periscope.cd;
           player.periscopeT  = C.player.periscope.dur;
@@ -467,7 +533,7 @@
               shown++;
             }
           }
-          setMsg(shown>0 ? `SCOPE: ${shown} ship(s)` : "SCOPE: no ships", 1.2);
+          COMMS.ui.scopeReport(shown);
         }
       }
 
@@ -500,9 +566,11 @@
             b._alertedPlayer=true;
             b._crewPhase=1;
             contacts.push({fromX:player.wx,fromY:player.wy,bearing:brgMath,u_brg:0.12,life:3.0,kind:'torpedo'});
-            setMsg('TORPEDO IN THE WATER!', 3.0);
-            addLog('SONAR', `Conn, Sonar — new contact, high-speed screws, bears ${brgStr}, classify torpedo`);
-            addLog('CONN',  `All stations, Conn — battle stations torpedo. Man your evasion stations`);
+            COMMS.combat.torpedoInWater(brgStr);
+            // Auto action stations on torpedo detection
+            if(window.G.setTacticalState('action')){
+              COMMS.crewState.actionStations('torpedo');
+            }
           }
           continue;
         }
@@ -520,9 +588,7 @@
           const seekerOn=b.traveled>=(b.enableDist||300);
           if(seekerOn && dist<800){
             b._crewPhase=2;
-            addLog('SONAR', `Conn, Sonar — torpedo bears ${brgStr}, seeker active, weapon is hunting`);
-            addLog('CONN',  `All stations, Conn — stand by for evasion. Helm, stand by emergency manoeuvre`);
-            setMsg('TORPEDO SEEKER ACTIVE', 2.5);
+            COMMS.combat.seekerActive(brgStr);
           }
         }
 
@@ -536,9 +602,7 @@
             const turnDir=torpRelAng>0?'LEFT':'RIGHT';
             // Reciprocal bearing — turn TOWARD the torpedo, not away
             const recipDeg=Math.round((brgDeg+180)%360).toString().padStart(3,'0');
-            addLog('SONAR', `Conn, Sonar — torpedo bears ${brgStr}, high closing rate, inbound`);
-            addLog('CONN',  `Helm, Conn — come to ${recipDeg}, emergency deep, all ahead flank`);
-            setMsg(`TURN TO ${recipDeg} — EMERGENCY DEEP`, 3.0);
+            COMMS.combat.torpedoClosing(brgStr, recipDeg);
           }
         }
 
@@ -549,14 +613,12 @@
             const torpRelAng=angleNorm(brgMath-player.heading);
             const turnDir=torpRelAng>0?'LEFT':'RIGHT';
             const recipDeg2=Math.round((brgDeg+180)%360).toString().padStart(3,'0');
-            addLog('SONAR', `Conn, Sonar — weapon has acquisition, bears ${brgStr}, impact imminent`);
-            addLog('CONN',  `All stations, Conn — steer ${recipDeg2}, emergency deep, flank speed. Deploy all countermeasures`);
-            setMsg('WEAPON HAS ACQUISITION', 4.0);
+            COMMS.combat.weaponAcquisition(brgStr, recipDeg2);
             contacts.push({fromX:player.wx,fromY:player.wy,bearing:brgMath,u_brg:0.04,life:4.0,kind:'torpedo'});
           }
         }
       }
-      if(I.keys.has(" ")&&player.pingCd<=0){I.keys.delete(" "); SENSE.activePing(); setMsg("PING!",0.8);}
+      if(I.keys.has(" ")&&player.pingCd<=0){ I.keys.delete(" "); if(player.scram){ COMMS.ui.sonarOffline(); } else { SENSE.activePing(); COMMS.ui.ping(); } }
       SENSE.passiveUpdate(dt);
       SENSE.towedArrayUpdate(dt);
 
@@ -592,7 +654,7 @@
         if((ta.state==='operational'||ta.state==='damaged') && player.speed >= 16 && player.speed < 18){
           if(!ta._warnedSpeed){
             ta._warnedSpeed = true;
-            addLog('ENG',  `Conn, Eng — array overspeed. Rated 18kt, currently ${Math.round(player.speed)}kt. Risk of cable loss`);
+            COMMS.nav.towedArrayOverspeed(player.speed);
           }
         } else {
           ta._warnedSpeed = false;
@@ -603,8 +665,7 @@
       if(I.torpAimClick){
         I.torpAimClick=false;
         if((player.pendingFires||[]).length>0){
-          setMsg('FIRING IN PROGRESS',0.8);
-          addLog('WEPS','Conn, Weps — unable, firing sequence in progress');
+          COMMS.weapons.unableFiring();
         } else {
         const tubeIdx=reserveTube();
         if(tubeIdx>=0){
@@ -614,12 +675,11 @@
           const ddx=aimDx/d, ddy=aimDy/d;
           const launchOffset=Math.abs(angleNorm(Math.atan2(ddy,ddx)-player.heading));
           const fireDepth=tdc.target ? (tdc.depth!=null?tdc.depth:player.depth) : player.depth;
-          addLog('CONN',`Weps, Conn — firing point procedures, manual bearing, tube ${tubeIdx+1}`);
-          setMsg('FIRING…',0.6);
+          COMMS.weapons.firingProcedures(true, '', tubeIdx+1);
           player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth, wire:true, lockedTarget:game.tdc.target, manual:true});
         } else {
           const why=player.torpStock<=0?'No weapons remaining':'All tubes reloading';
-          setMsg(why.toUpperCase(),0.8); addLog('WEPS',why);
+          COMMS.weapons.error(why);
         }
         } // end pendingFires gate
       }
@@ -628,8 +688,7 @@
       if(I.keys.has("f")){
         I.keys.delete("f");
         if((player.pendingFires||[]).length>0){
-          setMsg('FIRING IN PROGRESS',0.8);
-          addLog('WEPS','Conn, Weps — unable, firing sequence in progress');
+          COMMS.weapons.unableFiring();
         } else {
         const tubeIdx=reserveTube();
         if(tubeIdx>=0){
@@ -644,12 +703,11 @@
           }
           const tdcStr=game.tdc.targetId?` on ${game.tdc.targetId}`:'';
           const trackStr=game.tdc.targetId?`, track ${game.tdc.targetId}`:'';
-          addLog('CONN',`Weps, Conn — firing point procedures${trackStr}, tube ${tubeIdx+1}`);
-          setMsg('FIRING…',0.6);
+          COMMS.weapons.firingProcedures(false, trackStr, tubeIdx+1);
           player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset:0, fireDepth, wire:false});
         } else {
           const why=player.torpStock<=0?'No weapons remaining':'All tubes reloading';
-          setMsg(why.toUpperCase(),0.8); addLog('WEPS',why);
+          COMMS.weapons.error(why);
         }
         } // end pendingFires gate
       }
@@ -658,14 +716,11 @@
       if(I.keys.has("g")&&player.missileCd<=0){
         I.keys.delete("g");
         if(player.depth>C.player.periscopeDepth){
-          setMsg("MISSILE: TOO DEEP",0.8);
-          addLog('CONN','Weps, Conn — VLS abort. Too deep to launch');
+          COMMS.weapons.vlsAbort();
         } else {
           player.missileCd=C.player.missileCd;
           player.noiseTransient=Math.min(1,player.noiseTransient+0.35);
-          setMsg("VLS LAUNCH!",1.0);
-          addLog('CONN','Weps, Conn — VLS, fire');
-          addLog('WEPS','Conn, Weps — missile away');
+          COMMS.weapons.vlsLaunch();
           W.fireMissileVLS(player.wx,player.wy,true);
         }
       }
@@ -676,10 +731,7 @@
         player.cmCd=C.player.cmCd;
         W.deployDecoy(player.wx,player.wy,true,"noisemaker");
         player.noiseTransient=Math.min(1,player.noiseTransient+0.10);
-        setMsg("NOISEMAKER OUT",0.9);
-        addLog('CONN','Weps, Conn — deploy countermeasures');
-        addLog('WEPS','Conn, Weps — noisemaker away');
-        queueLog('SONAR','Conn, Sonar — decoy running, own noise masking',1.5);
+        COMMS.weapons.countermeasures();
       }
     }
 
@@ -746,7 +798,7 @@
               false, "noisemaker",
               {vx:rand(-2,2), vy:rand(2,5)}
             );
-            setMsg("SHIP: COUNTERMEASURES!",0.8);
+            COMMS.ui.shipCountermeasures();
           }
         }
       } else {
@@ -981,10 +1033,10 @@
           :state==='investigate'?5
           :7;
         const curSpd=Math.hypot(e.vx,e.vy);
-        const accel=curSpd<targetSpd?1.0:0.6;
-        const newSpd=Math.abs(curSpd-targetSpd)<accel*dt
-          ?targetSpd
-          :curSpd+Math.sign(targetSpd-curSpd)*accel*dt;
+        // Tau-based acceleration — matches realistic SSN build/decay rates
+        // Subs accelerate slower than they decelerate (prop drag)
+        const eTau = curSpd < targetSpd ? 40 : 25;
+        const newSpd = curSpd + (targetSpd - curSpd) / eTau * dt;
         e.vx=Math.cos(e.heading)*newSpd;
         e.vy=Math.sin(e.heading)*newSpd;
 
@@ -1054,7 +1106,9 @@
             : e.role==='pinger'?0.50   // pingers fire only with a decent solution
             : 0.30;
           const hasRoleSolution = (e.tmaQuality||0) >= roleFireQ;
-          if(tubeIdx>=0 && AI.enemyHasFireSolution(e) && hasRoleSolution){
+          const eLaunchKts = Math.hypot(e.vx, e.vy);
+          const eLaunchCap = C.player.wireMaxLaunchKts ?? 15;
+          if(tubeIdx>=0 && AI.enemyHasFireSolution(e) && hasRoleSolution && eLaunchKts <= eLaunchCap){
             const tx=e.contact.x, ty=e.contact.y;
             const dx=AI.wrapDx(e.x,tx);
             const dy=ty-e.y;
@@ -1098,7 +1152,7 @@
               // Wolfpack — share datum with nearby allies
               if(e.tmaX!=null && AI.wolfpackShareDatum) AI.wolfpackShareDatum(e,e.tmaX,e.tmaY,e.tmaQuality||0.5);
               const brgToEnemy=((Math.atan2(AI.wrapDx(player.wx,e.x),e.y-player.wy)*180/Math.PI)+360)%360;
-              addLog('SONAR',`Conn, Sonar — torpedo in the water, bears ${Math.round(brgToEnemy).toString().padStart(3,'0')}°`);
+              COMMS.tactical.enemyTorpedo(Math.round(brgToEnemy).toString().padStart(3,'0')+'°');
             }
           }
         }
@@ -1143,7 +1197,7 @@
             if(!e.evadeT || e.evadeT<=0){
               // First detection — immediate counter-shot spread, then evade
               e.evadeT=rand(25,35);
-              addLog('SONAR', `Conn, Sonar — contact manoeuvring, high speed. Countermeasures in water`);
+              COMMS.combat.enemyCountermeasures();
 
               // ── Immediate counter-shot spread ────────────────────────────────
               // Fire all ready tubes on reciprocal bearing before manoeuvring.
@@ -1183,8 +1237,7 @@
                 }
                 if(shotsFired>0){
                   const cDeg = Math.round(((recipBrg*180/Math.PI)+360)%360);
-                  addLog('SONAR',`Conn, Sonar — ${shotsFired} torpedo${shotsFired>1?'s':''} in the water, bears ${cDeg.toString().padStart(3,'0')}°, reciprocal`);
-                  setMsg(`COUNTER-SHOT — ${shotsFired} WEAPONS INBOUND`, 2.5);
+                  COMMS.combat.counterShot(shotsFired, cDeg.toString().padStart(3,'0')+'°');
                 }
               }
             } else {
@@ -1235,9 +1288,10 @@
       if(anyEngaged && wasPatrol){
         game.groupState='prosecuting';
         game.prosecutingT=0;
-        addLog('SONAR','Conn, Sonar — contacts manoeuvring aggressively, classify prosecuting');
-        queueLog('CONN','All stations, Conn — battle stations. Set condition one-ASW',1.5);
-        queueLog('WEPS','Conn, Weps — tubes one and two ready, flooding down on your order',3.0);
+        COMMS.tactical.prosecuting();
+        if(window.G.setTacticalState('action')){
+          COMMS.crewState.actionStations('contact');
+        }
       }
       if(game.groupState==='prosecuting'){
         game.prosecutingT+=dt;
@@ -1249,7 +1303,7 @@
         if(!stillAware && game.prosecutingT>90){
           game.groupState='patrol';
           game.prosecutingT=0;
-          addLog('SONAR','Conn, Sonar — group has lost contact. Reverting to patrol');
+          COMMS.tactical.contactLost();
         }
       }
 
@@ -1257,9 +1311,10 @@
       if(enemies.length===0){
         if(game.waveDelay<=0 && game.wave>0){
           game.waveDelay=C.enemy.waveDelay;
-          addLog('SONAR',`Conn, Sonar — no further contacts. Area appears clear`);
-          queueLog('CONN',`Sonar, Conn — aye. All stations, stand easy`,2.0);
-          queueLog('CONN',`Wave ${game.wave} neutralised. Maintain watch`,4.0);
+          COMMS.tactical.areaClear(game.wave);
+          if(window.G.setTacticalState('cruising')){
+            COMMS.crewState.standDown('action');
+          }
         }
         if(game.waveDelay>0){
           game.waveDelay-=dt;
@@ -1347,7 +1402,7 @@
             }
             if(Math.random()<pKill){
               W.makeExplosion(b.x,b.y,0.7,false);
-              setMsg("CWIS INTERCEPT!",1.0);
+              COMMS.ui.cwisIntercept();
               b.life=0;
               break;
             }
@@ -1369,9 +1424,37 @@
       }
     }
 
-    // Wire guidance update — runs on live wired torpedoes
-    for(const b of bullets){
-      if(b.kind==="torpedo"&&b.wire&&b.wire.live) W.wireUpdate(b,dt);
+    // Wire guidance update + speed stress — runs on live wired torpedoes
+    {
+      const safeKts   = C.player.wireSafeKts        ?? 15;
+      const stressKts = C.player.wireStressKts       ?? 20;
+      const breakTime = C.player.wireStressBreakTime ?? 25;
+      const instantKts= C.player.wireInstantBreakKts ?? 22;
+      const playerKts = player.speed ?? 0;
+      for(const b of bullets){
+        if(b.kind!=='torpedo'||!b.wire||!b.wire.live) continue;
+        W.wireUpdate(b, dt);
+        // Speed stress — accumulate on wire, part when full
+        if(playerKts > safeKts){
+          if(!b.wire._stressAcc) b.wire._stressAcc = 0;
+          let stressRate;
+          if(playerKts >= instantKts){
+            stressRate = 1 / 3;   // parts in ~3s
+          } else {
+            const t = (playerKts - safeKts) / Math.max(1, stressKts - safeKts);
+            stressRate = t / breakTime;
+          }
+          b.wire._stressAcc += stressRate * dt;
+          if(b.wire._stressAcc >= 1.0){
+            b.wire.live = false;
+            window.G._onWireCut?.(b);
+            COMMS.weapons.wireParted(null, 'speed');
+          }
+        } else {
+          // Recover stress slowly at safe speeds
+          if(b.wire._stressAcc) b.wire._stressAcc = Math.max(0, b.wire._stressAcc - dt * 0.02);
+        }
+      }
     }
 
     // Wire contacts age out

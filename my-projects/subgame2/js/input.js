@@ -23,6 +23,7 @@
     if(e.key==="Control") input.ctrlHeld=true;
     // Home — re-centre camera on player
     if(e.key==="Home"){ const cam=window.G?.cam; const p=window.G?.player; if(cam&&p){cam.free=false;cam.x=p.wx;cam.y=p.wy;} }
+    if(k==='j'&&window.G?.game){ window.G.game.logTab = window.G.game.logTab==='dc'?'log':'dc'; }
     if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) e.preventDefault();
   });
   addEventListener("keyup",(e)=>{
@@ -99,6 +100,8 @@
         window.PANEL?.handleClick(input.mouseX, input.mouseY);
         return;
       }
+      // Try overlay buttons (damage panel, etc.) before routing to chart
+      if(window.PANEL?.handleClick(input.mouseX, input.mouseY)) return;
       if(input.shiftHeld){
         input.torpAimClick=true;
       } else {

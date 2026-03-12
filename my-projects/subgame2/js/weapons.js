@@ -107,8 +107,7 @@
     b.wire.paidOut=wirePaidOut;
     if(wirePaidOut>C.player.torpWireMaxRange){
       b.wire.live=false;
-      window.G.setMsg('WIRE CUT: runout',0.8);
-      window.G.addLog('WEPS','Conn, Weps — wire parted, runout. Tube reloading');
+      COMMS.weapons.wireParted(null,'runout');
       window.G._onWireCut?.(b);
       return;
     }
@@ -206,8 +205,7 @@
   function cutWire(b){
     if(!b?.wire?.live) return;
     b.wire.live=false;
-    window.G.setMsg('WIRE CUT: manual',0.8);
-    window.G.addLog('WEPS','Conn, Weps — wire cut, manual. Torpedo running free');
+    COMMS.weapons.wireParted(null,'manual');
     window.G._onWireCut?.(b);
   }
 
