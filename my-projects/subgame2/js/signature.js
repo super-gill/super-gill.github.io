@@ -22,7 +22,9 @@
     player.cavitating=(player.speed>cavK);
     if(player.cavitating) n=clamp(n+C.player.cavitationSpike,0,1);
     if(player.silent) n*=C.player.silentRunning.noiseMult;
-    player.noiseTransient=Math.max(0,player.noiseTransient-dt*0.35);
+    // Suppress natural decay while HP recharge compressor is running
+    const _rechg = window.G?.player?.damage?.hpa?.recharging;
+    if(!_rechg) player.noiseTransient=Math.max(0,player.noiseTransient-dt*0.35);
     n=clamp(n+player.noiseTransient,0,1);
     // Flooding pumps add to acoustic signature
     const floodPenalty = window.DMG?.getEffects().noisePenalty||0;

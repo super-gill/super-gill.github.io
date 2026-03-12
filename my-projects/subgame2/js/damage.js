@@ -12,10 +12,10 @@
   const COMPS = ['fore_ends','control_room','reactor_comp','engine_room','aft_ends'];
 
   const COMP_DEF = {
-    fore_ends:    { label:'TORPEDO ROOM',    systems:['tubes','sonar_hull'],             crewCount:25, tower:'fwd' },
+    fore_ends:    { label:'TORPEDO ROOM',    systems:['tubes','sonar_hull','planes_fwd_hyd'], crewCount:25, tower:'fwd' },
     control_room: { label:'CONTROL ROOM', systems:['periscope','ballast','tdc_comp'], crewCount:20, tower:'fwd' },
     reactor_comp: { label:'REACTOR COMP', systems:['reactor'],                        crewCount:3,  tower:null  },
-    engine_room:  { label:'MANEUVERING',  systems:['propulsion','steering'],          crewCount:20, tower:'aft' },
+    engine_room:  { label:'MANEUVERING',  systems:['propulsion','steering','planes_aft_hyd'], crewCount:20, tower:'aft' },
     aft_ends:     { label:'ENGINEERING',     systems:['towed_array'],                    crewCount:15, tower:'aft' },
   };
 
@@ -24,6 +24,7 @@
     periscope:'PERISCOPE', ballast:'BALLAST CTRL', tdc_comp:'TDC COMPUTER',
     reactor:'REACTOR', propulsion:'PROPULSION', steering:'STEERING',
     towed_array:'TOWED ARRAY',
+    planes_fwd_hyd:'FWD PLANES HYD', planes_aft_hyd:'AFT PLANES HYD',
   };
 
   // Systems with high injury risk during repair
@@ -97,6 +98,7 @@
         sonar_hull:'nominal',tubes:'nominal',periscope:'nominal',
         ballast:'nominal',tdc_comp:'nominal',reactor:'nominal',
         propulsion:'nominal',steering:'nominal',towed_array:'nominal',
+        planes_fwd_hyd:'nominal',planes_aft_hyd:'nominal',
       },
       // Progressive flooding: rate (units/s) and current level (0-1)
       floodRate:{fore_ends:0,control_room:0,reactor_comp:0,engine_room:0,aft_ends:0},
@@ -108,6 +110,9 @@
       sinking:false,
       // HPA banks — operational[0..3] + reserve
       hpa:{ pressure:207, reserve:207, recharging:false },
+      // Main ballast tanks — real fill state (0=air/empty, 1=full of water)
+      // neutralFill=0.50 gives neutral buoyancy; e-blow drives toward 0
+      mbt:{ tanks:[0.50,0.50,0.50,0.50,0.50], trimF:0.25, trimA:0.25, neutralFill:0.50 },
       sinkT:0,
       escapeState:null,
       escapeType:null,
@@ -729,11 +734,67 @@
   }
 
   // ── Crush depth ───────────────────────────────────────────────────────────
-  function applyHullStress(amount){
+  // ── Depth flooding cascade ────────────────────────────────────────────────
+  // Called from nav.js each frame when beyond collapse depth.
+  // Starts a seep in a random compartment, then queues subsequent ones.
+  // Seep rate is much slower than breach — crew stay at their posts.
+  const SEEP_RATE  = 0.004;  // flood units/s — ~4 min to fill (vs torpedo 0.030)
+  const SEEP_DELAY_MIN = 30; // seconds before next compartment starts seeping
+  const SEEP_DELAY_MAX = 90;
+
+  function applyDepthCascade(dt){
     const d=player.damage; if(!d) return;
-    const comp=COMPS[Math.floor(Math.random()*COMPS.length)];
-    d.flooding[comp]=Math.min(1,(d.flooding[comp]||0)+amount*2.5);
-    player.hp=Math.max(0,(player.hp||100)-amount*8);
+
+    // Initialise cascade state
+    if(!d._depthCascade) d._depthCascade = { active:false, nextT:0, seeping:[] };
+    const cas = d._depthCascade;
+
+    // Start first seep if not already active
+    if(!cas.active){
+      cas.active = true;
+      cas.nextT  = 0; // trigger immediately for first
+    }
+
+    // Countdown to next compartment
+    if(cas.nextT > 0){ cas.nextT -= dt; return; }
+
+    // Pick a compartment that isn't already fully flooded or seeping
+    const seepable = COMPS.filter(c =>
+      !d.flooded[c] &&
+      !cas.seeping.includes(c) &&
+      (d.floodRate[c]||0) < SEEP_RATE   // don't double-flood already breached comps
+    );
+    if(seepable.length === 0) return; // all flooded, nothing to do
+
+    const comp = seepable[Math.floor(Math.random()*seepable.length)];
+    cas.seeping.push(comp);
+
+    // Apply seep — slow structural weeping, no breach evacuation
+    d.floodRate[comp] = Math.max(d.floodRate[comp]||0, SEEP_RATE);
+    d._seepComp = d._seepComp || {};
+    d._seepComp[comp] = true; // mark as depth seep, not breach
+
+    // Comms — watchkeeper reports structural weeping, no evac
+    const label = COMP_DEF[comp].label;
+    const station = COMP_STATION[comp]||'ENG';
+    const tFlood = Math.round(1/SEEP_RATE);
+    window.COMMS?.flood?.depthSeep(label, station, tFlood);
+
+    // Queue next compartment
+    cas.nextT = SEEP_DELAY_MIN + Math.random()*(SEEP_DELAY_MAX-SEEP_DELAY_MIN);
+  }
+
+  // Reset cascade when back above collapse depth
+  function resetDepthCascade(){
+    const d=player.damage; if(!d||!d._depthCascade) return;
+    d._depthCascade.active = false;
+    d._depthCascade.nextT  = 0;
+    d._depthCascade.seeping = [];
+  }
+
+  // Legacy shim — kept for any external callers
+  function applyHullStress(amount){
+    applyDepthCascade(0);
   }
 
   // ── Main tick ─────────────────────────────────────────────────────────────
@@ -757,8 +818,9 @@
         d.flooding[comp]=Math.min(1,(d.flooding[comp]||0)+rate*dt);
         // Passive bilge pumps slow minor flooding a tiny bit
         d.floodRate[comp]=Math.max(0,rate-0.0002*dt);
-        // Crew evacuation trigger — at 65% flooding, crew attempt to evacuate
-        if(d.flooding[comp]>=0.65&&!(d._evacuated||{})[comp]){
+        // Crew evacuation trigger — only on breach floods, not depth seeps
+        const isSeep = (d._seepComp||{})[comp];
+        if(!isSeep && d.flooding[comp]>=0.65&&!(d._evacuated||{})[comp]){
           if(!d._evacuated) d._evacuated={};
           d._evacuated[comp]=true;
           const neighbors=EVAC_TO[comp]||[];
@@ -929,10 +991,25 @@
     const fit=totalFit(),total=totalCrew();
     const integ=total>0?fit/total:1;
     const maxDepth=integ<0.35?120:integ<0.55?250:(C.world?.maxDepth||500);
-    return {speedCap,sonarRangeMult,bearingNoiseMult,reloadMult,depthRateMult,noisePenalty,tdcErrDeg,tubesAvail,towedOk,periscopeOk,maxDepth,totalFlood};
+    // Plane hydraulics — determines operating mode for each set of planes
+    // fwd: hydraulic plant in fore_ends; control from control_room
+    // aft: hydraulic plant in engine_room; fallback control at Manoeuvring
+    const fwdHyd  = sys.planes_fwd_hyd || 'nominal';
+    const aftHyd  = sys.planes_aft_hyd || 'nominal';
+    const fwdCtrl = d.flooded?.control_room || d.systems?.periscope==='destroyed'
+      ? (d.strikes?.control_room||0) >= 3 : false; // control_room heavily damaged = fwd ctrl lost
+    // fwd plane mode
+    const fwdPlaneMode = fwdCtrl ? 'frozen'
+      : (fwdHyd==='offline'||fwdHyd==='destroyed') ? 'air_emergency'
+      : fwdHyd==='degraded' ? 'air_emergency' : 'hydraulic';
+    // aft plane mode — no control loss (Manoeuvring fallback), only hydraulic mode changes
+    const aftPlaneMode = (aftHyd==='offline'||aftHyd==='destroyed') ? 'air_emergency'
+      : aftHyd==='degraded' ? 'air_emergency' : 'hydraulic';
+    const aftCtrlTransferred = (d.strikes?.control_room||0) > 0;
+    return {speedCap,sonarRangeMult,bearingNoiseMult,reloadMult,depthRateMult,noisePenalty,tdcErrDeg,tubesAvail,towedOk,periscopeOk,maxDepth,totalFlood,fwdPlaneMode,aftPlaneMode,aftCtrlTransferred};
   }
   function _defaults(){
-    return {speedCap:Infinity,sonarRangeMult:1.0,bearingNoiseMult:1.0,reloadMult:1.0,depthRateMult:1.0,noisePenalty:0,tdcErrDeg:0,tubesAvail:C.player.torpTubes||4,towedOk:true,periscopeOk:true,maxDepth:C.world?.maxDepth||500,totalFlood:0};
+    return {speedCap:Infinity,sonarRangeMult:1.0,bearingNoiseMult:1.0,reloadMult:1.0,depthRateMult:1.0,noisePenalty:0,tdcErrDeg:0,tubesAvail:C.player.torpTubes||4,towedOk:true,periscopeOk:true,maxDepth:C.world?.maxDepth||500,totalFlood:0,fwdPlaneMode:'hydraulic',aftPlaneMode:'hydraulic',aftCtrlTransferred:false};
   }
 
   function _alert(text){ player.damage.alerts.push({text,t:5.0}); }
@@ -982,7 +1059,7 @@
   }
 
   window.DMG={
-    initDamage,hit,tick,applyHullStress,
+    initDamage,hit,tick,applyHullStress,applyDepthCascade,resetDepthCascade,_escapeHalt,
     sealFlooding,getEffects,maxDCTeams,crewEfficiency,
     totalFit,totalWounded,totalKilled,totalCrew,
     assignTeam,recallTeam,teamAtComp,

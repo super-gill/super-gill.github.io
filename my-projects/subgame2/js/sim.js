@@ -66,8 +66,10 @@
         AI.spawnSub(barrierBrg, rand(3000,4000), roles[i], (i-1.5)*900);
       }
       COMMS.tactical.battleStations('patrol');
+    } else if(scenario==='free_run'){
+      // No enemies — open water for systems testing
+      COMMS.nav.speedReport(0);
     } else {
-      // Default: waves
       game.wave=0; game.waveDelay=0;
       spawnWave(1);
     }

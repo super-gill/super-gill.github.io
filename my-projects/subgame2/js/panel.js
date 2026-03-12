@@ -44,10 +44,12 @@
     if(!p) return;
     p.depthOrder=Math.max(20,Math.min(ground-60,(p.depthOrder??p.depth)+delta));
     // Debounce log — cancel pending, fire 1s after last press
-    // Cancel emergency blow if player issues a new depth order
-    if(p._blowVenting){
+    // Cancel emergency blow (all phases) if player issues a new depth order
+    if(p._blowVenting || p._blowPending || p._blowManualT > 0){
       p._blowVenting = false;
       p._blowVy = 0;
+      p._blowPending = false;
+      p._blowManualT = 0;
       window.COMMS?.trim?.blowCancelledByOrder(Math.round(p.depth));
     }
     clearTimeout(p._depthLogTimer);
@@ -104,7 +106,7 @@
   function emergencyCrashDive(){
     const p=window.G?.player;
     const C=window.CONFIG;
-  const COMMS=window.COMMS;
+    const COMMS=window.COMMS;
     const ground=window.G?.world?.ground??1900;
     if(!p||!C) return;
     if(p.crashDiveCd>0) return;
@@ -112,6 +114,19 @@
     p.crashDiveCd=C.player.crashDive.cd;
     p.noiseTransient=Math.min(1,(p.noiseTransient||0)+C.player.crashDive.noiseSpike);
     p.depthOrder=Math.min(ground-60,(p.depthOrder??p.depth)+420);
+    // Ahead full — maximum speed drives plane authority
+    const flankIdx = SPEED_STATES.findIndex(s=>s.label==='AHEAD FLANK');
+    const fullIdx  = SPEED_STATES.findIndex(s=>s.label==='AHEAD FULL');
+    const useIdx   = flankIdx>=0 ? flankIdx : fullIdx>=0 ? fullIdx : _telegraphIdx;
+    if(_telegraphIdx < useIdx || _telegraphIdx === 5){   // only increase speed, don't slow down
+      _telegraphIdx = useIdx;
+      p.speedOrderKts = SPEED_STATES[useIdx]?.kts ?? 20;
+      p.speedDir      = SPEED_STATES[useIdx]?.dir ?? 1;
+    }
+    // Slam planes to full dive — physics will drive fill, but planes accelerate the initial dive
+    if(!p.planes) p.planes = { fwd:{angle:0,mode:'hydraulic'}, aft:{angle:0,mode:'hydraulic'} };
+    p.planes.aft.angle = -15;
+    p.planes.fwd.angle = -8;
     COMMS.nav.crashDive();
     _partAllWires('dive');
   }
@@ -124,6 +139,12 @@
     const hpa=p.damage?.hpa;
     const hpaC=C.player.hpa||{};
     const ambient=(p.depth||0)*(hpaC.ambientPerMetre||0.1);
+
+    // Block re-triggering while blow already underway in any phase
+    if(p._blowVenting || p._blowPending || (p._blowManualT||0) > 0){
+      COMMS.trim.blowAlreadyActive();
+      return;
+    }
 
     // Can we overcome ambient at all?
     const totalAvail=(hpa?.pressure||0)+(hpa?.reserve||0);
@@ -138,11 +159,45 @@
       COMMS.trim.reserveHPACommitted();
     }
 
-    // Open the blow valves — physics takes over from here in nav.js
-    p._blowVenting = true;
-    p.depthOrder = 20;
+    // Emergency stations — casualty state drives the EMRG STA badge in render
+    window.G?.setTacticalState?.('action');
+    window.G?.setCasualtyState?.('emergency');
+
+    // Ahead full — set speed directly without firing speed comms (blow sequence covers it)
+    const fullIdx = SPEED_STATES.findIndex(s=>s.label==='AHEAD FULL');
+    _telegraphIdx = fullIdx >= 0 ? fullIdx : _telegraphIdx;
+    p.speedOrderKts = SPEED_STATES[_telegraphIdx]?.kts ?? 20;
+    p.speedDir      = SPEED_STATES[_telegraphIdx]?.dir ?? 1;
+
+    // Full rise — order surface
+    p.depthOrder = 0;
     p.noiseTransient = Math.min(1,(p.noiseTransient||0)+0.30);
-    COMMS.trim.blowOpened(Math.round(ambient), Math.round(totalAvail));
+
+    // Check ballast system state — determines auto vs manual blow
+    const ballastSys = p.damage?.systems?.ballast || 'nominal';
+    // Any damage to the boat — strikes, flooding, or ballast system state —
+    // means the auto blow cannot be relied upon. DC must operate in hand control.
+    const strikes   = p.damage?.strikes;
+    const anyDamage = ballastSys !== 'nominal'
+      || (strikes && Object.values(strikes).some(v => v > 0));
+    const autoWorks = !anyDamage;
+    const degraded  = ballastSys === 'degraded';
+
+    if(autoWorks){
+      // Helm operates blow controls directly — immediate
+      p._blowVenting = true;
+      COMMS.trim.blowOpened(Math.round(ambient), Math.round(hpa?.pressure??0));
+    } else {
+      // Main blow system damaged — auto blow will fail, DC must operate manually
+      // _blowPending: timer before helm realises nothing happened
+      p._blowPending = true;
+      p._blowPendingT = degraded ? 5 : 3;   // degraded gives a sluggish attempt first
+      p._blowManualT  = 0;
+      p._blowAmbient  = Math.round(ambient);
+      p._blowGroupP   = Math.round(hpa?.pressure??0);
+      COMMS.trim.blowOpened(Math.round(ambient), Math.round(hpa?.pressure??0));
+      COMMS.trim.blowSystemFailed(ballastSys);
+    }
   }
 
   function toggleHPARecharge(){
@@ -302,6 +357,7 @@
 
   window.PANEL={
     SPEED_STATES,
+    setTelegraphIdx: (idx)=>{ _telegraphIdx=idx; },
     getTelegraph,
     clearBtns, registerBtn, handleClick,
     setTelegraph, depthStep, comeToPD,

@@ -10,7 +10,8 @@
       safeDivingDepth:300,     // SDD — routine operations ceiling
       divingLimit:400,         // DL  — certified maximum, CO accountable if exceeded
       designDepth:480,         // DD  — structural design limit, emergency territory
-      maxDepth:500,            // Collapse depth — progressive flooding begins here
+      maxDepth:500,            // Collapse depth — structural seep begins here
+      crushDepth:540,          // Crush depth — catastrophic structural failure (8% deeper)
     },
     camera:{
       zoom:0.12,
@@ -27,6 +28,9 @@
       periscopeDepth:140,
       depthStep:60, depthHoldRepeat:0.10,
       depthTau:8.0, depthRateMax:1.8,   // 1.8 m/s normal (~108m/min) — SSN realistic
+      buoyancyScale:3.6,   // m/s per fill-unit deviation; neutralFill=0.50 → max ±1.8 m/s
+      fillRate:0.022,      // fill fraction/s max rate of tank change (hydraulic ops)
+      kFill:0.0016,        // fill units per metre depth error for controller
       ballast:0.0, ballastRate:0.85, buoyAccel:210, buoyDamp:0.85, vyMax:190,
       flankNoiseBoost:0.42, flankTransient:0.28,
       silentRunning:{speedCap:8, noiseMult:0.55},
@@ -46,12 +50,14 @@
         controlMinRatio:1.2,   // pressure must be >= ambient*this for full authority
         ascentCostPerMetre:0.04, // bar per metre of ascent × (1+depth/300) multiplier
         torpedoCost:    2,     // bar per torpedo fire (impulse air only)
-        blowFlowRate:   8.0,   // bar/s transferred from bank to MBT at 1 bar differential
-                               // actual flow = blowFlowRate × (bankPressure - ambient) / referenceBar
-        blowReferenceBar:50,   // normalisation reference for flow rate calc
+        blowFlowRate:      0.5,    // bar/s drained from bank per 50 bar differential
+                                   // actual drain = blowFlowRate × (bankPressure - ambient) / referenceBar
+        blowReferenceBar:  50,     // normalisation reference (bar)
+        blowFlowToVy:      0.4,    // m/s surge component per bar/s (supplemental — buoyancy does main work)
+        blowFlowToFillRate:0.025,  // fill fraction drained per bar/s of air flow (5 tanks, emptied in ~20s at 300m)
         lpRechargeRate: 0.4,   // bar/s — LP compressor, always running silently
         hpRechargeRate: 2.5,   // bar/s — HP compressor, player toggle, noisy
-        rechargeNoiseAdd:0.12, // noise added per second during HP recharge
+        rechargeNoiseAdd:0.55, // noise/s during HP recharge (exceeds signature.js decay of 0.35/s)
       },
       cavitationDepthRef:380, cavitationKtsRef:18, cavitationSlope:0.018, cavitationSpike:0.22,
       torpCd:0.45, cmCd:4.5, pingCd:9.0, pingPulse:1.25,

@@ -31,10 +31,16 @@
   // FLOOD EVENTS
   // ════════════════════════════════════════════════════════════════════════
   const flood = {
+    depthSeep(compLabel, station, tFlood) {
+      // Structural weeping — watchkeeper stays at post, reports calmly then urgently
+      log(station, `Conn, ${station} — structural weeping in ${compLabel}. Pressure seep, rate increasing. Estimate ${tFlood}s to compartment loss without DC.`, P.CRIT);
+      msg(`DEPTH FLOODING — ${compLabel}`, 2.5);
+      qlog('CONN', `All stations, Conn — depth flooding casualty. ${compLabel}. DC teams, close up.`, 1.0, P.CRIT);
+    },
     firstHit(compLabel, station, urgency, tFlood) {
       const t = Math.min(tFlood, 999);
       log(station, `Conn, ${station} — flooding! Flooding in ${compLabel}!`, P.CRIT);
-      qlog('CONN', `Conn — all hands, emergency stations. DC teams close up in ${compLabel}.`, 1.0, P.CRIT);
+      qlog('CONN', `Conn — all hands — Emergency stations, emergency stations, emergency stations: Flood, flood, flood. Flooding in ${compLabel}. DC teams close up.`, 1.0, P.CRIT);
       msg(`FLOODING — ${compLabel}`, 2.5);
       dcLog(`FLOODING — ${compLabel} | ${urgency} ~${t}s to loss without DC`, P.CRIT);
     },
@@ -44,7 +50,7 @@
       msg(`${compLabel} FLOODED`, 3.0);
     },
     critical() {
-      log('CONN', 'Conn — all hands, all hands. Escape stations. This is not a drill.', P.CRIT);
+      log('CONN', 'Conn — all hands — Escape stations, escape stations, escape stations: Abandon ship. This is not a drill.', P.CRIT);
       msg('ESCAPE STATIONS — ESCAPE STATIONS', 4.0);
     },
     evacuating(compLabel, station, out, trapped) {
@@ -216,11 +222,51 @@
   // ════════════════════════════════════════════════════════════════════════
   // COMBAT / TORPEDO THREATS
   // ════════════════════════════════════════════════════════════════════════
+  const planes = {
+    // ── Forward planes ─────────────────────────────────────────────────────
+    fwdAirEmergency() {
+      log('HELM', 'Conn, Helm — forward planes hydraulics lost. Switching to air emergency.', P.CRIT);
+      qlog('ENG',  'Conn, Eng — forward planes on air emergency. HPA consumption will increase. Response degraded.', 1.5, P.MED);
+      msg('FWD PLANES — AIR EMERGENCY', 2.0);
+    },
+    fwdControlLost() {
+      log('HELM', 'Conn, Helm — forward planes control lost. Planes are frozen.', P.CRIT);
+      msg('FWD PLANES — FROZEN', 2.5);
+    },
+    fwdHydraulicRestored() {
+      log('ENG',  'Conn, Eng — forward planes hydraulics restored. Normal response.', P.MED);
+    },
+    // ── Aft planes ──────────────────────────────────────────────────────────
+    aftAirEmergency(ctrlTransferred) {
+      log('HELM', 'Conn, Helm — aft planes hydraulics lost. Switching to air emergency.', P.CRIT);
+      qlog('ENG',  'Conn, Eng — aft planes on air emergency. HPA consumption will increase. Response degraded.', 1.5, P.MED);
+      if(ctrlTransferred){
+        qlog('MANEUVERING', 'Conn, Manoeuvring — we have the planes aft. Standing by on air emergency.', 2.5, P.MED);
+      }
+      msg('AFT PLANES — AIR EMERGENCY', 2.0);
+    },
+    aftControlTransferred() {
+      log('MANEUVERING', 'Conn, Manoeuvring — assuming aft plane control. Helm, transfer complete.', P.MED);
+      qlog('HELM', 'Manoeuvring, Helm — aye, planes transferred aft.', 1.0, P.MED);
+    },
+    aftHydraulicRestored() {
+      log('ENG',  'Conn, Eng — aft planes hydraulics restored. Normal response.', P.MED);
+    },
+    // ── Combined / frozen ──────────────────────────────────────────────────
+    planesFrozenNoHPA(angleNow) {
+      const dir = angleNow > 0 ? 'rise' : angleNow < 0 ? 'dive' : 'neutral';
+      log('HELM', `Conn, Helm — planes frozen. No HP air. Planes locked ${Math.abs(angleNow)}° ${dir}.`, P.CRIT);
+      qlog('CONN', `All stations, Conn — planes are frozen in ${dir}. Ballast control only.`, 1.0, P.CRIT);
+      msg('PLANES FROZEN', 3.0);
+    },
+  };
+
+  // ════════════════════════════════════════════════════════════════════════
   const combat = {
     torpedoInWater(brgStr) {
       msg('TORPEDO IN THE WATER!', 3.0);
       log('SONAR', `Conn, Sonar — new contact, high-speed screws, bears ${brgStr}, classify torpedo`, P.CRIT);
-      log('CONN',  'Conn — all hands, action stations. Torpedo threat. Close up evasion stations.', P.CRIT);
+      log('CONN',  'Conn — all stations — Action stations, action stations, action stations: Torpedo threat. Close up evasion stations.', P.CRIT);
     },
     seekerActive(brgStr) {
       log('SONAR', `Conn, Sonar — torpedo bears ${brgStr}, seeker active, weapon is hunting`, P.MED);
@@ -509,7 +555,7 @@
     },
     prosecuting() {
       log('SONAR', 'Conn, Sonar — contacts manoeuvring aggressively, classify prosecuting', P.MED);
-      qlog('CONN', 'Conn — all hands, action stations. Assume defence watches.', 1.5, P.MED);
+      qlog('CONN', 'Conn — all stations — Action stations, action stations, action stations: Assume defence watches.', 1.5, P.MED);
       qlog('WEPS', 'Conn, Weps — tubes one and two ready in all respects. Standing by.', 3.0);
     },
     contactLost()  { log('SONAR', 'Conn, Sonar — group has lost contact. Reverting to patrol'); },
@@ -556,11 +602,11 @@
     // ── Tactical ──────────────────────────────────────────────────────────
     actionStations(cause) {
       const lines = {
-        torpedo:    `Conn — all hands, action stations. Torpedo threat. Close up evasion stations.`,
-        contact:    `Conn — all hands, action stations. Submerged contact prosecuted. Close up action stations.`,
-        attack:     `Conn — all hands, action stations. Weapons free. Close up action stations.`,
-        wave:       `Conn — all hands, action stations. Multiple contacts. Close up action stations.`,
-        manual:     `Conn — all hands, action stations. Close up action stations. Assume defence watches.`,
+        torpedo: `Conn — all stations — Action stations, action stations, action stations: Torpedo threat. Close up evasion stations.`,
+        contact: `Conn — all stations — Action stations, action stations, action stations: Submerged contact prosecuted. Close up action stations.`,
+        attack:  `Conn — all stations — Action stations, action stations, action stations: Weapons free. Close up action stations.`,
+        wave:    `Conn — all stations — Action stations, action stations, action stations: Multiple contacts. Close up action stations.`,
+        manual:  `Conn — all stations — Action stations, action stations, action stations: Assume defence watches.`,
       };
       log('CONN', lines[cause] || lines.manual, P.CRIT);
       msg('ACTION STATIONS', 2.0);
@@ -585,13 +631,12 @@
 
     // ── Casualty ──────────────────────────────────────────────────────────
     emergencyStations(cause) {
-      // Note: usually called from within flood/reactor/fire events, not standalone
       const lines = {
-        flood:   `Conn — all hands, emergency stations. Flooding casualty. DC teams close up.`,
-        reactor: `Conn — all hands, emergency stations. Reactor casualty. Close up emergency stations.`,
-        fire:    `Conn — all hands, emergency stations. Fire casualty. Close up emergency stations.`,
+        flood:   `Conn — all hands — Emergency stations, emergency stations, emergency stations: Flood, flood, flood. DC teams close up.`,
+        reactor: `Conn — all hands — Emergency stations, emergency stations, emergency stations: Reactor casualty. Close up emergency stations.`,
+        fire:    `Conn — all hands — Emergency stations, emergency stations, emergency stations: Fire, fire, fire. Close up emergency stations.`,
       };
-      log('CONN', lines[cause] || `Conn — all hands, emergency stations. Close up emergency stations.`, P.CRIT);
+      log('CONN', lines[cause] || `Conn — all hands — Emergency stations, emergency stations, emergency stations: Close up emergency stations.`, P.CRIT);
       msg('EMERGENCY STATIONS', 2.5);
     },
 
@@ -601,7 +646,7 @@
     },
 
     escapeStations() {
-      log('CONN', 'Conn — all hands, escape stations. Escape stations. This is not a drill.', P.CRIT);
+      log('CONN', 'Conn — all hands — Escape stations, escape stations, escape stations: Abandon ship. This is not a drill.', P.CRIT);
       msg('ESCAPE STATIONS', 3.0);
     },
 
@@ -623,17 +668,15 @@
       msg(`DIVING LIMIT — ${Math.round(depthM)}m`, 2.0);
     },
 
-    designDepth(depthM, tacticalState) {
-      if (tacticalState === 'cruising') {
-        log('ENG',  `Conn, Eng — hull stress audible. Depth ${Math.round(depthM)}m. Exceeding design depth.`, P.CRIT);
-        qlog('CONN', `All stations, Conn — emergency surface. Full ahead. Hard rise.`, 0.5, P.CRIT);
-      } else {
-        // In contact / emergency — terse
-        log('ENG', `Conn, Eng — design depth exceeded. ${Math.round(depthM)}m. Hull stressed.`, P.CRIT);
-      }
+    designDepth(depthM) {
+      log('ENG', `Conn, Eng — hull stress audible. Depth ${Math.round(depthM)}m. Exceeding design depth.`, P.CRIT);
       msg(`DESIGN DEPTH EXCEEDED — ${Math.round(depthM)}m`, 2.5);
     },
 
+    crush(depthM) {
+      log('CONN', `Conn — crush depth exceeded at ${depthM}m. Hull failure.`, P.CRIT);
+      msg('HULL FAILURE', 5.0);
+    },
     collapseImminentWarning(depthM) {
       log('ENG', `Conn, Eng — structural failure imminent. Depth ${Math.round(depthM)}m. She will not hold.`, P.CRIT);
       msg(`COLLAPSE DEPTH — ${Math.round(depthM)}m`, 3.0);
@@ -665,9 +708,40 @@
       msg('BALLAST OVERWHELMED', 3.0);
     },
     // ── Emergency blow state comms ──────────────────────────────────────────
-    blowOpened(ambientBar, availBar) {
-      log('ENG', `Conn, Eng — emergency blow open. HP air venting to main ballast. Ambient ${ambientBar} bar, available ${availBar} bar.`, P.CRIT);
-      msg('EMERGENCY BLOW — VENTING', 2.0);
+    // ── Manual blow casualty comms ───────────────────────────────────────────
+    blowAlreadyActive() {
+      log('ENG', 'Conn, Eng — emergency blow already in progress.', P.MED);
+    },
+    blowSystemFailed(sysState) {
+      // Fires immediately after blowOpened — tells player something is wrong
+      const why = sysState === 'degraded'
+        ? 'Ballast control degraded. Main blow may not respond.'
+        : 'Ballast control offline. Main blow system unserviceable.';
+      qlog('HELM', `Conn, Helm — no response on blow controls. ${why}`, 3.5, P.CRIT);
+      qlog('CONN', 'DC, Conn — main blow system has failed. Shut main vents in hand control. Open HPA manually.', 5.0, P.CRIT);
+      msg('BLOW SYSTEM FAILED', 5.0);
+    },
+    blowNoResponse() {
+      // Redundant safety call if pending timer fires
+      log('HELM', 'Conn, Helm — no response on blow. Confirming system failure.', P.CRIT);
+    },
+    blowManualVentsShut() {
+      qlog('DC', 'Conn, DC — main vents shut in hand control. Standing by to open HPA.', 0, P.MED);
+    },
+    blowManualHPAOpen(ambientBar, groupBar) {
+      log('DC', `Conn, DC — HPA open in hand control. Main ballast venting. Ambient ${ambientBar} bar, group pressure ${groupBar} bar.`, P.CRIT);
+      msg('MANUAL BLOW — VENTING', 2.0);
+    },
+
+    blowOpened(ambientBar, groupBar) {
+      // Full RN emergency blow sequence — queued so lines play in order
+      log('CONN', 'Conn — all hands — Emergency stations, emergency stations, emergency stations: Blow ballast. Prepare to surface the boat.', P.CRIT);
+      msg('EMERGENCY STATIONS', 2.5);
+      qlog('CONN', 'Conn — full ahead both. Full rise on the planes. Prepare to surface the boat.', 1.5, P.CRIT);
+      qlog('HELM', 'Conn, Helm — full ahead, full rise on the planes. Aye.', 2.8, P.MED);
+      qlog('CONN', 'DC, Conn — prepare to operate main vents in hand control. Blow main ballast.', 4.0, P.CRIT);
+      qlog('ENG',  `Conn, Eng — emergency blow open. Main ballast venting. Ambient ${ambientBar} bar, group pressure ${groupBar} bar.`, 5.5, P.CRIT);
+      msg('EMERGENCY BLOW — VENTING', 5.5);
     },
     blowProgress(depthM, differential) {
       if(differential > 20){
@@ -679,18 +753,27 @@
         msg('BLOW WEAKENING', 2.0);
       }
     },
+    blowTanksClear(depthM) {
+      log('ENG', `Conn, Eng — main ballast clear. Securing blow. Boat is positively buoyant at ${depthM}m. Rising.`, P.MED);
+      msg('BALLAST CLEAR — RISING', 2.0);
+    },
     blowExhausted(depthM) {
-      log('ENG', `Conn, Eng — HP air exhausted. Ambient pressure equalised. Blow stopped at ${depthM}m.`, P.CRIT);
-      qlog('CONN', `All stations, Conn — HP air exhausted. Boat at ${depthM}m. No further blow available.`, 1.0, P.CRIT);
-      msg('BLOW EXHAUSTED', 3.0);
+      log('ENG',  `Conn, Eng — HP air equalised with ambient. Securing emergency blow. Depth ${depthM}m. No further blow available without surface recharge.`, P.CRIT);
+      qlog('CONN', `All stations, Conn — secured from emergency blow. Boat at ${depthM}m. HP air exhausted.`, 1.0, P.CRIT);
+      msg('SECURED — BLOW EXHAUSTED', 3.0);
+    },
+    surfaceRechargeStarted(currentBar) {
+      log('ENG', `Conn, Eng — HP air banks charging from atmosphere. Group pressure ${currentBar} bar. Recharge in progress.`, P.MED);
+      msg('HP AIR CHARGING', 1.5);
     },
     blowCancelledByOrder(depthM) {
-      log('ENG', `Conn, Eng — blow valves closed on new depth order. Depth ${depthM}m.`, P.MED);
-      msg('BLOW CANCELLED', 1.5);
+      log('ENG', `Conn, Eng — blow valves closed. Securing emergency blow on new depth order. Depth ${depthM}m.`, P.MED);
+      msg('SECURED — BLOW CANCELLED', 1.5);
     },
     blowSurfaced() {
-      log('ENG', 'Conn, Eng — blow valves closed. Surfaced.', P.MED);
-      msg('SURFACED', 2.0);
+      log('ENG', 'Conn, Eng — blow valves closed. Securing emergency blow. Boat is surfaced.', P.MED);
+      qlog('CONN', 'All stations, Conn — secured from emergency blow. Surfaced.', 0.8, P.MED);
+      msg('SECURED — SURFACED', 2.0);
     },
     blowFailNoHPA() {
       log('ENG', 'Conn, Eng — unable to blow. HP air pressure below ambient. Cannot displace water.', P.CRIT);
@@ -722,6 +805,6 @@
   // ════════════════════════════════════════════════════════════════════════
   // EXPORT
   // ════════════════════════════════════════════════════════════════════════
-  window.COMMS = { P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons, nav, sensors, tactical, panel, ui, crewState, depth, trim };
+  window.COMMS = { P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons, nav, sensors, tactical, panel, ui, crewState, depth, trim, planes };
 
 })();

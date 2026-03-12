@@ -518,9 +518,23 @@
         accent:'rgba(80,220,120,0.85)',
         tag:'STEALTH/COMBAT',
       },
+      {
+        id:'free_run',
+        title:'FREE RUN',
+        sub:'Systems test — no enemies',
+        lines:[
+          'Open water. No contacts, no threat.',
+          'Test depth control, planes, HPA,',
+          'emergency procedures and damage',
+          'systems without hostile pressure.',
+        ],
+        colour:'rgba(30,30,60,0.90)',
+        accent:'rgba(120,120,200,0.85)',
+        tag:'TESTING',
+      },
     ];
 
-    const cols=2, rows=2;
+    const cols=2, rows=3;
     const cardW=Math.min(320*DPR, (W-80*DPR)/cols);
     const cardH=240*DPR;
     const gapX=20*DPR, gapY=18*DPR;
@@ -1371,21 +1385,39 @@
     };
 
     // Helper: small clickable button
-    function btn(label,x,y,w,h,active,action,activeCol,dimCol){
-      activeCol=activeCol||'#111827'; dimCol=dimCol||'rgba(17,24,39,0.18)';
-      const bg=active?activeCol:'rgba(17,24,39,0.06)';
-      const fg=active?'#f7f7fb':dimCol;
+    // btn — state: 'available'(default), 'unavailable', 'emergency'
+    // active=true  → activeCol bg, white text (in-use / selected)
+    // active=false, state='available'   → mid-grey bg, readable text — sensitised
+    // active=false, state='unavailable' → faint bg, very dim text — not usable
+    // active=true,  state='emergency'   → red bg, white text
+    function btn(label,x,y,w,h,active,action,activeCol,state){
+      state = state || 'available';
+      activeCol = activeCol || '#1e3a5f';
+      let bg, fg, stroke = null;
+      if(active){
+        bg     = state==='emergency' ? '#7c1010' : activeCol;
+        fg     = '#f0f4ff';
+        stroke = state==='emergency' ? 'rgba(220,50,50,0.55)' : 'rgba(80,120,200,0.35)';
+      } else if(state==='unavailable'){
+        bg = 'rgba(17,24,39,0.05)';
+        fg = 'rgba(100,110,130,0.30)';
+      } else {
+        // available — clearly clickable
+        bg = 'rgba(30,45,70,0.38)';
+        fg = 'rgba(190,205,230,0.85)';
+        stroke = 'rgba(60,90,140,0.20)';
+      }
       ctx.fillStyle=bg;
       ctx.beginPath(); ctx.roundRect(x,y,w,h,3); ctx.fill();
-      if(active){
-        ctx.strokeStyle='rgba(17,24,39,0.30)'; ctx.lineWidth=1;
+      if(stroke){
+        ctx.strokeStyle=stroke; ctx.lineWidth=1;
         ctx.beginPath(); ctx.roundRect(x,y,w,h,3); ctx.stroke();
       }
       ctx.fillStyle=fg;
       ctx.font=`${14*DPR}px ui-monospace,monospace`;
       ctx.textAlign='center';
       ctx.fillText(label,x+w/2,y+h/2+4.5*DPR);
-      PANEL.registerBtn(x,y,w,h,action);
+      if(state!=='unavailable') PANEL.registerBtn(x,y,w,h,action);
     }
 
     // ── SECTION 1: Engine Telegraph ──────────────────────────────────────────
@@ -1448,6 +1480,8 @@
     const pdY=panelY+110*DPR;
     const atPD=player.depthOrder<=C.player.periscopeDepth+10;
     btn('COME TO PD',depthSecX,pdY,depthSecW-pad,20*DPR,atPD,()=>PANEL.comeToPD(),'#1e3a5f');
+
+
 
     sectionDivider(depthSecX+depthSecW);
 
@@ -1538,17 +1572,17 @@
         ctx.fillText(label,fx+fw/2,fy+fh/2+3*DPR);
       }
 
-      // ── Tank fill — single level driven by ordered depth ────────────────────
-      // All MBTs fill together to achieve neutral buoyancy at current depth.
-      // Crush depth (~500m) = tanks full. Surface = tanks empty.
-      const crushD = C.player?.maxDepth ?? 500;
-      const depthFrac = clamp(player.depth / crushD, 0, 1);
+      // ── Tank fill — real MBT state from physics model ────────────────────────
+      const mbtState = player.damage?.mbt;
+      // Each tank shown individually; fall back to 0.50 neutral if state missing
+      const tankFills = mbtState ? mbtState.tanks : [0.50,0.50,0.50,0.50,0.50];
+      const depthFrac = tankFills.reduce((a,b)=>a+b,0)/tankFills.length; // avg for compat
 
-      // Trim tanks shift water fore/aft to correct longitudinal imbalance.
-      // Positive floodTrim = stern-heavy: T-A fills more, T-F less.
-      const trimBase = depthFrac * 0.6;  // trim tanks roughly 60% of MBT level
-      const trimFadj = clamp(trimBase - floodTrim*0.15, 0, 1);
-      const trimAadj = clamp(trimBase + floodTrim*0.15, 0, 1);
+      // Trim tanks — offset by longitudinal trim imbalance from flooding
+      const trimFadj = mbtState ? clamp(mbtState.trimF - floodTrim*0.15, 0, 1)
+                                 : clamp(0.25 - floodTrim*0.15, 0, 1);
+      const trimAadj = mbtState ? clamp(mbtState.trimA + floodTrim*0.15, 0, 1)
+                                 : clamp(0.25 + floodTrim*0.15, 0, 1);
 
       // ── Draw helpers — single fill layer ─────────────────────────────────
       function mbtCell2(x,y,w,h,frac,label){
@@ -1586,15 +1620,15 @@
       trimCell2(trimAX, diagY, trimAW, trimTH, trimAadj, 'T-A');
 
       // ── Draw MBTs ─────────────────────────────────────────────────────────
-      mbtCell2(cx1, mbtY, w1, mbtH, depthFrac, '1');
-      mbtCell2(cx2, mbtY, w2, mbtH, depthFrac, '2');
-      mbtCell2(cx3, diagY, w3, fullH, depthFrac, '3');
-      mbtCell2(cx4, mbtY, w4, mbtH, depthFrac, '4');
-      mbtCell2(cx5, mbtY, w5, mbtH, depthFrac, '5');
+      mbtCell2(cx1, mbtY, w1, mbtH, tankFills[0], '1');
+      mbtCell2(cx2, mbtY, w2, mbtH, tankFills[1], '2');
+      mbtCell2(cx3, diagY, w3, fullH, tankFills[2], '3');
+      mbtCell2(cx4, mbtY, w4, mbtH, tankFills[3], '4');
+      mbtCell2(cx5, mbtY, w5, mbtH, tankFills[4], '5');
 
       // ── Water-surface tilt line ────────────────────────────────────────────
       // Sits at weighted average MBT fill; tilts with trim imbalance
-      const avgFill = (depthFrac+depthFrac+depthFrac+depthFrac+depthFrac)/5;
+      const avgFill = tankFills.reduce((a,b)=>a+b,0)/tankFills.length;
       const baseY   = mbtY + mbtH*(1 - clamp(avgFill,0,1));
       const tiltAmp = clamp(floodTrim/2.0,-1,1)*7*DPR;
       const totalW  = diagramRight - cx1;
@@ -1620,7 +1654,7 @@
       ctx.restore();
 
       // ── HPA banks ─────────────────────────────────────────────────────────
-      const hpaY=diagY+fullH+7*DPR;
+      const hpaY=diagY+fullH+16*DPR;
       const maxP  = hpaC.maxPressure   || 207;
       const maxR  = hpaC.reservePressure || 207;
       const ambient = (player.depth||0) * (hpaC.ambientPerMetre||0.1);
@@ -1628,66 +1662,90 @@
       const resPressure   = hpa?.reserve  ?? maxR;
       const pressureFrac  = groupPressure / maxP;
       const ambientFrac   = Math.min(1, ambient / maxP);
+      const pCol = pressureFrac>0.40?'rgba(80,210,110,0.95)':pressureFrac>0.15?'rgba(230,170,20,0.95)':'rgba(230,60,60,0.95)';
 
-      // HPA label + bar/depth readout
-      ctx.fillStyle='rgba(17,24,39,0.30)';
-      ctx.font=`${8*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
-      ctx.fillText('HPA',trimSecX,hpaY);
-      ctx.fillStyle='rgba(148,163,184,0.45)';
-      ctx.font=`${7*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
-      ctx.fillText(`${Math.round(groupPressure)}/${maxP} bar`,trimSecX+diagW,hpaY);
+      // ── Header row: label left │ big % centre │ bar value right ────────────
+      // All on one baseline — no overlap with bars below
+      ctx.fillStyle='rgba(148,163,184,0.65)';
+      ctx.font=`bold ${9*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText('HP AIR', trimSecX, hpaY);
 
+      ctx.fillStyle=pCol;
+      ctx.font=`bold ${16*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+      ctx.fillText(`${Math.round(pressureFrac*100)}%`, trimSecX+diagW/2, hpaY);
+
+      ctx.fillStyle='rgba(148,163,184,0.70)';
+      ctx.font=`bold ${9*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
+      ctx.fillText(`${Math.round(groupPressure)}/${maxP}`, trimSecX+diagW, hpaY);
+      ctx.fillStyle='rgba(100,120,150,0.55)';
+      ctx.font=`${8*DPR}px ui-monospace,monospace`;
+      ctx.fillText('bar', trimSecX+diagW, hpaY+9*DPR);
+
+      // ── Bank bars — below header, labels sit under bars ───────────────────
       const bankG=3*DPR;
-      const bankH=13*DPR;
+      const bankH=20*DPR;   // taller bars
+      const labelH=11*DPR;  // room for label text below each bar
       const bankW=Math.round((diagW - 4*bankG) / 5);
       const banksTotal=5*bankW+4*bankG;
       const banksX=trimSecX+Math.round((diagW-banksTotal)/2);
-      const bankY=hpaY+2*DPR;
+      const bankY=hpaY+14*DPR;   // clear of header text
 
-      // 4 operational banks — all show the same group pressure (manifold system)
+      // 4 operational banks
       for(let i=0;i<4;i++){
         const bx=banksX+i*(bankW+bankG);
-        // Each bank shows 1/4 of group pressure as its fill
         const bankFrac = clamp(pressureFrac, 0, 1);
-        ctx.fillStyle='rgba(6,12,24,0.85)'; ctx.fillRect(bx,bankY,bankW,bankH);
-        ctx.fillStyle=bankFrac>0.4?'rgba(22,85,42,0.90)':bankFrac>0.15?'rgba(150,100,0,0.90)':'rgba(170,20,20,0.90)';
+        const fillCol = bankFrac>0.40?'rgba(30,160,70,0.95)':bankFrac>0.15?'rgba(200,140,0,0.95)':'rgba(210,35,35,0.95)';
+        const brdCol  = bankFrac>0.40?'rgba(40,180,80,0.60)':bankFrac>0.15?'rgba(200,150,0,0.55)':'rgba(210,40,40,0.60)';
+        ctx.fillStyle='rgba(4,10,20,0.90)'; ctx.fillRect(bx,bankY,bankW,bankH);
+        ctx.fillStyle=fillCol;
         ctx.fillRect(bx+1,bankY+1,Math.round((bankW-2)*bankFrac),bankH-2);
-        ctx.strokeStyle='rgba(60,90,130,0.45)'; ctx.lineWidth=1;
+        ctx.strokeStyle=brdCol; ctx.lineWidth=1;
         ctx.strokeRect(bx+0.5,bankY+0.5,bankW-1,bankH-1);
-        // Ambient threshold tick — shows where control authority goes to zero
+        // Ambient threshold tick
         if(ambientFrac>0 && ambientFrac<1){
           const tickX=bx+1+Math.round((bankW-2)*ambientFrac);
-          ctx.strokeStyle='rgba(220,180,50,0.85)'; ctx.lineWidth=1.5;
-          ctx.beginPath(); ctx.moveTo(tickX,bankY+1); ctx.lineTo(tickX,bankY+bankH-1); ctx.stroke();
+          ctx.strokeStyle='rgba(240,200,50,1.0)'; ctx.lineWidth=1.5;
+          ctx.beginPath(); ctx.moveTo(tickX,bankY+2); ctx.lineTo(tickX,bankY+bankH-2); ctx.stroke();
         }
-        ctx.fillStyle='rgba(148,163,184,0.60)';
-        ctx.font=`${6.5*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
-        ctx.fillText(`B${i+1}`,bx+bankW/2,bankY+bankH-2*DPR);
+        // Label BELOW bar
+        ctx.fillStyle='rgba(180,200,230,0.80)';
+        ctx.font=`bold ${9*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillText(`B${i+1}`, bx+bankW/2, bankY+bankH+labelH*0.75);
       }
-      // Reserve bank — gold, isolated
+      // Reserve bank — gold border, label below
       {
         const bx=banksX+4*(bankW+bankG);
         const resFrac=clamp(resPressure/maxR,0,1);
-        ctx.fillStyle='rgba(6,12,24,0.85)'; ctx.fillRect(bx,bankY,bankW,bankH);
-        ctx.fillStyle=resFrac>0.3?'rgba(125,90,0,0.90)':'rgba(120,15,15,0.90)';
+        const resCol=resFrac>0.30?'rgba(180,130,0,0.95)':'rgba(180,25,25,0.95)';
+        ctx.fillStyle='rgba(4,10,20,0.90)'; ctx.fillRect(bx,bankY,bankW,bankH);
+        ctx.fillStyle=resCol;
         ctx.fillRect(bx+1,bankY+1,Math.round((bankW-2)*resFrac),bankH-2);
-        ctx.strokeStyle='rgba(160,130,0,0.60)'; ctx.lineWidth=1;
+        ctx.strokeStyle='rgba(220,170,30,0.85)'; ctx.lineWidth=1.5;
         ctx.strokeRect(bx+0.5,bankY+0.5,bankW-1,bankH-1);
-        ctx.fillStyle='rgba(200,170,50,0.80)';
-        ctx.font=`${6.5*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
-        ctx.fillText('RES',bx+bankW/2,bankY+bankH-2*DPR);
+        ctx.fillStyle='rgba(230,190,60,0.90)';
+        ctx.font=`bold ${9*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillText('RES', bx+bankW/2, bankY+bankH+labelH*0.75);
       }
 
       // ── Controls ──────────────────────────────────────────────────────────
-      const ctrlY=bankY+bankH+5*DPR;
+      const ctrlY=bankY+bankH+labelH+4*DPR;
       const ctrlW=Math.round((diagW-bankG)/2);
       const ctrlH=18*DPR;
-      const blowBg=pressureFrac<0.05?'rgba(80,8,8,0.55)':'#7c2d12';
-      const blowLabel=pressureFrac<0.05?'NO HP AIR':pressureFrac<0.15?'BLOW ⚠':'BLOW BALLAST';
-      btn(blowLabel,trimSecX,ctrlY,ctrlW,ctrlH,false,()=>PANEL.emergencyBlowBallast(),blowBg);
-      const rechg=hpa?.recharging||false;
-      btn(rechg?'RECHARGE ■':'HP RECHARGE',trimSecX+ctrlW+bankG,ctrlY,ctrlW,ctrlH,rechg,
-        ()=>PANEL.toggleHPARecharge(),rechg?'#78350f':'rgba(17,24,39,0.55)');
+      const venting   = player._blowVenting||false;
+      const pending   = player._blowPending||false;
+      const manual    = (player._blowManualT||0)>0;
+      const blowActive= venting||pending||manual;
+      const noHPA     = pressureFrac < 0.02;
+      const blowLabel = venting?'BLOW — VENTING':pending?'BLOW — STANDBY':manual?'BLOW — MANUAL':noHPA?'NO HP AIR':'BLOW BALLAST';
+      const blowState = (noHPA||blowActive)?'unavailable':'emergency';
+      btn(blowLabel,trimSecX,ctrlY,ctrlW,ctrlH,blowActive&&!noHPA,
+        ()=>PANEL.emergencyBlowBallast(),'#7c1010',blowState);
+      const rechg     = hpa?.recharging||false;
+      const atSurfaceR= (player.depth||0)<=20;
+      const rechgState= atSurfaceR?'available':'unavailable';
+      btn(rechg?'RECHARGE ■':'HP RECHARGE',trimSecX+ctrlW+bankG,ctrlY,ctrlW,ctrlH,
+        rechg&&atSurfaceR,()=>PANEL.toggleHPARecharge(),'#1e3a5f',
+        atSurfaceR?'available':'unavailable');
     }
 
     sectionDivider(trimSecX+trimSecW);
@@ -1870,10 +1928,10 @@
 
     btn('EMERGENCY TURN',emergX,panelY+27*DPR,ebW,ebH,
       player.emergTurnT>0,()=>PANEL.emergencyTurn(),'#7f1d1d',
-      player.emergTurnCd>0?'rgba(17,24,39,0.20)':'rgba(17,24,39,0.55)');
+      player.emergTurnT>0?'emergency':'available');
     btn('CRASH DIVE',emergX,panelY+51*DPR,ebW,ebH,
       player.crashDiveT>0,()=>PANEL.emergencyCrashDive(),'#7f1d1d',
-      player.crashDiveCd>0?'rgba(17,24,39,0.20)':'rgba(17,24,39,0.55)');
+      player.crashDiveT>0?'emergency':'available');
 
     sectionDivider(emergX+emergW);
 
@@ -2284,8 +2342,134 @@
     ctx.strokeStyle='rgba(17,24,39,0.10)'; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(divX,panelY+8*DPR); ctx.lineTo(divX,panelY+panelH-6*DPR); ctx.stroke();
 
+    // ── PLANES / BUBBLE panel — carved from left of contacts column ───────────
+    const planesSecW = 142*DPR;
+    const planesSecX = divX+pad*0.5;
+    {
+      const px=planesSecX, pw=planesSecW, ph=panelH;
+      const pitch  = window.G?.player?.pitch || 0;
+      const planes = window.G?.player?.planes || {};
+      const aftMode= planes.aft?.mode || 'hydraulic';
+      const fwdMode= planes.fwd?.mode || 'hydraulic';
+      const aftAngle= planes.aft?.angle || 0;
+      const fwdAngle= planes.fwd?.angle || 0;
+
+      // ── Section header ────────────────────────────────────────────────────
+      ctx.fillStyle='rgba(17,24,39,0.35)';
+      ctx.font=`${11*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText('PLANES',px,panelY+18*DPR);
+
+      // ── Bubble inclinometer ───────────────────────────────────────────────
+      const tubeW=pw-4*DPR, tubeH=18*DPR;
+      const tubeX=px, tubeY=panelY+24*DPR;
+      const tubeRad=tubeH*0.45;
+      const tubeMid=tubeX+tubeW/2;
+
+      // Tube body — dark glass
+      ctx.fillStyle='rgba(6,14,30,0.85)';
+      ctx.beginPath(); ctx.roundRect(tubeX,tubeY,tubeW,tubeH,tubeRad); ctx.fill();
+
+      // Tick marks — 0, ±5, ±10, ±15°
+      const pitchMax=15;
+      const tickSpan=tubeW*0.85;
+      for(const deg of [-15,-10,-5,0,5,10,15]){
+        const tx=tubeMid+(deg/pitchMax)*(tickSpan/2);
+        const isCentre=deg===0;
+        ctx.strokeStyle=isCentre?'rgba(60,200,80,0.60)':'rgba(60,90,130,0.35)';
+        ctx.lineWidth=isCentre?1.5:1;
+        const ty1=tubeY+(isCentre?2*DPR:4*DPR);
+        const ty2=tubeY+tubeH-(isCentre?2*DPR:4*DPR);
+        ctx.beginPath(); ctx.moveTo(tx,ty1); ctx.lineTo(tx,ty2); ctx.stroke();
+      }
+
+      // Glass highlight
+      ctx.fillStyle='rgba(100,160,220,0.07)';
+      ctx.beginPath(); ctx.roundRect(tubeX+1,tubeY+1,tubeW-2,tubeH*0.35,tubeRad*0.8); ctx.fill();
+
+      // Tube border
+      ctx.strokeStyle='rgba(50,70,110,0.55)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.roundRect(tubeX+0.5,tubeY+0.5,tubeW-1,tubeH-1,tubeRad); ctx.stroke();
+
+      // Bubble — position driven by pitch, clamped to tube interior
+      const isFrz   = aftMode==='frozen';
+      const isAirEmg = aftMode==='air_emergency'||fwdMode==='air_emergency';
+      const bubbleR  = tubeH*0.38;
+      const bubbleTravel=(tickSpan/2)-bubbleR*1.1;
+      const pitchFrac=clamp(pitch/pitchMax,-1,1);
+      const bubbleX  =tubeMid+pitchFrac*bubbleTravel;
+      const bubbleY  =tubeY+tubeH/2;
+      // Bubble fill — amber normal, orange air emergency, red frozen
+      const bubbleCol=isFrz?'rgba(210,40,40,0.88)':isAirEmg?'rgba(210,130,10,0.88)':'rgba(210,160,20,0.82)';
+      const bubbleGlow=isFrz?'rgba(200,30,30,0.22)':isAirEmg?'rgba(200,120,0,0.20)':'rgba(210,180,30,0.18)';
+      // Glow
+      const bgrd=ctx.createRadialGradient(bubbleX,bubbleY,0,bubbleX,bubbleY,bubbleR*2.2);
+      bgrd.addColorStop(0,bubbleGlow); bgrd.addColorStop(1,'transparent');
+      ctx.fillStyle=bgrd; ctx.beginPath(); ctx.arc(bubbleX,bubbleY,bubbleR*2.2,0,Math.PI*2); ctx.fill();
+      // Main bubble
+      const bgrad=ctx.createRadialGradient(bubbleX-bubbleR*0.3,bubbleY-bubbleR*0.35,bubbleR*0.05,bubbleX,bubbleY,bubbleR);
+      bgrad.addColorStop(0,'rgba(255,240,140,0.95)'); bgrad.addColorStop(0.55,bubbleCol); bgrad.addColorStop(1,'rgba(60,40,0,0.60)');
+      ctx.fillStyle=bgrad; ctx.beginPath(); ctx.arc(bubbleX,bubbleY,bubbleR,0,Math.PI*2); ctx.fill();
+      // Specular
+      ctx.fillStyle='rgba(255,255,220,0.65)';
+      ctx.beginPath(); ctx.ellipse(bubbleX-bubbleR*0.28,bubbleY-bubbleR*0.32,bubbleR*0.25,bubbleR*0.15,0,0,Math.PI*2); ctx.fill();
+
+      // STEADY BUBBLE label — tiny, centred below tube
+      ctx.fillStyle='rgba(50,75,120,0.38)';
+      ctx.font=`${7*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+      ctx.fillText('STEADY BUBBLE',tubeMid,tubeY+tubeH+9*DPR);
+
+      // ── Plane state rows ──────────────────────────────────────────────────
+      const rowY0=panelY+62*DPR;
+      const rowH =19*DPR;
+      const stateData=[
+        { label:'AFT PLANES',  mode:aftMode,  angle:aftAngle  },
+        { label:'FWD PLANES',  mode:fwdMode,  angle:fwdAngle  },
+      ];
+      const modeColour={
+        hydraulic:   'rgba(30,90,180,0.70)',
+        air_emergency:'rgba(180,110,0,0.80)',
+        frozen:      'rgba(160,25,25,0.85)',
+      };
+      const modeTxt={
+        hydraulic:'HYD',
+        air_emergency:'AIR EMRG',
+        frozen:'FROZEN',
+      };
+      for(let i=0;i<stateData.length;i++){
+        const {label,mode,angle}=stateData[i];
+        const ry=rowY0+i*(rowH+4*DPR);
+        const bg=modeColour[mode]||modeColour.hydraulic;
+        // Row bg
+        ctx.fillStyle='rgba(6,14,30,0.60)';
+        ctx.beginPath(); ctx.roundRect(px,ry,pw-2*DPR,rowH,2); ctx.fill();
+        // Mode colour strip on left
+        ctx.fillStyle=bg;
+        ctx.beginPath(); ctx.roundRect(px,ry,4*DPR,rowH,2); ctx.fill();
+        // Label
+        ctx.fillStyle='rgba(148,163,184,0.80)';
+        ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+        ctx.fillText(label,px+8*DPR,ry+rowH*0.65);
+        // Mode badge
+        ctx.fillStyle=mode==='hydraulic'?'rgba(30,130,220,0.70)':mode==='air_emergency'?'rgba(220,140,0,0.85)':'rgba(200,30,30,0.85)';
+        const badgeW=52*DPR;
+        ctx.beginPath(); ctx.roundRect(px+pw-badgeW-4*DPR,ry+2*DPR,badgeW,rowH-4*DPR,2); ctx.fill();
+        ctx.fillStyle='#f0ece0';
+        ctx.font=`bold ${8*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillText(modeTxt[mode]||mode.toUpperCase(),px+pw-badgeW*0.5-4*DPR,ry+rowH*0.68);
+        // Angle readout
+        const dirStr=angle>0.3?'↑':angle<-0.3?'↓':'—';
+        ctx.fillStyle='rgba(148,163,184,0.55)';
+        ctx.font=`${8*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
+        ctx.fillText(`${dirStr}${Math.abs(angle).toFixed(1)}°`,px+pw-badgeW-8*DPR,ry+rowH*0.65);
+      }
+
+      // Thin right-border divider
+      ctx.strokeStyle='rgba(17,24,39,0.15)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(px+pw,panelY+8*DPR); ctx.lineTo(px+pw,panelY+panelH-6*DPR); ctx.stroke();
+    }
+
     // ── RIGHT: Contact Quality List ───────────────────────────────────────────
-    const cqX=divX+pad*0.5;
+    const cqX=planesSecX+planesSecW+pad*0.5;
     const cqW=tdcX+tdcW-cqX-pad;
 
     ctx.fillStyle='rgba(17,24,39,0.35)';
