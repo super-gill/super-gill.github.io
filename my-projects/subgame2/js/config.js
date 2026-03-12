@@ -70,7 +70,6 @@
       wireStressKts:20,           // above this — wire parts in seconds
       wireStressBreakTime:25,     // seconds to break at wireStressKts (linear between safe and stress)
       wireInstantBreakKts:22,     // above this — parts within ~3s
-      missileCd:1.4, missileRequiresShallow:true,
       periscope:{cd:10.0, dur:4.5, revealR:3600, detectBoost:1.55, noiseSpike:0.10},
       speedDeafness:{startKts:4, fullDeafKts:10},  // passive sonar degrades with own speed
       launchTransientRange:2000, launchTransientSus:0.35,  // torpedo launch noise
@@ -100,7 +99,6 @@
              vertWindow:120,        // m — seeker vertical acquisition window ±
              vertFuse:60,           // m — detonation vertical tolerance ±
             },
-    missile:{speed:80, life:20, dmg:140, tipDelay:0.35, maxTurn:2.8},
     decoy:{noisemakerLifeMin:7.0, noisemakerLifeMax:11.0, noisemakerR:22, sigPlayer:1.4, sigEnemy:1.0, flareLifeMin:1.8, flareLifeMax:2.6, flareR:12},
     enemy:{
       boatShare:0.35,
@@ -146,6 +144,7 @@
     ship:{
       tracerLife:[0.06,0.14], tracerSpread:0.06, tracerBursts:[2,4]
     },
-    visuals:{screenBubbles:false}
+    visuals:{screenBubbles:false},
+    layout:{panelH:190, depthStripW:88},
   };
 })();

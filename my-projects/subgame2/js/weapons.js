@@ -27,6 +27,7 @@
     opts=opts||{};
     const d={
       kind,x,y,
+      depth: opts.depth ?? 0,
       vx:(opts.vx??rand(-3,3)),
       vy:(opts.vy??rand(-3,3)),
       life:(kind==="flare")?rand(C.decoy.flareLifeMin,C.decoy.flareLifeMax):rand(C.decoy.noisemakerLifeMin,C.decoy.noisemakerLifeMax),
@@ -209,10 +210,6 @@
     window.G._onWireCut?.(b);
   }
 
-  function fireMissileVLS(fromX,fromY,friendly=true){
-    bullets.push({kind:"missile",x:fromX,y:fromY,vx:0,vy:-C.missile.speed,r:7,life:C.missile.life,friendly,dmg:C.missile.dmg,phase:"vertical",lock:null,tipDelay:C.missile.tipDelay,speed:C.missile.speed});
-  }
-
   function dropDepthCharge(fromX,fromY,targetY){
     const ty=clamp(targetY,world.seaLevel+120,world.ground-80);
     bullets.push({kind:"depthCharge",x:fromX,y:fromY,vx:rand(-20,20),vy:90,r:8,life:5.0,friendly:false,targetY:ty,sink:rand(160,230),dmg:34,blastR:190});
@@ -271,5 +268,5 @@
     return best;
   }
 
-  window.W={wrapX,makeExplosion,splash,deployDecoy,fireTorpedo,wireUpdate,cutWire,fireMissileVLS,dropDepthCharge,torpAcquire};
+  window.W={wrapX,makeExplosion,splash,deployDecoy,fireTorpedo,wireUpdate,cutWire,dropDepthCharge,torpAcquire};
 })();

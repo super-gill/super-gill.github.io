@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -n \"angleNorm\\\\|worldToScreen\\\\|clamp\" *.js)"
+      "Bash(grep -n \"angleNorm\\\\|worldToScreen\\\\|clamp\" *.js)",
+      "Bash(wc -l \"c:/Users/Jason.McDill/OneDrive - Digital Origin Solutions/Documents/GitHub/super-gill.github.io/my-projects/subgame2/js\"/*.js)",
+      "Bash(wc -l *.js)"
     ]
   }
 }

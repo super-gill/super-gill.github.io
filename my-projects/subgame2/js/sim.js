@@ -88,7 +88,7 @@
     player.depth=260; player.depthOrder=260; player.y=260;
     player.vy=0; player.turnRate=0; player.hp=C.player.hpMax; player.invuln=0;
     player.noise=0; player.noiseTransient=0; player.cavitating=false;
-    player.torpCd=0; player.missileCd=0; player.pingCd=0; player.cmCd=0; player.sonarPulse=0; player.periscopeCd=0; player.periscopeT=0;
+    player.torpCd=0; player.pingCd=0; player.cmCd=0; player.sonarPulse=0; player.periscopeCd=0; player.periscopeT=0;
     // Torpedo tubes: array of per-tube reload countdowns (0 = loaded & ready)
     const nTubes=C.player.torpTubes||4;
     player.torpTubes=[];
@@ -322,7 +322,6 @@
       player._crashDepthCalled=new Set();
     }
 
-    player.missileCd=Math.max(0,player.missileCd-dt);
     player.pingCd=Math.max(0,player.pingCd-dt);
 
     // ── Sustained flank at depth SCRAM risk ──────────────────────────────────
@@ -513,8 +512,8 @@
       // Aim world coords: unproject mouse through camera (centred on plot area)
       const Z=cam.zoom;
       const DPR=canvas.DPR||window.G.DPR||1;
-      I.aimWorldX=cam.x+(I.mouseX-(canvas.width-88*DPR)/2)/(Z*DPR);
-      I.aimWorldY=cam.y+(I.mouseY-(canvas.height-190*DPR)/2)/(Z*DPR);
+      I.aimWorldX=cam.x+(I.mouseX-(canvas.width-C.layout.depthStripW*DPR)/2)/(Z*DPR);
+      I.aimWorldY=cam.y+(I.mouseY-(canvas.height-C.layout.panelH*DPR)/2)/(Z*DPR);
       // Periscope (O) — shallow only
       if(I.keys.has("o") && player.periscopeCd<=0){
         I.keys.delete("o");
@@ -714,24 +713,11 @@
         } // end pendingFires gate
       }
 
-      // G = VLS missile (shallow only)
-      if(I.keys.has("g")&&player.missileCd<=0){
-        I.keys.delete("g");
-        if(player.depth>C.player.periscopeDepth){
-          COMMS.weapons.vlsAbort();
-        } else {
-          player.missileCd=C.player.missileCd;
-          player.noiseTransient=Math.min(1,player.noiseTransient+0.35);
-          COMMS.weapons.vlsLaunch();
-          W.fireMissileVLS(player.wx,player.wy,true);
-        }
-      }
-
       // X = deploy noisemaker
       if(I.keys.has("x")&&player.cmCd<=0){
         I.keys.delete("x");
         player.cmCd=C.player.cmCd;
-        W.deployDecoy(player.wx,player.wy,true,"noisemaker");
+        W.deployDecoy(player.wx,player.wy,true,"noisemaker",{depth:player.depth});
         player.noiseTransient=Math.min(1,player.noiseTransient+0.10);
         COMMS.weapons.countermeasures();
       }
@@ -1256,14 +1242,14 @@
               // Drop noisemaker behind current heading — between sub and torpedo
               const dropX=wrapX(e.x-Math.cos(e.heading)*35+rand(-20,20));
               const dropY=(e.y-Math.sin(e.heading)*35+rand(-20,20)+world.h)%world.h;
-              const dec=W.deployDecoy(dropX,dropY,false,"noisemaker");
+              const dec=W.deployDecoy(dropX,dropY,false,"noisemaker",{depth:e.depth||200});
               if(dec) e.evadeDecoy={x:dec.x,y:dec.y};
 
               // Second CM burst: scattered further back
               if(Math.random()<0.55){
                 const drop2X=wrapX(e.x-Math.cos(e.heading)*70+rand(-30,30));
                 const drop2Y=(e.y-Math.sin(e.heading)*70+rand(-30,30)+world.h)%world.h;
-                W.deployDecoy(drop2X,drop2Y,false,"noisemaker");
+                W.deployDecoy(drop2X,drop2Y,false,"noisemaker",{depth:e.depth||200});
               }
             }
 
@@ -1338,11 +1324,8 @@
       if(d.kind==="flare"){
         d.vy += (d.g||C.ship.flareGravity)*dt;
         if(d.y>world.seaLevel-6 && d.vy>0){ W.splash(d.x,world.seaLevel,0.5); d.life=Math.min(d.life,0.30); }
-      } else {
-        if(d.mode==="sink") d.vy += C.ship.sinkExtraG*dt;
-        else d.vy += 22*dt;
+        d.y = clamp(d.y,world.seaLevel-80,world.ground-40);
       }
-      d.y = clamp(d.y,world.seaLevel-80,world.ground-40);
     }
     for(let i=decoys.length-1;i>=0;i--) if(decoys[i].life<=0) decoys.splice(i,1);
 
@@ -1374,45 +1357,6 @@
         continue;
       }
 
-      // CWIS intercept — surface ships shoot down incoming missiles only.
-      if(b.kind==="missile" && b.life>0 && b.friendly){
-          for(const e of enemies){
-            if(e.type!=="boat" || !e.cwis) continue;
-            const dx=AI.wrapDx(b.x,e.x);
-            const dy=b.y-e.hitY;
-            const dist=Math.hypot(dx,dy);
-            if(dist>e.cwis.range) continue;
-            const closing=(dx*b.vx+dy*b.vy)<0;
-            if(!closing) continue;
-            const pKill=e.cwis.pKillPerSec*dt;
-            e.cwis.tracerCd=(e.cwis.tracerCd||0)-dt;
-            if(e.cwis.tracerCd<=0){
-              e.cwis.tracerCd=rand(0.06,0.12);
-              const bursts=Math.floor(rand(C.ship.tracerBursts[0],C.ship.tracerBursts[1]));
-              for(let k=0;k<bursts;k++){
-                const spread=(Math.random()-0.5)*C.ship.tracerSpread;
-                const ang=Math.atan2(dy,dx)+spread;
-                const spd=rand(900,1200);
-                cwisTracers.push({
-                  x:e.x, y:e.hitY-8,
-                  vx:Math.cos(ang)*spd,
-                  vy:Math.sin(ang)*spd,
-                  life:rand(C.ship.tracerLife[0],C.ship.tracerLife[1]),
-                  maxLife:rand(C.ship.tracerLife[0],C.ship.tracerLife[1])
-                });
-              }
-            }
-            if(Math.random()<pKill){
-              W.makeExplosion(b.x,b.y,0.7,false);
-              COMMS.ui.cwisIntercept();
-              b.life=0;
-              break;
-            }
-          }
-        }
-
-      // missiles not implemented in this minimal build (kept in config); safe to leave bullets list without them
-      // If you want missiles now, we can port them from v4 with the new movement model.
     }
     for(let i=bullets.length-1;i>=0;i--){
       const _b=bullets[i];

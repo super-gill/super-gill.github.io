@@ -6,10 +6,8 @@
 (()=>{
   const G=()=>window.G;
   const C=()=>window.CONFIG;
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const lerp=(a,b,t)=>a+(b-a)*t;
-  const angleNorm=a=>((a+3*Math.PI)%(Math.PI*2))-Math.PI;
-  const wrapDx=(ax,bx)=>{ const w=G().world.w; let d=bx-ax; if(d>w/2)d-=w; if(d<-w/2)d+=w; return d; };
+  const {clamp,lerp,angleNorm}=window.M;
+  const {wrapDx}=window.AI;
 
   // ── Seeker ──────────────────────────────────────────────────────────────────
   // Pure geometry — no signal thresholds, no fudge factors.

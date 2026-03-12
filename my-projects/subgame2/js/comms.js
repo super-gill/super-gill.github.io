@@ -366,15 +366,6 @@
       log('WEPS', 'Conn, Weps — noisemaker away');
       qlog('SONAR', 'Conn, Sonar — decoy running, own noise masking', 1.5);
     },
-    vlsAbort() {
-      msg('MISSILE: TOO DEEP', 0.8);
-      log('CONN', 'Weps, Conn — VLS abort. Too deep to launch', P.MED);
-    },
-    vlsLaunch() {
-      msg('VLS LAUNCH!', 1.0);
-      log('CONN', 'Weps, Conn — VLS, fire', P.MED);
-      log('WEPS', 'Conn, Weps — missile away', P.MED);
-    },
   };
 
   // ════════════════════════════════════════════════════════════════════════

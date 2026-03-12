@@ -47,7 +47,7 @@
   function inPanel(my){
     const canvas=getCanvas(); if(!canvas) return false;
     const DPR=getDPR();
-    const panelH=190*DPR;
+    const panelH=window.CONFIG.layout.panelH*DPR;
     return my >= canvas.height - panelH;
   }
 
@@ -63,7 +63,7 @@
   function inLogPanel(mx, my){
     const canvas=getCanvas(); if(!canvas) return false;
     const DPR=getDPR();
-    const panelH=190*DPR;
+    const panelH=window.CONFIG.layout.panelH*DPR;
     const boardW=560*DPR;
     // tabH=20, rowH=19, maxRows=28, padY=6*2, +4 → boardH=568
     const boardH=568*DPR;

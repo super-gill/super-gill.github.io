@@ -409,31 +409,6 @@
       } else if(pBand==='ok') player._lastPBand='ok';
 
       // ── Blow progress reports (every ~15s while venting) ─────────────────
-      // ── Manual blow — pending failure detection then DC manual sequence ──────
-      if(player._blowPending){
-        player._blowPendingT = (player._blowPendingT||0) - dt;
-        if(player._blowPendingT <= 0){
-          player._blowPending = false;
-          // Helm reports no response — trigger DC manual sequence
-          window.COMMS?.trim?.blowNoResponse();
-          player._blowManualT = 12; // DC takes ~12s to manually shut vents + open HPA
-        }
-      }
-      // DC manual blow — counts down, then activates venting
-      if(player._blowManualT > 0){
-        player._blowManualT -= dt;
-        if(player._blowManualT <= 8 && !player._blowManualVentsMsg){
-          player._blowManualVentsMsg = true;
-          window.COMMS?.trim?.blowManualVentsShut();
-        }
-        if(player._blowManualT <= 0){
-          player._blowManualT = 0;
-          player._blowManualVentsMsg = false;
-          player._blowVenting = true;
-          window.COMMS?.trim?.blowManualHPAOpen(player._blowAmbient||0, player._blowGroupP||0);
-        }
-      }
-
       if(player._blowVenting){
         player._blowReportT = (player._blowReportT||0) + dt;
         if(player._blowReportT >= 15){

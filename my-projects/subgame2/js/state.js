@@ -13,7 +13,7 @@
   // cam.x/y = world position of screen centre
   const cam={x:0,y:0,zoom:C.camera.zoom};
 
-  const bullets=[],particles=[],enemies=[],decoys=[],contacts=[],cwisTracers=[],wireContacts=[],ghostContacts=new Map(),sonarContacts=new Map(),wrecks=[];
+  const bullets=[],particles=[],enemies=[],decoys=[],contacts=[],cwisTracers=[],wireContacts=[],sonarContacts=new Map(),wrecks=[];
   let _nextTorpId=1;
 
   const player={
@@ -28,7 +28,7 @@
 
     hp:C.player.hpMax, invuln:0,
     noise:0, noiseTransient:0, cavitating:false,
-    torpCd:0, missileCd:0, pingCd:0, cmCd:0, sonarPulse:0,
+    torpCd:0, pingCd:0, cmCd:0, sonarPulse:0,
     periscopeCd:0, periscopeT:0,
     silent:false,
     scram:false, scramT:0, scramCause:null, scramEPM:false,
@@ -96,5 +96,5 @@
     player.scramCause=cause||'unknown';
     player.scramEPM=false;
   }
-  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,ghostContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,queueLog,wrecks,triggerScram,setTacticalState,setCasualtyState};
+  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,queueLog,wrecks,triggerScram,setTacticalState,setCasualtyState};
 })();
