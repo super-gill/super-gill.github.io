@@ -254,8 +254,8 @@
 
     if(tab==='log'){
       // ── Ship Log ────────────────────────────────────────────
-      const CAT_COL={CONN:'#1e3a5f',SONAR:'#0e7490',WEPS:'#991b1b',ENG:'#92400e',HELM:'#374151',MANV:'#4a3728',COMMS:'#1a4731',NAV:'#3b2f6b'};
-      const CAT_BG={CONN:'rgba(30,58,95,0.18)',SONAR:'rgba(14,116,144,0.15)',WEPS:'rgba(153,27,27,0.15)',ENG:'rgba(146,64,14,0.14)',HELM:'rgba(55,65,81,0.15)',MANV:'rgba(74,55,40,0.15)',COMMS:'rgba(26,71,49,0.15)',NAV:'rgba(59,47,107,0.15)'};
+      const CAT_COL={CONN:'#1e3a5f',CO:'#78621a',SONAR:'#0e7490',WEPS:'#991b1b',ENG:'#92400e',HELM:'#374151',MANV:'#4a3728',COMMS:'#1a4731',NAV:'#3b2f6b'};
+      const CAT_BG={CONN:'rgba(30,58,95,0.18)',CO:'rgba(120,98,26,0.18)',SONAR:'rgba(14,116,144,0.15)',WEPS:'rgba(153,27,27,0.15)',ENG:'rgba(146,64,14,0.14)',HELM:'rgba(55,65,81,0.15)',MANV:'rgba(74,55,40,0.15)',COMMS:'rgba(26,71,49,0.15)',NAV:'rgba(59,47,107,0.15)'};
       const catW=50*DPR;
       const mt=T_game;
       const mm=Math.floor(mt/60).toString().padStart(2,'0');
@@ -403,11 +403,12 @@
           const team=teams[ti];
           const tx=bx+padX+ti*halfW;
           const isReady=team.state==='ready';
-          const stateCol=team.state==='lost'?'rgba(220,55,55,0.90)':team.state==='transit'?'rgba(220,170,35,0.90)':team.task==='flood'?'rgba(120,180,255,0.90)':team.task==='repair'?'rgba(80,210,100,0.85)':isReady?'rgba(100,100,110,0.70)':'rgba(160,200,160,0.70)';
+          const stateCol=team.state==='lost'?'rgba(220,55,55,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='transit'?'rgba(220,170,35,0.90)':team.task==='flood'?'rgba(120,180,255,0.90)':team.task==='repair'?'rgba(80,210,100,0.85)':isReady?'rgba(100,100,110,0.70)':'rgba(160,200,160,0.70)';
           ctx.fillStyle=stateCol; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
           ctx.fillText(team.label,tx,sumY+13*DPR);
           ctx.fillStyle='rgba(17,24,39,0.55)'; ctx.font=`${9*DPR}px ui-monospace,monospace`;
           const loc=team.state==='lost'?'LOST':
+            team.state==='mustering'?`MUSTER → ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.musterT||0)}s)`:
             team.state==='blowing'?`HP BLOW — ${DMG.COMP_DEF[team.location]?.label||'?'}`:
             team.state==='transit'?`→ ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.transitEta)}s)`:
             isReady?'AVAILABLE':
@@ -532,11 +533,12 @@
           const team=teams[ti];
           const tx=px+padX+ti*(pW/2);
           const isReady=team.state==='ready';
-          const stateCol=team.state==='lost'?'rgba(220,55,55,0.90)':team.state==='transit'?'rgba(220,170,35,0.90)':team.task==='flood'?'rgba(120,180,255,0.90)':team.task==='repair'?'rgba(80,210,100,0.85)':isReady?'rgba(160,160,160,0.70)':'rgba(160,200,160,0.70)';
+          const stateCol=team.state==='lost'?'rgba(220,55,55,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='transit'?'rgba(220,170,35,0.90)':team.task==='flood'?'rgba(120,180,255,0.90)':team.task==='repair'?'rgba(80,210,100,0.85)':isReady?'rgba(160,160,160,0.70)':'rgba(160,200,160,0.70)';
           ctx.fillStyle=stateCol; ctx.font=`bold ${11*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
           ctx.fillText(team.label,tx,sumY+16*DPR);
           ctx.fillStyle='rgba(170,140,65,0.70)'; ctx.font=`${10*DPR}px ui-monospace,monospace`;
           const loc=team.state==='lost'?'LOST':
+            team.state==='mustering'?`MUSTERING → ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.musterT||0)}s)`:
             team.state==='blowing'?`HP BLOW — ${DMG.COMP_DEF[team.location]?.label||'?'}`:
             team.state==='transit'?`MOVING → ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.transitEta)}s)`:
             isReady?'AVAILABLE':
@@ -557,7 +559,7 @@
     }
 
     function drawDamagePanel(W,H,panelH){
-    if(!game.showDmgPanel) return;
+    if(!game.showDmgPanel||game.showDamageScreen) return;
     const dmg=player.damage;
     if(!dmg) return;
     const DMG=window.DMG;
@@ -583,13 +585,25 @@
     ctx.textAlign='right';
     ctx.fillText('[H] close  [J] DMG LOG',OX+OW-P,cy);
 
-    // Crew summary
+    // Crew summary — watchkeepers on watch + full ship totals
     cy+=16*DPR;
     const fit=DMG.totalFit(),wnd=DMG.totalWounded(),kia=DMG.totalKilled(),total=DMG.totalCrew();
+    const aw2=game.activeWatch||'A';
+    let wkOnFit=0,wkOnWnd=0,wkOnTotal=0;
+    for(const comp of DMG.COMPS){
+      const cc2=(dmg.crew[comp]||[]).filter(c=>(c.watch===aw2||c.watch==='duty')&&c.dept!=='medical'&&c.dept!=='supply');
+      wkOnFit  +=cc2.filter(c=>c.status==='fit'&&!c.displaced).length;
+      wkOnWnd  +=cc2.filter(c=>c.status==='wounded').length;
+      wkOnTotal+=cc2.filter(c=>c.status!=='killed').length;
+    }
     ctx.fillStyle='rgba(160,185,230,0.70)';
-    ctx.font=`${11*DPR}px ui-monospace,monospace`;
+    ctx.font=`${10*DPR}px ui-monospace,monospace`;
     ctx.textAlign='left';
-    ctx.fillText(`CREW  ${fit} FIT  ${wnd} WND  ${kia} KIA  /  ${total}`,OX+P,cy);
+    ctx.fillText(`WCH ${aw2}  ${wkOnFit} FIT  ${wkOnWnd} WND  /  ${wkOnTotal} ON WATCH`,OX+P,cy);
+    ctx.fillStyle='rgba(110,130,170,0.50)';
+    ctx.font=`${9*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='right';
+    ctx.fillText(`SHIP  ${fit} FIT  ${wnd} WND  ${kia} KIA  / ${total}`,OX+OW-P,cy);
 
     // Tower status
     cy+=14*DPR;
@@ -610,10 +624,10 @@
     for(let ti=0;ti<teamList.length;ti++){
       const team=teamList[ti];
       const tx=OX+P+ti*(OW-P*2)/2+4*DPR;
-      const stateCol=team.state==='lost'?'rgba(200,50,50,0.90)':team.state==='blowing'?'rgba(255,140,0,0.90)':team.state==='transit'?'rgba(220,170,30,0.90)':team.state==='on_scene'&&team.task==='flood'?'rgba(100,160,255,0.90)':team.state==='on_scene'&&team.task==='repair'?'rgba(80,200,100,0.90)':team.state==='on_scene'?'rgba(160,200,160,0.70)':'rgba(140,140,140,0.60)';
+      const stateCol=team.state==='lost'?'rgba(200,50,50,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='blowing'?'rgba(255,140,0,0.90)':team.state==='transit'?'rgba(220,170,30,0.90)':team.state==='on_scene'&&team.task==='fire'?'rgba(255,100,20,0.90)':team.state==='on_scene'&&team.task==='flood'?'rgba(100,160,255,0.90)':team.state==='on_scene'&&team.task==='repair'?'rgba(80,200,100,0.90)':team.state==='on_scene'?'rgba(160,200,160,0.70)':'rgba(140,140,140,0.60)';
       ctx.fillStyle=stateCol; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
       ctx.fillText(team.label,tx,cy+13*DPR);
-      const taskStr=team.state==='lost'?'— LOST':team.state==='blowing'?`HP BLOW — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='transit'?`→ ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.transitEta)}s)`:team.state==='on_scene'&&team.task==='flood'?`FLOOD — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='repair'?`REPAIR — ${DMG.SYS_LABEL[team.repairTarget]||'?'}`:team.state==='on_scene'?`STANDBY — ${DMG.COMP_DEF[team.location]?.label||'?'}`:'STANDBY';
+      const taskStr=team.state==='lost'?'— LOST':team.state==='mustering'?`MUSTER → ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.musterT||0)}s)`:team.state==='blowing'?`HP BLOW — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='transit'?`→ ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.transitEta)}s)`:team.state==='on_scene'&&team.task==='fire'?`FIRE — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='flood'?`FLOOD — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='repair'?`REPAIR — ${DMG.SYS_LABEL[team.repairTarget]||'?'}`:team.state==='on_scene'?`STANDBY — ${DMG.COMP_DEF[team.location]?.label||'?'}`:'STANDBY';
       ctx.fillStyle='rgba(160,180,220,0.65)'; ctx.font=`${9*DPR}px ui-monospace,monospace`;
       ctx.fillText(taskStr,tx,cy+26*DPR);
       // Repair progress bar
@@ -632,8 +646,8 @@
     const schH=148*DPR;
     const schY=cy;
     const compKeys=DMG.COMPS;
-    const compLabels=['TORP RM','CONTROL','REACTOR','MANEUVR','ENGINRG'];
-    const compFracs=[0.22,0.22,0.12,0.22,0.22];
+    const compLabels=['TORP RM','CONTROL','AUX MCH','REACTOR','MANEUVR','ENGINRG'];
+    const compFracs=[0.21,0.21,0.08,0.10,0.21,0.19];
 
     // ── Geometry ──────────────────────────────────────────────────────────────
     // Pressure hull — true pill, both ends rounded symmetrically
@@ -651,7 +665,7 @@
     const ohBot = phMid + ohR;
 
     // Sail — centred over control room (comp 1), no periscopes
-    const sailCX  = phX0 + phSpan*(0.22 + 0.11);
+    const sailCX  = phX0 + phSpan*(0.21 + 0.105);
     const sailW   = 44*DPR;
     const sailH   = 22*DPR;
     const sailBot = ohTop;
@@ -660,7 +674,7 @@
     // Compartment X positions within pill interior span
     let compXs=[], compWs=[];
     { let xx=phX0;
-      for(let i=0;i<5;i++){ compWs[i]=phSpan*compFracs[i]; compXs[i]=xx; xx+=compWs[i]; } }
+      for(let i=0;i<6;i++){ compWs[i]=phSpan*compFracs[i]; compXs[i]=xx; xx+=compWs[i]; } }
 
     const stFill  ={nominal:'rgba(18,55,28,0.88)',degraded:'rgba(75,58,4,0.90)',offline:'rgba(75,22,4,0.92)',destroyed:'rgba(55,4,4,0.96)'};
     const stStroke={nominal:'rgba(50,200,80,0.55)',degraded:'rgba(220,170,20,0.80)',offline:'rgba(220,80,20,0.90)',destroyed:'rgba(200,30,30,1.0)'};
@@ -668,7 +682,7 @@
     // ── Pill path helpers ─────────────────────────────────────────────────────
     function pillPath(){
       ctx.beginPath();
-      ctx.arc(phX0, phMid, phR, Math.PI*0.5, -Math.PI*0.5, true);   // bow cap
+      ctx.arc(phX0, phMid, phR, Math.PI*0.5, -Math.PI*0.5, false);  // bow cap (clockwise = outward)
       ctx.lineTo(phX1, phTop);
       ctx.arc(phX1, phMid, phR, -Math.PI*0.5, Math.PI*0.5, false);  // stern cap
       ctx.lineTo(phX0, phBot);
@@ -676,9 +690,9 @@
     }
     function outerPillPath(){
       ctx.beginPath();
-      ctx.arc(phX0, phMid, ohR, Math.PI*0.5, -Math.PI*0.5, true);
+      ctx.arc(phX0, phMid, ohR, Math.PI*0.5, -Math.PI*0.5, false);  // bow cap (clockwise = outward)
       ctx.lineTo(phX1, ohTop);
-      ctx.arc(phX1, phMid, ohR, -Math.PI*0.5, Math.PI*0.5, false);
+      ctx.arc(phX1, phMid, ohR, -Math.PI*0.5, Math.PI*0.5, false);  // stern cap
       ctx.lineTo(phX0, ohBot);
       ctx.closePath();
     }
@@ -724,7 +738,7 @@
     ctx.restore();
 
     // ── Fill compartments inside pill ─────────────────────────────────────────
-    for(let ci=0;ci<5;ci++){
+    for(let ci=0;ci<6;ci++){
       const comp=compKeys[ci]; const cx2=compXs[ci]; const cw=compWs[ci];
       const sysList=DMG.COMP_DEF[comp].systems;
       let worstIdx=0;
@@ -738,7 +752,7 @@
 
       // Extend rects into rounded end caps so bow and stern fill completely
       const fx = ci===0 ? cx2-phR : cx2;
-      const fw = (ci===0||ci===4) ? cw+phR : cw;
+      const fw = (ci===0||ci===5) ? cw+phR : cw;
 
       ctx.fillStyle=isFlooded?'rgba(8,18,70,0.98)':stFill[worst]||stFill.nominal;
       ctx.fillRect(fx, phTop, fw, phBot-phTop);
@@ -759,7 +773,7 @@
 
     // ── Compartment dividers ──────────────────────────────────────────────────
     ctx.save(); pillPath(); ctx.clip();
-    for(let ci=1;ci<5;ci++){
+    for(let ci=1;ci<6;ci++){
       const x=compXs[ci];
       const stA=dmg.systems[DMG.COMP_DEF[compKeys[ci-1]].systems[0]]||'nominal';
       const stB=dmg.systems[DMG.COMP_DEF[compKeys[ci]].systems[0]]||'nominal';
@@ -772,7 +786,7 @@
     ctx.restore();
 
     // ── Per-compartment details ───────────────────────────────────────────────
-    for(let ci=0;ci<5;ci++){
+    for(let ci=0;ci<6;ci++){
       const comp=compKeys[ci]; const cx2=compXs[ci]; const cw=compWs[ci];
       const flood=dmg.flooding[comp]||0;
       const isFlooded=dmg.flooded[comp];
@@ -786,7 +800,7 @@
         ctx.save(); pillPath(); ctx.clip();
         const glowCols=['','rgba(220,170,20,0.18)','rgba(220,80,20,0.22)','rgba(200,30,30,0.30)'];
         ctx.fillStyle=glowCols[worstIdx]||'';
-        const fx2=ci===0?cx2-phR:cx2, fw2=(ci===0||ci===4)?cw+phR:cw;
+        const fx2=ci===0?cx2-phR:cx2, fw2=(ci===0||ci===5)?cw+phR:cw;
         ctx.fillRect(fx2,phTop,fw2,phBot-phTop);
         ctx.strokeStyle=stStroke[worst]; ctx.lineWidth=1*DPR; ctx.setLineDash([3*DPR,3*DPR]);
         ctx.strokeRect(cx2+1,phTop+1,cw-2,phBot-phTop-2);
@@ -798,18 +812,35 @@
       ctx.fillText(compLabels[ci], cMid, phTop+12*DPR);
 
       const cc=dmg.crew[comp]||[];
-      const cFit=cc.filter(c=>c.status==='fit'&&!c.displaced).length;
-      const cDisp=cc.filter(c=>c.displaced&&c.status!=='killed').length;
-      const cKia=cc.filter(c=>c.status==='killed').length;
-      const cTotal=cc.length-cKia;  // alive headcount (fit + displaced + wounded)
-      const crewLabel=cDisp>0?`${cFit}+${cDisp}d/${cTotal}`:`${cFit}/${cTotal}`;
-      ctx.fillStyle=cKia>0?'rgba(220,80,80,0.85)':cDisp>0?'rgba(200,170,50,0.80)':'rgba(90,190,110,0.75)';
+      const aw=game.activeWatch||'A';
+      // Watchkeepers only — on-watch (active watch + duty), not support depts
+      const wk=cc.filter(c=>(c.watch===aw||c.watch==='duty')&&c.dept!=='medical'&&c.dept!=='supply');
+      const wkFit=wk.filter(c=>c.status==='fit'&&!c.displaced).length;
+      const wkDisp=wk.filter(c=>c.displaced&&c.status!=='killed').length;
+      const wkKia=wk.filter(c=>c.status==='killed').length;
+      const wkTotal=wk.length-wkKia;
+      const crewLabel=wkDisp>0?`${wkFit}+${wkDisp}d/${wkTotal}`:`${wkFit}/${wkTotal}`;
+      ctx.fillStyle=wkKia>0?'rgba(220,80,80,0.85)':wkDisp>0?'rgba(200,170,50,0.80)':'rgba(90,190,110,0.75)';
       ctx.font=`${9*DPR}px ui-monospace,monospace`;
       ctx.fillText(crewLabel, cMid, phBot-10*DPR);
+
+      // Fire overlay — section max across all rooms
+      const fireLevel=Math.max(...[0,1,2].map(di=>dmg.fire?.[`${comp}_d${di}`]||0));
+      if(fireLevel>0.02){
+        ctx.save(); pillPath(); ctx.clip();
+        const fx2=ci===0?cx2-phR:cx2, fw2=(ci===0||ci===5)?cw+phR:cw;
+        ctx.fillStyle=`rgba(200,80,0,${0.15+fireLevel*0.30})`;
+        ctx.fillRect(fx2,phTop,fw2,phBot-phTop);
+        ctx.restore();
+      }
 
       if(isFlooded){
         ctx.fillStyle='rgba(140,180,255,0.95)'; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`;
         ctx.fillText('FLOODED', cMid, phMid+4*DPR);
+      } else if(fireLevel>0.02){
+        ctx.fillStyle=fireLevel>0.85?'rgba(255,80,20,0.95)':'rgba(255,140,40,0.90)';
+        ctx.font=`bold ${9*DPR}px ui-monospace,monospace`;
+        ctx.fillText(dmg._fireDrench?.[comp]?'DRENCHED':`FIRE ${Math.round(fireLevel*100)}%`, cMid, phMid+4*DPR);
       } else if(flood>0.02){
         ctx.fillStyle='rgba(140,190,255,0.90)'; ctx.font=`${9*DPR}px ui-monospace,monospace`;
         ctx.fillText(`${Math.round(flood*100)}%`, cMid, phMid+4*DPR);
@@ -819,37 +850,41 @@
     cy=schY+schH+10*DPR;
 
     // ── DC Team dispatch rows ─────────────────────────────────────────────────
-    // One row per team. 5 compartment buttons across.
-    // Click empty comp = dispatch. Click assigned comp = recall.
+    // Buttons aligned to compartment columns (same grid as the schematic above).
+    // Team label occupies the space left of phX0 (bow cap space).
     {
       const teamList=[dmg.teams?.alpha, dmg.teams?.bravo].filter(Boolean);
       const dispBtnH=22*DPR;
-      const dispGap=4*DPR;
-      const labelW=64*DPR;
-      const dispW=(OW-P*2-labelW-dispGap*5)/5;
+      const dispGap=3*DPR;
+      const labelW=phX0-schX; // space between schX and first compartment column
 
       for(let ti=0;ti<teamList.length;ti++){
         const team=teamList[ti];
         const rowY=cy+ti*(dispBtnH+dispGap+2*DPR);
 
-        // Team label pill
+        // Team label pill — sits in bow-cap space to the left of compartment columns
         const isReady=team.state==='ready';
-        const tLabelCol=team.state==='lost'?'rgba(180,30,30,0.80)':isReady?'rgba(80,80,90,0.70)':team.task==='flood'?'rgba(30,70,160,0.75)':'rgba(30,100,50,0.75)';
-        ctx.fillStyle=tLabelCol; ctx.beginPath(); ctx.roundRect(OX+P,rowY,labelW-dispGap,dispBtnH,3*DPR); ctx.fill();
-        ctx.fillStyle='rgba(220,220,240,0.90)'; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
-        ctx.fillText(team.label.replace('DC ',''),OX+P+(labelW-dispGap)/2,rowY+dispBtnH*0.68);
+        const isMusteringEmerg=team._readyT>0;
+        const isLocked=team._locked;
+        const tLabelCol=team.state==='lost'?'rgba(180,30,30,0.80)':isMusteringEmerg?'rgba(170,100,0,0.80)':team.state==='mustering'?'rgba(160,110,15,0.75)':isReady?'rgba(80,80,90,0.70)':team.task==='flood'?'rgba(30,70,160,0.75)':'rgba(30,100,50,0.75)';
+        ctx.fillStyle=tLabelCol; ctx.beginPath(); ctx.roundRect(schX,rowY,labelW-dispGap,dispBtnH,3*DPR); ctx.fill();
+        ctx.fillStyle='rgba(220,220,240,0.90)'; ctx.font=`bold ${9*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        const pillTxt=isMusteringEmerg?`MSTR ${Math.ceil(team._readyT)}s`:isLocked?team.label.replace('DC ','')+' \u{1F512}':team.label.replace('DC ','');
+        ctx.fillText(pillTxt,schX+(labelW-dispGap)/2,rowY+dispBtnH*0.68);
 
-        // One button per compartment
-        for(let ci=0;ci<5;ci++){
+        // One button per compartment, X-aligned to schematic columns
+        for(let ci=0;ci<6;ci++){
           const comp=compKeys[ci];
-          const bx=OX+P+labelW+ci*(dispW+dispGap);
+          const bx=compXs[ci]+dispGap/2;
+          const bw=compWs[ci]-dispGap;
           const lbl=compLabels[ci].slice(0,3);
-          // Precise state checks — only fires on active assignment, not stale location
-          const isOnScene  = team.state==='on_scene' && team.location===comp;
-          const isInTransit= team.state==='transit'  && team.destination===comp;
+          const isOnScene   = team.state==='on_scene'  && team.location===comp;
+          const isInTransit = team.state==='transit'   && team.destination===comp;
+          const isMustering = team.state==='mustering' && team.destination===comp;
           const isFlooded  = dmg.flooded[comp];
-          const otherHere  = teamList.some((t,idx)=>idx!==ti&&
-            ((t.state==='on_scene'&&t.location===comp)||(t.state==='transit'&&t.destination===comp)));
+          const fireLevel  = Math.max(...[0,1,2].map(di=>dmg.fire?.[`${comp}_d${di}`]||0));
+          const hasFire    = fireLevel>0.02;
+          const isDrenched = !!dmg._fireDrench?.[comp];
 
           let bCol, bLabel, clickFn;
           if(team.state==='lost'){
@@ -857,18 +892,31 @@
           } else if(team.state==='blowing'&&team.location===comp){
             bCol='rgba(180,90,0,0.85)'; bLabel='BLOW';
             clickFn=()=>DMG.recallTeam(team.id);
+          } else if(isDrenched){
+            bCol='rgba(40,40,50,0.45)'; bLabel='N2'; clickFn=null;
           } else if(isFlooded){
-            // Flooded — dispatching starts HP blow
             const isBlowingHere=(team.state==='blowing'&&team.location===comp)||(team.state==='transit'&&team.destination===comp);
             if(isBlowingHere){
-              bCol='rgba(180,90,0,0.85)'; bLabel='BLOW ■';
+              bCol='rgba(180,90,0,0.85)'; bLabel='BLOW \u25a0';
               clickFn=()=>DMG.recallTeam(team.id);
             } else {
               bCol='rgba(60,30,10,0.70)'; bLabel='BLOW?';
               clickFn=()=>DMG.assignTeam(team.id,comp);
             }
+          } else if(hasFire&&isOnScene&&team.task==='fire'){
+            bCol='rgba(160,50,10,0.85)'; bLabel='FIRE \u25a0';
+            clickFn=()=>DMG.recallTeam(team.id);
+          } else if(hasFire&&isInTransit){
+            bCol='rgba(130,55,10,0.80)'; bLabel='\u2192FIRE';
+            clickFn=()=>DMG.recallTeam(team.id);
+          } else if(hasFire){
+            bCol='rgba(140,40,5,0.75)'; bLabel='FIRE';
+            clickFn=()=>DMG.assignTeam(team.id,comp);
           } else if(isOnScene){
             bCol='rgba(20,90,40,0.85)'; bLabel=lbl+' \u2713';
+            clickFn=()=>DMG.recallTeam(team.id);
+          } else if(isMustering){
+            bCol='rgba(160,110,15,0.75)'; bLabel='MSTR '+lbl;
             clickFn=()=>DMG.recallTeam(team.id);
           } else if(isInTransit){
             bCol='rgba(120,95,15,0.80)'; bLabel='\u2192'+lbl;
@@ -877,7 +925,7 @@
             bCol='rgba(25,45,105,0.65)'; bLabel=lbl;
             clickFn=()=>DMG.assignTeam(team.id,comp);
           }
-          PNL.btn2(ctx,bLabel,bx,rowY,dispW,dispBtnH,bCol,clickFn||(()=>{}));
+          PNL.btn2(ctx,bLabel,bx,rowY,bw,dispBtnH,bCol,clickFn||(()=>{}));
         }
       }
       cy+=teamList.length*(dispBtnH+dispGap+2*DPR)+6*DPR;
@@ -885,7 +933,7 @@
 
     // ── Systems grid ──────────────────────────────────────────────────────────
     const stColText={'nominal':'rgba(80,200,100,0.80)','degraded':'rgba(230,170,20,0.90)','offline':'rgba(230,90,30,0.90)','destroyed':'rgba(200,50,50,0.95)'};
-    for(let ci=0;ci<5;ci++){
+    for(let ci=0;ci<6;ci++){
       const comp=compKeys[ci]; const cx2=compXs[ci]; const cw=compWs[ci];
       const sysList=DMG.COMP_DEF[comp].systems;
       let sy=cy;
@@ -920,7 +968,7 @@
     const sealY=OY+OH-52*DPR;
     ctx.fillStyle='rgba(80,100,140,0.40)'; ctx.font=`${8*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
     ctx.fillText('SEAL (last resort — kills all crew inside):',OX+P,sealY);
-    for(let ci=0;ci<5;ci++){
+    for(let ci=0;ci<6;ci++){
       const comp=compKeys[ci]; const cx2=compXs[ci]; const cw=compWs[ci];
       if(!dmg.flooded[comp]&&(dmg.flooding[comp]||0)>0.05){
         PNL.btn2(ctx,compLabels[ci].slice(0,3),cx2+2,sealY+4*DPR,cw-4,14*DPR,'rgba(100,30,30,0.60)',()=>DMG.sealFlooding(comp));
@@ -932,11 +980,385 @@
       const dbgY=OY+OH-26*DPR;
       ctx.fillStyle='rgba(200,50,50,0.60)'; ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
       ctx.fillText('[ DEBUG ] HIT:',OX+P,dbgY-2*DPR);
-      const dbgW=(OW-P*2-4*DPR)/5;
-      for(let i=0;i<5;i++){
+      const dbgW=(OW-P*2-4*DPR)/6;
+      for(let i=0;i<6;i++){
         const comp=DMG.COMPS[i]; const isHit=(dmg.strikes[comp]||0)>=1;
         PNL.btn2(ctx,compLabels[i].slice(0,3),OX+P+i*dbgW,dbgY,dbgW-3*DPR,14*DPR,
           isHit?'rgba(180,30,30,0.80)':'rgba(100,30,30,0.55)',()=>DMG.hit(55,null,null,comp));
+      }
+    }
+  }
+
+  // ── Crew Manifest Panel ───────────────────────────────────────────────────────
+  function drawCrewPanel(W,H,panelH){
+    if(!game.showCrewPanel||game.showDamageScreen) return;
+    const d=player.damage;
+    if(!d) return;
+    const DMG=window.DMG;
+    const PNL=window.PANEL;
+
+    const OW=820*DPR, OH=740*DPR;
+    const OX=Math.round(W/2-OW/2), OY=Math.round(H/2-OH/2);
+    const P=12*DPR;
+
+    // Panel background
+    ctx.fillStyle='rgba(6,12,22,0.97)';
+    ctx.strokeStyle='rgba(60,100,160,0.40)';
+    ctx.lineWidth=1;
+    ctx.beginPath(); ctx.roundRect(OX,OY,OW,OH,6*DPR); ctx.fill(); ctx.stroke();
+
+    const activeWatch=game.activeWatch||'A';
+
+    // Title bar
+    let cy=OY+P+14*DPR;
+    ctx.fillStyle='rgba(140,180,240,0.92)';
+    ctx.font=`bold ${15*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='left';
+    ctx.fillText("SHIP'S COMPANY",OX+P,cy);
+    ctx.fillStyle='rgba(100,130,180,0.55)';
+    ctx.font=`${10*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='right';
+    ctx.fillText('[Y] close',OX+OW-P,cy);
+
+    // ── Watch status row ──────────────────────────────────────────────────────
+    cy+=20*DPR;
+    const fatigue=game.watchFatigue||0;
+    const changing=game.watchChanging||false;
+    const changeT=game.watchChangeT||0;
+
+    // Watch pill
+    const watchLabel=changing?`WATCH ${activeWatch} → ${activeWatch==='A'?'B':'A'}`:`WATCH ${activeWatch} ON`;
+    const watchBg=changing?'rgba(80,60,10,0.75)':activeWatch==='A'?'rgba(30,70,150,0.75)':'rgba(10,100,90,0.75)';
+    const watchFg=changing?'rgba(255,200,60,0.95)':activeWatch==='A'?'rgba(140,190,255,0.95)':'rgba(80,220,200,0.95)';
+    ctx.fillStyle=watchBg;
+    ctx.beginPath(); ctx.roundRect(OX+P,cy-13*DPR,108*DPR,18*DPR,3*DPR); ctx.fill();
+    ctx.fillStyle=watchFg;
+    ctx.font=`bold ${10*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='center';
+    ctx.fillText(watchLabel,OX+P+54*DPR,cy-1*DPR);
+
+    // Fatigue bar (120px wide, sits right of watch pill)
+    const barX=OX+P+114*DPR, barY=cy-12*DPR, barW=120*DPR, barH=14*DPR;
+    ctx.fillStyle='rgba(20,30,50,0.70)';
+    ctx.beginPath(); ctx.roundRect(barX,barY,barW,barH,2*DPR); ctx.fill();
+    const fatigueCol=fatigue>=0.8?'rgba(210,60,40,0.85)':fatigue>=0.5?'rgba(220,160,30,0.85)':'rgba(50,180,80,0.75)';
+    if(fatigue>0){
+      ctx.fillStyle=fatigueCol;
+      ctx.beginPath(); ctx.roundRect(barX+1,barY+1,Math.max(2*DPR,(barW-2)*fatigue),barH-2,2*DPR); ctx.fill();
+    }
+    ctx.fillStyle='rgba(140,165,210,0.60)';
+    ctx.font=`${8*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='left';
+    ctx.fillText('FATIGUE',barX+3*DPR,cy-2*DPR);
+    ctx.textAlign='right';
+    ctx.fillText(`${Math.round(fatigue*100)}%`,barX+barW-3*DPR,cy-2*DPR);
+
+    // Watch change countdown (shown during transition)
+    if(changing){
+      ctx.fillStyle='rgba(255,200,60,0.80)';
+      ctx.font=`${9*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='left';
+      ctx.fillText(`RELIEVING — ${Math.ceil(changeT)}s`,barX+barW+8*DPR,cy-2*DPR);
+    }
+
+    // RELIEVE WATCH button (right side)
+    const relBtnX=OX+OW-P-110*DPR;
+    const canRelieve=!changing&&game.tacticalState!=='action'&&game.casualtyState!=='emergency';
+    const relBg=canRelieve?'rgba(30,60,120,0.75)':'rgba(30,40,60,0.40)';
+    const relFg=canRelieve?'rgba(140,190,255,0.90)':'rgba(80,100,130,0.50)';
+    ctx.fillStyle=relBg;
+    ctx.beginPath(); ctx.roundRect(relBtnX,cy-13*DPR,108*DPR,18*DPR,3*DPR); ctx.fill();
+    ctx.fillStyle=relFg;
+    ctx.font=`bold ${9*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='center';
+    ctx.fillText(changing?'CHANGING…':'RELIEVE WATCH [W]',relBtnX+54*DPR,cy-1*DPR);
+    if(canRelieve){
+      PNL.btn2(ctx,'',relBtnX,cy-13*DPR,108*DPR,18*DPR,'transparent',
+        ()=>{ window.SIM?.initiateWatchChange?.(); });
+    }
+
+    cy+=10*DPR;
+
+    // Crew totals row
+    const fit=DMG.totalFit(),wnd=DMG.totalWounded(),kia=DMG.totalKilled(),tot=DMG.totalCrew();
+    ctx.font=`${12*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='left';
+    ctx.fillStyle='rgba(60,200,90,0.85)';   ctx.fillText(`FIT ${fit}`,  OX+P+112*DPR, cy-1*DPR);
+    ctx.fillStyle='rgba(230,170,30,0.90)';  ctx.fillText(`WND ${wnd}`,  OX+P+184*DPR, cy-1*DPR);
+    ctx.fillStyle='rgba(210,50,50,0.90)';   ctx.fillText(`KIA ${kia}`,  OX+P+256*DPR, cy-1*DPR);
+    ctx.fillStyle='rgba(140,165,210,0.60)'; ctx.fillText(`/ ${tot}`,    OX+P+328*DPR, cy-1*DPR);
+    cy+=8*DPR;
+
+    // Divider
+    ctx.strokeStyle='rgba(60,100,160,0.25)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(OX,cy); ctx.lineTo(OX+OW,cy); ctx.stroke();
+    cy+=10*DPR;
+
+    // ── Layout: 2 columns of compartment sections ─────────────────────────────
+    const colW=(OW-P*2-10*DPR)/2;
+    const col0x=OX+P, col1x=OX+P+colW+10*DPR;
+
+    const COMP_LABELS={
+      fore_ends:'TORPEDO ROOM', control_room:'CONTROL ROOM', aux_section:'AUX MACHINERY',
+      reactor_comp:'REACTOR COMP', engine_room:'MANEUVERING', aft_ends:'ENGINEERING',
+    };
+    // Support departments rendered in their own section, not mixed into compartments
+    const SUPPORT_DEPTS=new Set(['medical','supply']);
+    // Left col: fore_ends, control_room, aux_section, reactor_comp | Right col: engine_room, aft_ends
+    const leftComps=['fore_ends','control_room','aux_section','reactor_comp'];
+    const rightComps=['engine_room','aft_ends'];
+
+    const ROW_H=16*DPR;
+    const SEC_HDR=20*DPR;
+
+    const STATUS_COL={fit:'rgba(50,190,80,0.90)',wounded:'rgba(230,165,25,0.90)',killed:'rgba(200,40,40,0.75)'};
+
+    // Collect hover hit areas for tooltip rendering after all draw calls
+    const _hoverHits=[];  // {x,y,w,h,tip}
+    // mouseX/mouseY from input.js are already in canvas pixels (css*DPR)
+    const mx=window.I?.mouseX||0, my=window.I?.mouseY||0;
+
+    function drawCrewRow(m, rx, ry, subW, isDuty){
+      const isKia=m.status==='killed';
+      const isWnd=m.status==='wounded';
+      const isOnWatch=m.watch==='duty'||m.watch===activeWatch;
+      ctx.globalAlpha=isKia?0.35:isOnWatch?1.0:0.55;
+
+      const pillW=32*DPR;
+      const rowTop=ry-ROW_H*0.82;
+
+      // Status dot
+      ctx.fillStyle=STATUS_COL[m.status]||STATUS_COL.fit;
+      ctx.beginPath(); ctx.arc(rx+5*DPR,ry-4*DPR,3.5*DPR,0,Math.PI*2); ctx.fill();
+
+      // Rating pill
+      ctx.fillStyle=isWnd?'rgba(200,140,20,0.70)':isKia?'rgba(140,20,20,0.50)':'rgba(30,55,100,0.65)';
+      ctx.beginPath(); ctx.roundRect(rx+12*DPR,rowTop,pillW,ROW_H*0.85,2*DPR); ctx.fill();
+      ctx.fillStyle='rgba(200,220,255,0.90)';
+      ctx.font=`bold ${9*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='center';
+      ctx.fillText(m.rating,rx+12*DPR+pillW/2,ry-2*DPR);
+
+      // Name
+      ctx.fillStyle=isKia?'rgba(180,60,60,0.60)':isWnd?'rgba(220,165,30,0.90)':'rgba(200,215,245,0.90)';
+      ctx.font=`${11*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='left';
+      ctx.fillText(`${m.firstName[0]}.${m.lastName}`,rx+48*DPR,ry-2*DPR);
+
+      // Role short code (right-aligned before badges)
+      const badgesW=isDuty?20*DPR:36*DPR; // duty: only watch badge; others: watch+dc
+      const roleX=rx+subW-badgesW-4*DPR;
+      ctx.fillStyle='rgba(120,170,220,0.70)';
+      ctx.font=`${9*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='right';
+      ctx.fillText(m.role||'',roleX,ry-2*DPR);
+
+      // Watch badge
+      const badgeX=rx+subW-badgesW;
+      const watchBadgeBg=m.watch==='duty'?'rgba(160,120,20,0.65)':m.watch==='A'?'rgba(25,55,130,0.65)':'rgba(10,90,80,0.65)';
+      const watchBadgeFg=m.watch==='duty'?'rgba(255,210,60,0.95)':m.watch==='A'?'rgba(120,170,255,0.95)':'rgba(60,210,185,0.95)';
+      const watchBadgeLabel=m.watch==='duty'?'★':m.watch;
+      ctx.fillStyle=watchBadgeBg;
+      ctx.beginPath(); ctx.roundRect(badgeX,rowTop,16*DPR,ROW_H*0.80,2*DPR); ctx.fill();
+      ctx.fillStyle=watchBadgeFg;
+      ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='center';
+      ctx.fillText(watchBadgeLabel,badgeX+8*DPR,ry-2*DPR);
+
+      // DC team badge
+      if(m.dcTeam){
+        const dcX=badgeX+18*DPR;
+        const dcBg=m.dcTeam==='alpha'?'rgba(140,40,130,0.65)':'rgba(40,100,40,0.65)';
+        const dcFg=m.dcTeam==='alpha'?'rgba(230,140,220,0.95)':'rgba(120,230,120,0.95)';
+        ctx.fillStyle=dcBg;
+        ctx.beginPath(); ctx.roundRect(dcX,rowTop,16*DPR,ROW_H*0.80,2*DPR); ctx.fill();
+        ctx.fillStyle=dcFg;
+        ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
+        ctx.textAlign='center';
+        ctx.fillText(m.dcTeam==='alpha'?'α':'β',dcX+8*DPR,ry-2*DPR);
+      }
+
+      ctx.globalAlpha=1.0;
+
+      // Register hover hit area for tooltip
+      if(m.roleDesc){
+        _hoverHits.push({x:rx,y:rowTop,w:subW,h:ROW_H,tip:m.roleDesc});
+      }
+    }
+
+    function drawCompSection(comp, sx, sy, availW){
+      const crew=(d.crew[comp]||[]).filter(m=>!SUPPORT_DEPTS.has(m.dept));
+      // Section header
+      const fitC=crew.filter(c=>c.status==='fit'&&!c.displaced).length;
+      const wndC=crew.filter(c=>c.status==='wounded').length;
+      const kiaC=crew.filter(c=>c.status==='killed').length;
+      const hasFireOrFlood=[0,1,2].some(di=>(d.fire?.[`${comp}_d${di}`]||0)>0.02)||d.flooded?.[comp]||(d.flooding?.[comp]||0)>0.01;
+      const hdrBg=hasFireOrFlood?'rgba(100,30,10,0.55)':'rgba(20,38,70,0.60)';
+      ctx.fillStyle=hdrBg;
+      ctx.beginPath(); ctx.roundRect(sx,sy,availW,SEC_HDR,2*DPR); ctx.fill();
+      ctx.fillStyle='rgba(180,210,255,0.90)';
+      ctx.font=`bold ${11*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='left';
+      ctx.fillText(COMP_LABELS[comp],sx+6*DPR,sy+SEC_HDR*0.72);
+      ctx.font=`${10*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='right';
+      const sumStr=kiaC>0?`${fitC} fit  ${wndC} wnd  ${kiaC} kia`:`${fitC}/${crew.length} fit`;
+      ctx.fillStyle=kiaC>0?'rgba(210,60,60,0.85)':wndC>0?'rgba(220,160,30,0.80)':'rgba(80,190,100,0.70)';
+      ctx.fillText(sumStr,sx+availW-6*DPR,sy+SEC_HDR*0.72);
+      sy+=SEC_HDR+2*DPR;
+
+      // Split by watch: duty (full-width strip), then B (left sub-col), A (right sub-col)
+      const dutyList=crew.filter(m=>m.watch==='duty');
+      const watchB=crew.filter(m=>m.watch==='B');
+      const watchA=crew.filter(m=>m.watch==='A');
+      const subW=(availW-4*DPR)/2;
+
+      // Duty strip — full width rows
+      for(let i=0;i<dutyList.length;i++){
+        const m=dutyList[i];
+        const ry=sy+i*ROW_H+ROW_H*0.82;
+        // Thin background stripe for duty
+        ctx.fillStyle='rgba(140,110,10,0.12)';
+        ctx.fillRect(sx,sy+i*ROW_H,availW,ROW_H-1);
+        drawCrewRow(m, sx, ry, availW, true);
+      }
+      if(dutyList.length) sy+=dutyList.length*ROW_H+2*DPR;
+
+      // Sub-column header labels
+      if(watchB.length||watchA.length){
+        const activeWatchB=activeWatch==='B';
+        const activeWatchA=activeWatch==='A';
+        ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
+        ctx.textAlign='center';
+        ctx.fillStyle=activeWatchB?'rgba(60,210,185,0.80)':'rgba(60,210,185,0.40)';
+        ctx.fillText('── WCH B ──',sx+subW/2,sy+8*DPR);
+        ctx.fillStyle=activeWatchA?'rgba(120,170,255,0.80)':'rgba(120,170,255,0.40)';
+        ctx.fillText('── WCH A ──',sx+subW+4*DPR+subW/2,sy+8*DPR);
+        sy+=11*DPR;
+      }
+
+      // Watch B (left) and Watch A (right) columns
+      const rows=Math.max(watchB.length,watchA.length);
+      for(let i=0;i<watchB.length;i++){
+        const m=watchB[i];
+        const ry=sy+i*ROW_H+ROW_H*0.82;
+        drawCrewRow(m, sx, ry, subW, false);
+      }
+      for(let i=0;i<watchA.length;i++){
+        const m=watchA[i];
+        const ry=sy+i*ROW_H+ROW_H*0.82;
+        drawCrewRow(m, sx+subW+4*DPR, ry, subW, false);
+      }
+
+      return sy+rows*ROW_H+6*DPR;
+    }
+
+    // Support section — collects medical/supply from all compartments
+    function drawSupportSection(sx, sy, availW){
+      const deptOrder=['medical','supply'];
+      const deptLabel={medical:'MEDICAL', supply:'SUPPLY / CATERING'};
+      const allSupport=[];
+      for(const comp of ['fore_ends','control_room','aux_section','reactor_comp','engine_room','aft_ends']){
+        for(const m of (d.crew[comp]||[])){
+          if(SUPPORT_DEPTS.has(m.dept)) allSupport.push(m);
+        }
+      }
+      if(allSupport.length===0) return sy;
+
+      // Section header
+      const fitC=allSupport.filter(c=>c.status==='fit').length;
+      const wndC=allSupport.filter(c=>c.status==='wounded').length;
+      const kiaC=allSupport.filter(c=>c.status==='killed').length;
+      ctx.fillStyle='rgba(20,38,70,0.60)';
+      ctx.beginPath(); ctx.roundRect(sx,sy,availW,SEC_HDR,2*DPR); ctx.fill();
+      ctx.fillStyle='rgba(180,210,255,0.90)';
+      ctx.font=`bold ${11*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='left';
+      ctx.fillText('SHIP SUPPORT',sx+6*DPR,sy+SEC_HDR*0.72);
+      ctx.font=`${10*DPR}px ui-monospace,monospace`;
+      ctx.textAlign='right';
+      const sumStr=kiaC>0?`${fitC} fit  ${wndC} wnd  ${kiaC} kia`:`${fitC}/${allSupport.length} fit`;
+      ctx.fillStyle=kiaC>0?'rgba(210,60,60,0.85)':wndC>0?'rgba(220,160,30,0.80)':'rgba(80,190,100,0.70)';
+      ctx.fillText(sumStr,sx+availW-6*DPR,sy+SEC_HDR*0.72);
+      sy+=SEC_HDR+2*DPR;
+
+      // Render each dept as a labelled sub-group using duty/B/A split
+      for(const dept of deptOrder){
+        const crew=allSupport.filter(m=>m.dept===dept);
+        if(crew.length===0) continue;
+
+        // Dept sub-label
+        ctx.fillStyle='rgba(100,130,180,0.50)';
+        ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
+        ctx.textAlign='left';
+        ctx.fillText(deptLabel[dept],sx+6*DPR,sy+8*DPR);
+        sy+=11*DPR;
+
+        const dutyList=crew.filter(m=>m.watch==='duty');
+        const watchB=crew.filter(m=>m.watch==='B');
+        const watchA=crew.filter(m=>m.watch==='A');
+        const subW=(availW-4*DPR)/2;
+
+        for(let i=0;i<dutyList.length;i++){
+          const m=dutyList[i];
+          const ry=sy+i*ROW_H+ROW_H*0.82;
+          ctx.fillStyle='rgba(140,110,10,0.12)';
+          ctx.fillRect(sx,sy+i*ROW_H,availW,ROW_H-1);
+          drawCrewRow(m, sx, ry, availW, true);
+        }
+        if(dutyList.length) sy+=dutyList.length*ROW_H+2*DPR;
+
+        const rows=Math.max(watchB.length,watchA.length);
+        for(let i=0;i<watchB.length;i++){
+          const m=watchB[i];
+          drawCrewRow(m, sx, sy+i*ROW_H+ROW_H*0.82, subW, false);
+        }
+        for(let i=0;i<watchA.length;i++){
+          const m=watchA[i];
+          drawCrewRow(m, sx+subW+4*DPR, sy+i*ROW_H+ROW_H*0.82, subW, false);
+        }
+        sy+=rows*ROW_H+4*DPR;
+      }
+      return sy+4*DPR;
+    }
+
+    // Draw left column
+    let ly=cy;
+    for(const comp of leftComps){
+      ly=drawCompSection(comp,col0x,ly,colW);
+      ly+=4*DPR;
+    }
+
+    // Draw right column — compartments then support section
+    let ry2=cy;
+    for(const comp of rightComps){
+      ry2=drawCompSection(comp,col1x,ry2,colW);
+      ry2+=4*DPR;
+    }
+    drawSupportSection(col1x, ry2, colW);
+
+    // Close button
+    PNL.btn2(ctx,'CLOSE',OX+OW/2-40*DPR,OY+OH-26*DPR,80*DPR,18*DPR,'rgba(30,50,90,0.70)',
+      ()=>{ game.showCrewPanel=false; });
+
+    // Hover tooltip — draw on top of everything else
+    for(const h of _hoverHits){
+      if(mx>=h.x&&mx<=h.x+h.w&&my>=h.y&&my<=h.y+h.h){
+        const tip=h.tip;
+        ctx.font=`${11*DPR}px ui-monospace,monospace`;
+        const tw=ctx.measureText(tip).width+12*DPR;
+        const th=16*DPR;
+        let tx=mx+10*DPR, ty=my-4*DPR;
+        if(tx+tw>OX+OW) tx=mx-tw-4*DPR;
+        if(ty+th>OY+OH) ty=my-th-4*DPR;
+        ctx.fillStyle='rgba(5,12,30,0.94)';
+        ctx.strokeStyle='rgba(80,140,220,0.55)';
+        ctx.lineWidth=1;
+        ctx.beginPath(); ctx.roundRect(tx,ty,tw,th,3*DPR); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='rgba(200,220,255,0.95)';
+        ctx.textAlign='left';
+        ctx.fillText(tip,tx+6*DPR,ty+th*0.72);
+        break;
       }
     }
   }
@@ -1412,14 +1834,17 @@
       const hasDmg=damaged.length>0||Object.values(dmg.flooding).some(f=>f>0);
       const blink=hasDmg&&(Math.sin(performance.now()*0.007)>0);
       const dmgBtnY=noiseBarY+barH+8*DPR;
-      btn('⚡ DMG CTRL',statusX,dmgBtnY,barW,17*DPR,game.showDmgPanel,
-        ()=>{game.showDmgPanel=!game.showDmgPanel;},
+      btn('⚡ DMG CTRL',statusX,dmgBtnY,barW,17*DPR,game.showDamageScreen,
+        ()=>{game.showDamageScreen=!game.showDamageScreen;},
         blink?'#991b1b':'#1e3a5f');
       const hasNewDcLog=(game.dcLog||[]).length>0&&game.logTab!=='dc';
       const dcBlink=hasNewDcLog&&(Math.sin(performance.now()*0.007)>0);
       btn('📋 DMG LOG',statusX,dmgBtnY+20*DPR,barW,17*DPR,game.logTab==='dc',
         ()=>{game.logTab=game.logTab==='dc'?'log':'dc';},
         dcBlink?'#7c3a00':'#1e3a5f');
+      btn('👥 CREW',statusX,dmgBtnY+40*DPR,barW,17*DPR,game.showDamageScreen,
+        ()=>{game.showDamageScreen=!game.showDamageScreen;},
+        '#1e3a5f');
     }
 
     sectionDivider(statusX+statusW);
@@ -2324,10 +2749,10 @@
         ty+=12*DPR;
 
         const COMP_KEYS=DMG.COMPS;
-        const COMP_LABELS=['TORP RM','CONTROL RM','REACTOR','MANEUVR','ENGINRG'];
-        const colW=(panelW*0.7)/5;
+        const COMP_LABELS=['TORP RM','CONTROL','AUX MCH','REACTOR','MANEUVR','ENGINRG'];
+        const colW=(panelW*0.7)/6;
         const colStartX=cx-panelW*0.35+colW/2;
-        for(let ci=0;ci<5;ci++){
+        for(let ci=0;ci<6;ci++){
           const comp=COMP_KEYS[ci];
           const list=dmg.crew[comp]||[];
           const cfit=list.filter(c=>c.status==='fit').length;
@@ -2392,5 +2817,629 @@
     }
   }
 
-  window.RPANEL = {drawStartScreen, drawLogPanel, drawDcPanel, drawDamagePanel, drawPanel};
+  // ── Unified full-screen Damage/Crew panel ─────────────────────────────────
+  function drawDamageScreen(W,H){
+    if(!game.showDamageScreen) return;
+    const dmg=player.damage;
+    if(!dmg) return;
+    const DMG=window.DMG;
+    const PNL=window.PANEL;
+    const activeWatch=game.activeWatch||'A';
+    const P=10*DPR;
+    const HDR_H=44*DPR;
+    const LW=Math.round(W*0.60);
+    const BODY_Y=HDR_H;
+
+    // Full-screen background
+    ctx.fillStyle='rgba(5,10,20,0.98)';
+    ctx.fillRect(0,0,W,H);
+
+    // Header background
+    ctx.fillStyle='rgba(10,18,35,1.0)';
+    ctx.fillRect(0,0,W,HDR_H);
+    ctx.strokeStyle='rgba(60,100,160,0.40)';
+    ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,HDR_H); ctx.lineTo(W,HDR_H); ctx.stroke();
+
+    // Title
+    ctx.fillStyle='rgba(160,190,240,0.92)';
+    ctx.font=`bold ${14*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='left';
+    ctx.fillText('DAMAGE CONTROL',P,HDR_H*0.72);
+
+    // Watch pill
+    const fatigue=game.watchFatigue||0;
+    const changing=game.watchChanging||false;
+    const changeT=game.watchChangeT||0;
+    const watchLabel=changing?`WATCH ${activeWatch} → ${activeWatch==='A'?'B':'A'}`:`WATCH ${activeWatch} ON`;
+    const watchBg=changing?'rgba(80,60,10,0.75)':activeWatch==='A'?'rgba(30,70,150,0.75)':'rgba(10,100,90,0.75)';
+    const watchFg=changing?'rgba(255,200,60,0.95)':activeWatch==='A'?'rgba(140,190,255,0.95)':'rgba(80,220,200,0.95)';
+    const wPillX=W/2-180*DPR;
+    ctx.fillStyle=watchBg;
+    ctx.beginPath(); ctx.roundRect(wPillX,6*DPR,108*DPR,22*DPR,3*DPR); ctx.fill();
+    ctx.fillStyle=watchFg;
+    ctx.font=`bold ${10*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='center';
+    ctx.fillText(watchLabel,wPillX+54*DPR,21*DPR);
+
+    // Fatigue bar
+    const fbX=wPillX+114*DPR,fbY=6*DPR,fbW=130*DPR,fbH=22*DPR;
+    ctx.fillStyle='rgba(20,30,50,0.70)';
+    ctx.beginPath(); ctx.roundRect(fbX,fbY,fbW,fbH,2*DPR); ctx.fill();
+    const fatigueCol=fatigue>=0.8?'rgba(210,60,40,0.85)':fatigue>=0.5?'rgba(220,160,30,0.85)':'rgba(50,180,80,0.75)';
+    if(fatigue>0){
+      ctx.fillStyle=fatigueCol;
+      ctx.beginPath(); ctx.roundRect(fbX+1,fbY+1,Math.max(2*DPR,(fbW-2)*fatigue),fbH-2,2*DPR); ctx.fill();
+    }
+    ctx.fillStyle='rgba(140,165,210,0.60)';
+    ctx.font=`${8*DPR}px ui-monospace,monospace`;
+    ctx.textAlign='left'; ctx.fillText('FATIGUE',fbX+3*DPR,21*DPR);
+    ctx.textAlign='right'; ctx.fillText(`${Math.round(fatigue*100)}%`,fbX+fbW-3*DPR,21*DPR);
+    if(changing){
+      ctx.fillStyle='rgba(255,200,60,0.80)';
+      ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText(`RELIEVING — ${Math.ceil(changeT)}s`,fbX+fbW+6*DPR,21*DPR);
+    }
+
+    // RELIEVE WATCH button
+    const canRelieve=!changing&&game.tacticalState!=='action'&&game.casualtyState!=='emergency';
+    const relBtnX=wPillX+254*DPR;
+    ctx.fillStyle=canRelieve?'rgba(30,60,120,0.75)':'rgba(30,40,60,0.40)';
+    ctx.beginPath(); ctx.roundRect(relBtnX,6*DPR,120*DPR,22*DPR,3*DPR); ctx.fill();
+    ctx.fillStyle=canRelieve?'rgba(140,190,255,0.90)':'rgba(80,100,130,0.50)';
+    ctx.font=`bold ${9*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+    ctx.fillText(changing?'CHANGING…':'RELIEVE WATCH [W]',relBtnX+60*DPR,21*DPR);
+    if(canRelieve) PNL.btn2(ctx,'',relBtnX,6*DPR,120*DPR,22*DPR,'transparent',()=>{ window.SIM?.initiateWatchChange?.(); });
+
+    // Close button
+    const closeBtnX=W-88*DPR-P;
+    PNL.btn2(ctx,'[H] CLOSE',closeBtnX,6*DPR,86*DPR,22*DPR,'rgba(30,40,70,0.80)',()=>{ game.showDamageScreen=false; });
+
+    // Vertical pane divider
+    ctx.strokeStyle='rgba(50,80,130,0.40)';
+    ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(LW,BODY_Y); ctx.lineTo(LW,H); ctx.stroke();
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // LEFT PANE — damage control
+    // ──────────────────────────────────────────────────────────────────────────
+    let cy=BODY_Y+10*DPR;
+
+    // Crew summary row
+    const fit=DMG.totalFit(),wnd=DMG.totalWounded(),kia=DMG.totalKilled(),total=DMG.totalCrew();
+    const aw2=game.activeWatch||'A';
+    let wkOnFit=0,wkOnWnd=0,wkOnTotal=0;
+    for(const comp of DMG.COMPS){
+      const cc2=(dmg.crew[comp]||[]).filter(c=>(c.watch===aw2||c.watch==='duty')&&c.dept!=='medical'&&c.dept!=='supply');
+      wkOnFit  +=cc2.filter(c=>c.status==='fit'&&!c.displaced).length;
+      wkOnWnd  +=cc2.filter(c=>c.status==='wounded').length;
+      wkOnTotal+=cc2.filter(c=>c.status!=='killed').length;
+    }
+    ctx.fillStyle='rgba(160,185,230,0.70)';
+    ctx.font=`${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+    ctx.fillText(`WCH ${aw2}  ${wkOnFit} FIT  ${wkOnWnd} WND  /  ${wkOnTotal} ON WATCH`,P,cy);
+    ctx.fillStyle='rgba(110,130,170,0.50)'; ctx.textAlign='right';
+    ctx.fillText(`SHIP  ${fit} FIT  ${wnd} WND  ${kia} KIA  / ${total}`,LW-P,cy);
+    cy+=14*DPR;
+
+    // Tower status
+    const twrCol={nominal:'rgba(22,163,74,0.75)',damaged:'rgba(217,119,6,0.80)',destroyed:'rgba(180,30,30,0.80)'};
+    ctx.font=`${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+    ctx.fillStyle=twrCol[dmg.towers.fwd]; ctx.fillText(`FWD TOWER: ${dmg.towers.fwd.toUpperCase()}`,P,cy);
+    ctx.fillStyle=twrCol[dmg.towers.aft]; ctx.textAlign='right'; ctx.fillText(`AFT TOWER: ${dmg.towers.aft.toUpperCase()}`,LW-P,cy);
+    cy+=10*DPR;
+
+    // DC Teams status bar
+    const teamListDS=Object.values(dmg.teams||{});
+    const teamBarH=42*DPR;
+    ctx.fillStyle='rgba(20,30,50,0.50)'; ctx.fillRect(P,cy,LW-P*2,teamBarH);
+    ctx.strokeStyle='rgba(80,110,160,0.20)'; ctx.lineWidth=1; ctx.strokeRect(P,cy,LW-P*2,teamBarH);
+    for(let ti=0;ti<teamListDS.length;ti++){
+      const team=teamListDS[ti];
+      const tx=P+ti*(LW-P*2)/2+4*DPR;
+      const stateCol=team.state==='lost'?'rgba(200,50,50,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='blowing'?'rgba(255,140,0,0.90)':team.state==='transit'?'rgba(220,170,30,0.90)':team.state==='on_scene'&&team.task==='fire'?'rgba(255,100,20,0.90)':team.state==='on_scene'&&team.task==='flood'?'rgba(100,160,255,0.90)':team.state==='on_scene'&&team.task==='repair'?'rgba(80,200,100,0.90)':team.state==='on_scene'?'rgba(160,200,160,0.70)':'rgba(140,140,140,0.60)';
+      ctx.fillStyle=stateCol; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText(team.label,tx,cy+13*DPR);
+      const taskStr=team.state==='lost'?'— LOST':team.state==='mustering'?`MUSTER → ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.musterT||0)}s)`:team.state==='blowing'?`HP BLOW — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='transit'?`→ ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.transitEta)}s)`:team.state==='on_scene'&&team.task==='fire'?`FIRE — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='flood'?`FLOOD — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='repair'?`REPAIR — ${DMG.SYS_LABEL[team.repairTarget]||'?'}`:team.state==='on_scene'?`STANDBY — ${DMG.COMP_DEF[team.location]?.label||'?'}`:'STANDBY';
+      ctx.fillStyle='rgba(160,180,220,0.65)'; ctx.font=`${9*DPR}px ui-monospace,monospace`;
+      ctx.fillText(taskStr,tx,cy+26*DPR);
+      if(team.state==='on_scene'&&team.task==='repair'&&team.repairTarget){
+        const job=window.G?.player?.damage?.repairJobs?.[team.location];
+        const pct=job?Math.min(1,job.progress/job.totalTime):0;
+        const bx=tx,by=cy+30*DPR,bw=(LW-P*2)/2-8*DPR,bh=5*DPR;
+        ctx.fillStyle='rgba(20,40,80,0.50)'; ctx.fillRect(bx,by,bw,bh);
+        ctx.fillStyle='rgba(50,160,80,0.70)'; ctx.fillRect(bx,by,bw*pct,bh);
+      }
+    }
+    cy+=teamBarH+8*DPR;
+
+    // ── 3-Deck Schematic ───────────────────────────────────────────────────────
+    const schX=P, schW=LW-P*2, schH=185*DPR, schY=cy;
+    const compKeys=DMG.COMPS;
+    const compLabels=['TORP RM','CONTROL','AUX MCH','REACTOR','MANEUVR','ENGINRG'];
+    const compFracs=[0.21,0.21,0.08,0.10,0.21,0.19];
+    // 3 decks of 32px each → inner hull height 96px
+    const dH=32*DPR;
+    const phTop=schY+52*DPR, phBot=schY+148*DPR, phMid=(phTop+phBot)*0.5;
+    const phR=(phBot-phTop)*0.5;                              // 48px
+    const phX0=schX+phR+18*DPR, phX1=schX+schW-phR-18*DPR, phSpan=phX1-phX0;
+    const ohR=phR+8*DPR, ohTop=phMid-ohR, ohBot=phMid+ohR;
+    const sailCX=phX0+phSpan*(0.21+0.105);
+    const sailW2=44*DPR, sailH2=24*DPR, sailBot2=ohTop, sailTop2=sailBot2-sailH2;
+    // Deck top boundaries (D1=top, D2=middle, D3=bottom)
+    const d1Top=phTop, d2Top=phTop+dH, d3Top=phTop+2*dH;
+    const deckTops=[d1Top,d2Top,d3Top];
+    // Compartment X positions
+    let compXs=[],compWs=[];
+    { let xx=phX0; for(let i=0;i<6;i++){ compWs[i]=phSpan*compFracs[i]; compXs[i]=xx; xx+=compWs[i]; } }
+    // Per-deck cell labels based on real layout [D1, D2, D3]
+    const DECK_CELL={
+      fore_ends:    ['FWD DOME / PLANES','ENG OFFICE (UNM)','TORPEDO ROOM'],
+      control_room: ['COMMS · SCOPE · ESC','CONTROL ROOM','MACH · HYD · HPA'],
+      aux_section:  ['SNKL CTL','VENT PLT','RX E-COOL'],
+      reactor_comp: ['RC TUNNEL','REACTOR','REACTOR'],
+      engine_room:  ['MANEUVERING','ELEC DIST','MACHINERY'],
+      aft_ends:     ['ENGINEERING','PROPULSION','STEER / AFT'],
+    };
+    const stFill={nominal:'rgba(18,55,28,0.88)',degraded:'rgba(75,58,4,0.90)',offline:'rgba(75,22,4,0.92)',destroyed:'rgba(55,4,4,0.96)'};
+    const stStroke={nominal:'rgba(50,200,80,0.55)',degraded:'rgba(220,170,20,0.80)',offline:'rgba(220,80,20,0.90)',destroyed:'rgba(200,30,30,1.0)'};
+    // Special cell backgrounds
+    const BG_UNMANNED ='rgba(12,28,20,0.92)';   // aux_section all decks
+    const BG_RX_ZONE  ='rgba(38,20,4,0.96)';    // reactor D2+D3
+    const BG_RC_TUNNEL='rgba(14,38,50,0.95)';   // reactor D1 (passageway)
+    const BG_UNMANNED2='rgba(14,30,22,0.88)';   // fore_ends D2 (unmanned office)
+    function dsphPill(){
+      ctx.beginPath();
+      ctx.arc(phX0,phMid,phR,Math.PI*0.5,-Math.PI*0.5,false);
+      ctx.lineTo(phX1,phTop); ctx.arc(phX1,phMid,phR,-Math.PI*0.5,Math.PI*0.5,false);
+      ctx.lineTo(phX0,phBot); ctx.closePath();
+    }
+    function dsohPill(){
+      ctx.beginPath();
+      ctx.arc(phX0,phMid,ohR,Math.PI*0.5,-Math.PI*0.5,false);
+      ctx.lineTo(phX1,ohTop); ctx.arc(phX1,phMid,ohR,-Math.PI*0.5,Math.PI*0.5,false);
+      ctx.lineTo(phX0,ohBot); ctx.closePath();
+    }
+    // Flood fraction for a specific deck (di=0→D1 fills last, di=2→D3 fills first)
+    function deckFloodFrac(flood,isFlooded,di){
+      if(isFlooded) return 1;
+      const t=flood*3;
+      return di===2?Math.min(1,Math.max(0,t)):di===1?Math.min(1,Math.max(0,t-1)):Math.min(1,Math.max(0,t-2));
+    }
+    // Precompute per-compartment state
+    const cState=compKeys.map(comp=>{
+      const sysList=DMG.COMP_DEF[comp].systems; let wi=0;
+      for(const s of sysList) wi=Math.max(wi,DMG.STATES.indexOf(dmg.systems[s]));
+      const fires=[0,1,2].map(di=>dmg.fire?.[`${comp}_d${di}`]||0);
+      return {wi,worst:DMG.STATES[wi],flood:dmg.flooding[comp]||0,isFlooded:!!dmg.flooded[comp],fireLevel:Math.max(...fires),fires};
+    });
+
+    // Outer hull silhouette
+    ctx.save();
+    dsohPill();
+    ctx.strokeStyle='rgba(100,130,180,0.35)'; ctx.lineWidth=1.5*DPR;
+    ctx.setLineDash([3*DPR,4*DPR]); ctx.stroke(); ctx.setLineDash([]);
+    // Sail
+    const sX0=sailCX-sailW2*0.5, sX1=sailCX+sailW2*0.5;
+    ctx.strokeStyle='rgba(140,170,220,0.55)'; ctx.lineWidth=1.5*DPR;
+    ctx.beginPath();
+    ctx.moveTo(sX0+4*DPR,sailBot2); ctx.lineTo(sX0+4*DPR,sailTop2+4*DPR);
+    ctx.bezierCurveTo(sX0+4*DPR,sailTop2,sX0+10*DPR,sailTop2,sX0+12*DPR,sailTop2);
+    ctx.lineTo(sX1-5*DPR,sailTop2); ctx.lineTo(sX1,sailTop2+8*DPR); ctx.lineTo(sX1,sailBot2);
+    ctx.stroke();
+    // Fins
+    const finX=phX1+ohR*0.7;
+    ctx.strokeStyle='rgba(110,140,190,0.40)'; ctx.lineWidth=1*DPR;
+    ctx.beginPath(); ctx.moveTo(finX,ohTop+6*DPR); ctx.lineTo(finX+16*DPR,ohTop+2*DPR); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(finX,ohBot-6*DPR); ctx.lineTo(finX+16*DPR,ohBot-2*DPR); ctx.stroke();
+    // Propulsor
+    const prX=phX1+ohR-3*DPR,prY=phMid,prR2=8*DPR;
+    ctx.strokeStyle='rgba(140,170,220,0.60)'; ctx.lineWidth=1.5*DPR;
+    for(let a=0;a<3;a++){
+      const ang=a*Math.PI/3;
+      ctx.beginPath();
+      ctx.moveTo(prX+Math.cos(ang)*prR2*0.3,prY+Math.sin(ang)*prR2*0.3);
+      ctx.bezierCurveTo(prX+Math.cos(ang+0.8)*prR2,prY+Math.sin(ang+0.8)*prR2,prX+Math.cos(ang+1.0)*prR2,prY+Math.sin(ang+1.0)*prR2,prX+Math.cos(ang+1.2)*prR2,prY+Math.sin(ang+1.2)*prR2);
+      ctx.moveTo(prX+Math.cos(ang+Math.PI)*prR2*0.3,prY+Math.sin(ang+Math.PI)*prR2*0.3);
+      ctx.bezierCurveTo(prX+Math.cos(ang+Math.PI+0.8)*prR2,prY+Math.sin(ang+Math.PI+0.8)*prR2,prX+Math.cos(ang+Math.PI+1.0)*prR2,prY+Math.sin(ang+Math.PI+1.0)*prR2,prX+Math.cos(ang+Math.PI+1.2)*prR2,prY+Math.sin(ang+Math.PI+1.2)*prR2);
+      ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(prX,prY,2.5*DPR,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+
+    // ── Fill per-deck cells (clipped to hull) ─────────────────────────────────
+    for(let ci=0;ci<6;ci++){
+      const comp=compKeys[ci]; const cs=cState[ci];
+      const cx2=compXs[ci], cw=compWs[ci];
+      const fx=ci===0?cx2-phR:cx2, fw=(ci===0||ci===5)?cw+phR:cw;
+      for(let di=0;di<3;di++){
+        const dTop=deckTops[di];
+        ctx.save(); dsphPill(); ctx.clip();
+        // Base background — special cells override system state color
+        let bg=stFill[cs.worst]||stFill.nominal;
+        if(comp==='aux_section')                  bg=BG_UNMANNED;
+        else if(comp==='reactor_comp'&&di===0)    bg=BG_RC_TUNNEL;
+        else if(comp==='reactor_comp'&&di>0)      bg=BG_RX_ZONE;
+        else if(comp==='fore_ends'&&di===1)       bg=BG_UNMANNED2;
+        ctx.fillStyle=cs.isFlooded?'rgba(8,18,70,0.98)':bg;
+        ctx.fillRect(fx,dTop,fw,dH);
+        // System glow on damaged normal cells
+        if(cs.wi>0&&comp!=='aux_section'&&!(comp==='reactor_comp'&&di>0)){
+          const gc=['','rgba(220,170,20,0.13)','rgba(220,80,20,0.17)','rgba(200,30,30,0.22)'];
+          ctx.fillStyle=gc[cs.wi]||''; ctx.fillRect(fx,dTop,fw,dH);
+        }
+        // Flood fill — D3 fills first, then D2, then D1
+        const ff=deckFloodFrac(cs.flood,cs.isFlooded,di);
+        if(ff>0){
+          const fH=dH*ff;
+          ctx.fillStyle=`rgba(28,75,200,${0.30+ff*0.46})`; ctx.fillRect(fx,dTop+dH-fH,fw,fH);
+          if(ff<0.99&&ff>0.01){  // waterline within this deck
+            ctx.strokeStyle='rgba(100,160,255,0.60)'; ctx.lineWidth=1*DPR;
+            ctx.beginPath(); ctx.moveTo(fx,dTop+dH-fH); ctx.lineTo(fx+fw,dTop+dH-fH); ctx.stroke();
+          }
+        }
+        // Fire overlay — per-room
+        const roomFire=cs.fires[di]||0;
+        if(roomFire>0.02){
+          ctx.fillStyle=`rgba(200,80,0,${0.11+roomFire*0.20})`; ctx.fillRect(fx,dTop,fw,dH);
+        }
+        ctx.restore();
+      }
+    }
+
+    // Hull border
+    dsphPill(); ctx.strokeStyle='rgba(80,120,180,0.50)'; ctx.lineWidth=1.5*DPR; ctx.stroke();
+
+    // Deck divider lines (horizontal, clipped to hull)
+    ctx.save(); dsphPill(); ctx.clip();
+    ctx.strokeStyle='rgba(70,100,150,0.50)'; ctx.lineWidth=1*DPR;
+    for(let di=1;di<3;di++){
+      const y=deckTops[di];
+      ctx.beginPath(); ctx.moveTo(phX0-phR,y); ctx.lineTo(phX1+phR,y); ctx.stroke();
+    }
+    ctx.restore();
+
+    // Compartment dividers (vertical, clipped to hull)
+    ctx.save(); dsphPill(); ctx.clip();
+    for(let ci=1;ci<6;ci++){
+      const x=compXs[ci];
+      const stA=dmg.systems[DMG.COMP_DEF[compKeys[ci-1]].systems[0]]||'nominal';
+      const stB=dmg.systems[DMG.COMP_DEF[compKeys[ci]].systems[0]]||'nominal';
+      const wDiv=Math.max(DMG.STATES.indexOf(stA),DMG.STATES.indexOf(stB));
+      ctx.strokeStyle=['rgba(50,120,65,0.55)','rgba(160,130,20,0.65)','rgba(160,60,20,0.75)','rgba(150,30,30,0.85)'][wDiv]||'rgba(60,90,140,0.50)';
+      ctx.lineWidth=1.5*DPR;
+      ctx.beginPath(); ctx.moveTo(x,phTop); ctx.lineTo(x,phBot); ctx.stroke();
+    }
+    ctx.restore();
+
+    // Deck labels (D1/D2/D3) on left margin, outside hull
+    ctx.fillStyle='rgba(80,110,160,0.55)'; ctx.font=`${8*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
+    ctx.fillText('D1',phX0-phR-3*DPR,d1Top+dH*0.65);
+    ctx.fillText('D2',phX0-phR-3*DPR,d2Top+dH*0.65);
+    ctx.fillText('D3',phX0-phR-3*DPR,d3Top+dH*0.65);
+
+    // Cell content: labels + status text (clipped to hull)
+    ctx.save(); dsphPill(); ctx.clip();
+    for(let ci=0;ci<6;ci++){
+      const comp=compKeys[ci]; const cs=cState[ci];
+      const cx2=compXs[ci],cw=compWs[ci],cMid=cx2+cw*0.5;
+      const cellLabels=DECK_CELL[comp]||['','',''];
+      // Section header label at top of D1
+      ctx.fillStyle='rgba(200,220,255,0.88)'; ctx.font=`bold ${8.5*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+      ctx.fillText(compLabels[ci],cMid,d1Top+9*DPR);
+      // Per-deck cell labels
+      for(let di=0;di<3;di++){
+        const dMid=deckTops[di]+dH*0.62;
+        const ff=deckFloodFrac(cs.flood,cs.isFlooded,di);
+        if(ff>=0.95) continue;  // fully flooded cell — skip text
+        let lblCol='rgba(150,185,225,0.65)';
+        if(comp==='aux_section')               lblCol='rgba(80,125,100,0.70)';
+        else if(comp==='reactor_comp'&&di===0) lblCol='rgba(70,155,185,0.80)';
+        else if(comp==='reactor_comp'&&di>0)   lblCol='rgba(175,100,40,0.80)';
+        else if(comp==='fore_ends'&&di===1)    lblCol='rgba(80,115,100,0.65)';
+        ctx.fillStyle=lblCol;
+        ctx.font=`${7.5*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillText(cellLabels[di],cMid,dMid);
+      }
+      // Status overlay — centered in D2 band
+      const d2Mid=d2Top+dH*0.56;
+      if(cs.isFlooded){
+        ctx.fillStyle='rgba(140,180,255,0.95)'; ctx.font=`bold ${9*DPR}px ui-monospace,monospace`;
+        ctx.fillText('FLOODED',cMid,d2Mid);
+      } else if(cs.fireLevel>0.02){
+        ctx.fillStyle=cs.fireLevel>0.85?'rgba(255,80,20,0.95)':'rgba(255,140,40,0.90)';
+        ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
+        ctx.fillText(dmg._fireDrench?.[comp]?'DRENCHED':`FIRE ${Math.round(cs.fireLevel*100)}%`,cMid,d2Mid);
+      } else if(cs.flood>0.02){
+        ctx.fillStyle='rgba(140,190,255,0.90)'; ctx.font=`${8*DPR}px ui-monospace,monospace`;
+        ctx.fillText(`${Math.round(cs.flood*100)}%`,cMid,d2Mid);
+      } else if(cs.wi>0){
+        const stColD={degraded:'rgba(230,170,20,0.80)',offline:'rgba(230,90,30,0.85)',destroyed:'rgba(200,50,50,0.90)'};
+        ctx.fillStyle=stColD[cs.worst]||''; ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
+        ctx.fillText(cs.worst.toUpperCase(),cMid,d2Mid);
+      }
+      // Watchkeeper count at bottom of D3
+      const cc=dmg.crew[comp]||[];
+      const wk=cc.filter(c=>(c.watch===aw2||c.watch==='duty')&&c.dept!=='medical'&&c.dept!=='supply');
+      const wkFit=wk.filter(c=>c.status==='fit'&&!c.displaced).length;
+      const wkDisp=wk.filter(c=>c.displaced&&c.status!=='killed').length;
+      const wkKia=wk.filter(c=>c.status==='killed').length;
+      const wkTotal=wk.length-wkKia;
+      if(wkTotal>0||wkKia>0){
+        ctx.fillStyle=wkKia>0?'rgba(220,80,80,0.85)':wkDisp>0?'rgba(200,170,50,0.80)':'rgba(90,190,110,0.72)';
+        ctx.font=`${8*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        const crewLabel=wkDisp>0?`${wkFit}+${wkDisp}d/${wkTotal}`:`${wkFit}/${wkTotal}`;
+        ctx.fillText(crewLabel,cMid,d3Top+dH-4*DPR);
+      }
+    }
+    ctx.restore();
+    cy=schY+schH+10*DPR;
+
+    // ── DC Team dispatch rows ──────────────────────────────────────────────────
+    {
+      const teamList2=[dmg.teams?.alpha,dmg.teams?.bravo].filter(Boolean);
+      const dispBtnH=22*DPR,dispGap=3*DPR,labelW=phX0-schX;
+      for(let ti=0;ti<teamList2.length;ti++){
+        const team=teamList2[ti];
+        const rowY=cy+ti*(dispBtnH+dispGap+2*DPR);
+        const isReady=team.state==='ready';
+        const isMusteringEmerg2=team._readyT>0;
+        const isLocked2=team._locked;
+        const tLabelCol=team.state==='lost'?'rgba(180,30,30,0.80)':isMusteringEmerg2?'rgba(170,100,0,0.80)':team.state==='mustering'?'rgba(160,110,15,0.75)':isReady?'rgba(80,80,90,0.70)':team.task==='flood'?'rgba(30,70,160,0.75)':'rgba(30,100,50,0.75)';
+        ctx.fillStyle=tLabelCol; ctx.beginPath(); ctx.roundRect(schX,rowY,labelW-dispGap,dispBtnH,3*DPR); ctx.fill();
+        ctx.fillStyle='rgba(220,220,240,0.90)'; ctx.font=`bold ${9*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        const pillTxt2=isMusteringEmerg2?`MSTR ${Math.ceil(team._readyT)}s`:isLocked2?team.label.replace('DC ','')+' \u{1F512}':team.label.replace('DC ','');
+        ctx.fillText(pillTxt2,schX+(labelW-dispGap)/2,rowY+dispBtnH*0.68);
+        for(let ci=0;ci<6;ci++){
+          const comp=compKeys[ci];
+          const bx=compXs[ci]+dispGap/2,bw=compWs[ci]-dispGap;
+          const lbl=compLabels[ci].slice(0,3);
+          const isOnScene=team.state==='on_scene'&&team.location===comp;
+          const isInTransit=team.state==='transit'&&team.destination===comp;
+          const isMustering2=team.state==='mustering'&&team.destination===comp;
+          const isFloodedD=dmg.flooded[comp];
+          const fireLevelD=Math.max(...[0,1,2].map(di=>dmg.fire?.[`${comp}_d${di}`]||0)),hasFireD=fireLevelD>0.02;
+          const isDrenchedD=!!dmg._fireDrench?.[comp];
+          let bCol,bLabel,clickFn;
+          if(team.state==='lost'){ bCol='rgba(30,30,30,0.22)'; bLabel=lbl; clickFn=null; }
+          else if(team.state==='blowing'&&team.location===comp){ bCol='rgba(180,90,0,0.85)'; bLabel='BLOW'; clickFn=()=>DMG.recallTeam(team.id); }
+          else if(isDrenchedD){ bCol='rgba(40,40,50,0.45)'; bLabel='N2'; clickFn=null; }
+          else if(isFloodedD){
+            const isBlowingHere=(team.state==='blowing'&&team.location===comp)||(team.state==='transit'&&team.destination===comp);
+            if(isBlowingHere){ bCol='rgba(180,90,0,0.85)'; bLabel='BLOW \u25a0'; clickFn=()=>DMG.recallTeam(team.id); }
+            else { bCol='rgba(60,30,10,0.70)'; bLabel='BLOW?'; clickFn=()=>DMG.assignTeam(team.id,comp); }
+          } else if(hasFireD&&isOnScene&&team.task==='fire'){ bCol='rgba(160,50,10,0.85)'; bLabel='FIRE \u25a0'; clickFn=()=>DMG.recallTeam(team.id); }
+          else if(hasFireD&&isInTransit){ bCol='rgba(130,55,10,0.80)'; bLabel='\u2192FIRE'; clickFn=()=>DMG.recallTeam(team.id); }
+          else if(hasFireD){ bCol='rgba(140,40,5,0.75)'; bLabel='FIRE'; clickFn=()=>DMG.assignTeam(team.id,comp); }
+          else if(isOnScene){ bCol='rgba(20,90,40,0.85)'; bLabel=lbl+' \u2713'; clickFn=()=>DMG.recallTeam(team.id); }
+          else if(isMustering2){ bCol='rgba(160,110,15,0.75)'; bLabel='MSTR '+lbl; clickFn=()=>DMG.recallTeam(team.id); }
+          else if(isInTransit){ bCol='rgba(120,95,15,0.80)'; bLabel='\u2192'+lbl; clickFn=()=>DMG.recallTeam(team.id); }
+          else { bCol='rgba(25,45,105,0.65)'; bLabel=lbl; clickFn=()=>DMG.assignTeam(team.id,comp); }
+          PNL.btn2(ctx,bLabel,bx,rowY,bw,dispBtnH,bCol,clickFn||(()=>{}));
+        }
+      }
+      cy+=teamList2.length*(dispBtnH+dispGap+2*DPR)+6*DPR;
+    }
+
+    // ── Systems grid ───────────────────────────────────────────────────────────
+    const stColText={'nominal':'rgba(80,200,100,0.80)','degraded':'rgba(230,170,20,0.90)','offline':'rgba(230,90,30,0.90)','destroyed':'rgba(200,50,50,0.95)'};
+    let sysMaxY=cy;
+    for(let ci=0;ci<6;ci++){
+      const comp=compKeys[ci],cx2=compXs[ci],cw=compWs[ci];
+      const sysList=DMG.COMP_DEF[comp].systems;
+      let sy=cy;
+      for(const sys of sysList){
+        const st=dmg.systems[sys];
+        ctx.fillStyle='rgba(160,180,220,0.70)'; ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillText(DMG.SYS_LABEL[sys]||sys,cx2+cw/2,sy); sy+=12*DPR;
+        ctx.fillStyle=stColText[st]||stColText.destroyed; ctx.font=`bold ${9*DPR}px ui-monospace,monospace`;
+        ctx.fillText(st.toUpperCase(),cx2+cw/2,sy); sy+=10*DPR;
+      }
+      sysMaxY=Math.max(sysMaxY,sy);
+    }
+    cy=sysMaxY+10*DPR;
+
+    // ── Escape buttons ─────────────────────────────────────────────────────────
+    ctx.fillStyle='rgba(120,140,180,0.50)'; ctx.font=`${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+    ctx.fillText('ESCAPE',P,cy); cy+=6*DPR;
+    const halfEsc=(LW-P*2-6*DPR)/2;
+    const tceViable=DMG.canTCE(),escActive=!!dmg.escapeState;
+    PNL.btn2(ctx,escActive?'ESCAPING…':'TCE ESCAPE',P,cy,halfEsc,18*DPR,
+      escActive?'rgba(30,80,30,0.50)':tceViable?'rgba(20,60,20,0.70)':'rgba(60,60,60,0.30)',
+      ()=>{ if(!escActive&&tceViable) DMG.initiateEscape('tce'); });
+    PNL.btn2(ctx,escActive?'ESCAPING…':'RUSH ESCAPE',P+halfEsc+6*DPR,cy,halfEsc,18*DPR,
+      escActive?'rgba(80,30,30,0.50)':'rgba(100,30,10,0.70)',
+      ()=>{ if(!escActive) DMG.initiateEscape('rush'); });
+    const depthM=Math.round(player.depth||0);
+    const depthAdv=depthM<=120?'TCE & RUSH viable':depthM<=200?'TCE marginal':'TCE not viable';
+    const depthAdvCol=depthM<=120?'rgba(80,200,80,0.70)':depthM<=200?'rgba(220,170,20,0.80)':'rgba(220,80,50,0.80)';
+    ctx.fillStyle=depthAdvCol; ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+    ctx.fillText(`${depthM}m — ${depthAdv}`,LW/2,cy+30*DPR); cy+=36*DPR;
+
+    // ── Seal buttons ───────────────────────────────────────────────────────────
+    const hasSealTargets=DMG.COMPS.some(comp=>!dmg.flooded[comp]&&(dmg.flooding[comp]||0)>0.05);
+    if(hasSealTargets){
+      ctx.fillStyle='rgba(80,100,140,0.40)'; ctx.font=`${8*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText('SEAL (last resort — kills all crew inside):',P,cy); cy+=6*DPR;
+      for(let ci=0;ci<6;ci++){
+        const comp=compKeys[ci],cx2=compXs[ci],cw=compWs[ci];
+        if(!dmg.flooded[comp]&&(dmg.flooding[comp]||0)>0.05)
+          PNL.btn2(ctx,compLabels[ci].slice(0,3),cx2+2,cy,cw-4,14*DPR,'rgba(100,30,30,0.60)',()=>DMG.sealFlooding(comp));
+      }
+      cy+=18*DPR;
+    }
+
+    // ── Debug hit buttons ──────────────────────────────────────────────────────
+    if(game.debugOverlay){
+      ctx.fillStyle='rgba(200,50,50,0.60)'; ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText('[ DEBUG ] HIT:',P,cy-2*DPR);
+      const dbgW=(LW-P*2-4*DPR)/6;
+      for(let i=0;i<6;i++){
+        const comp=DMG.COMPS[i],isHit=(dmg.strikes[comp]||0)>=1;
+        PNL.btn2(ctx,compLabels[i].slice(0,3),P+i*dbgW,cy,dbgW-3*DPR,14*DPR,
+          isHit?'rgba(180,30,30,0.80)':'rgba(100,30,30,0.55)',()=>DMG.hit(55,null,null,comp));
+      }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // RIGHT PANE — Ship's Company
+    // ──────────────────────────────────────────────────────────────────────────
+    const RX=LW+P, RW=W-LW-P*2;
+    const d=player.damage;
+    let ry2=BODY_Y+10*DPR;
+    ctx.fillStyle='rgba(140,180,240,0.92)';
+    ctx.font=`bold ${13*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+    ctx.fillText("SHIP'S COMPANY",RX,ry2); ry2+=16*DPR;
+
+    ctx.font=`${12*DPR}px ui-monospace,monospace`;
+    ctx.fillStyle='rgba(60,200,90,0.85)';   ctx.fillText(`FIT ${fit}`,  RX,           ry2);
+    ctx.fillStyle='rgba(230,170,30,0.90)';  ctx.fillText(`WND ${wnd}`,  RX+72*DPR,   ry2);
+    ctx.fillStyle='rgba(210,50,50,0.90)';   ctx.fillText(`KIA ${kia}`,  RX+144*DPR,  ry2);
+    ctx.fillStyle='rgba(140,165,210,0.60)'; ctx.fillText(`/ ${total}`,  RX+216*DPR,  ry2);
+    ry2+=10*DPR;
+    ctx.strokeStyle='rgba(60,100,160,0.25)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(LW,ry2); ctx.lineTo(W,ry2); ctx.stroke(); ry2+=8*DPR;
+
+    const colW2=(RW-8*DPR)/2, col0x2=RX, col1x2=RX+colW2+8*DPR;
+    const COMP_LABELS2={fore_ends:'TORPEDO ROOM',control_room:'CONTROL ROOM',aux_section:'AUX MACHINERY',reactor_comp:'REACTOR COMP',engine_room:'MANEUVERING',aft_ends:'ENGINEERING'};
+    const SUPPORT_DEPTS2=new Set(['medical','supply']);
+    const leftComps2=['fore_ends','control_room','aux_section','reactor_comp'];
+    const rightComps2=['engine_room','aft_ends'];
+    const ROW_H2=16*DPR, SEC_HDR2=20*DPR;
+    const STATUS_COL2={fit:'rgba(50,190,80,0.90)',wounded:'rgba(230,165,25,0.90)',killed:'rgba(200,40,40,0.75)'};
+    const _hoverHits2=[];
+    const mx2=window.I?.mouseX||0, my2=window.I?.mouseY||0;
+
+    function drawCrewRow2(m,rx,ry,subW,isDuty){
+      const isKia=m.status==='killed',isWnd=m.status==='wounded';
+      const isOnWatch2=m.watch==='duty'||m.watch===activeWatch;
+      ctx.globalAlpha=isKia?0.35:isOnWatch2?1.0:0.55;
+      const pillW2=32*DPR, rowTop2=ry-ROW_H2*0.82;
+      ctx.fillStyle=STATUS_COL2[m.status]||STATUS_COL2.fit;
+      ctx.beginPath(); ctx.arc(rx+5*DPR,ry-4*DPR,3.5*DPR,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=isWnd?'rgba(200,140,20,0.70)':isKia?'rgba(140,20,20,0.50)':'rgba(30,55,100,0.65)';
+      ctx.beginPath(); ctx.roundRect(rx+12*DPR,rowTop2,pillW2,ROW_H2*0.85,2*DPR); ctx.fill();
+      ctx.fillStyle='rgba(200,220,255,0.90)'; ctx.font=`bold ${9*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+      ctx.fillText(m.rating,rx+12*DPR+pillW2/2,ry-2*DPR);
+      ctx.fillStyle=isKia?'rgba(180,60,60,0.60)':isWnd?'rgba(220,165,30,0.90)':'rgba(200,215,245,0.90)';
+      ctx.font=`${11*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText(`${m.firstName[0]}.${m.lastName}`,rx+48*DPR,ry-2*DPR);
+      const badgesW2=isDuty?20*DPR:36*DPR;
+      ctx.fillStyle='rgba(120,170,220,0.70)'; ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
+      ctx.fillText(m.role||'',rx+subW-badgesW2-4*DPR,ry-2*DPR);
+      const badgeX2=rx+subW-badgesW2;
+      const wBg2=m.watch==='duty'?'rgba(160,120,20,0.65)':m.watch==='A'?'rgba(25,55,130,0.65)':'rgba(10,90,80,0.65)';
+      const wFg2=m.watch==='duty'?'rgba(255,210,60,0.95)':m.watch==='A'?'rgba(120,170,255,0.95)':'rgba(60,210,185,0.95)';
+      ctx.fillStyle=wBg2; ctx.beginPath(); ctx.roundRect(badgeX2,rowTop2,16*DPR,ROW_H2*0.80,2*DPR); ctx.fill();
+      ctx.fillStyle=wFg2; ctx.font=`bold ${8*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+      ctx.fillText(m.watch==='duty'?'★':m.watch,badgeX2+8*DPR,ry-2*DPR);
+      if(m.dcTeam){
+        const dcX2=badgeX2+18*DPR;
+        ctx.fillStyle=m.dcTeam==='alpha'?'rgba(140,40,130,0.65)':'rgba(40,100,40,0.65)';
+        ctx.beginPath(); ctx.roundRect(dcX2,rowTop2,16*DPR,ROW_H2*0.80,2*DPR); ctx.fill();
+        ctx.fillStyle=m.dcTeam==='alpha'?'rgba(230,140,220,0.95)':'rgba(120,230,120,0.95)';
+        ctx.font=`bold ${8*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillText(m.dcTeam==='alpha'?'α':'β',dcX2+8*DPR,ry-2*DPR);
+      }
+      ctx.globalAlpha=1.0;
+      if(m.roleDesc) _hoverHits2.push({x:rx,y:rowTop2,w:subW,h:ROW_H2,tip:m.roleDesc});
+    }
+
+    function drawCompSection2(comp,sx,sy,availW){
+      const crew2=(d.crew[comp]||[]).filter(m=>!SUPPORT_DEPTS2.has(m.dept));
+      const fitC2=crew2.filter(c=>c.status==='fit'&&!c.displaced).length;
+      const wndC2=crew2.filter(c=>c.status==='wounded').length;
+      const kiaC2=crew2.filter(c=>c.status==='killed').length;
+      const hasFF2=[0,1,2].some(di=>(d.fire?.[`${comp}_d${di}`]||0)>0.02)||d.flooded?.[comp]||(d.flooding?.[comp]||0)>0.01;
+      ctx.fillStyle=hasFF2?'rgba(100,30,10,0.55)':'rgba(20,38,70,0.60)';
+      ctx.beginPath(); ctx.roundRect(sx,sy,availW,SEC_HDR2,2*DPR); ctx.fill();
+      ctx.fillStyle='rgba(180,210,255,0.90)'; ctx.font=`bold ${11*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText(COMP_LABELS2[comp],sx+6*DPR,sy+SEC_HDR2*0.72);
+      ctx.font=`${10*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
+      const sumStr2=kiaC2>0?`${fitC2} fit  ${wndC2} wnd  ${kiaC2} kia`:`${fitC2}/${crew2.length} fit`;
+      ctx.fillStyle=kiaC2>0?'rgba(210,60,60,0.85)':wndC2>0?'rgba(220,160,30,0.80)':'rgba(80,190,100,0.70)';
+      ctx.fillText(sumStr2,sx+availW-6*DPR,sy+SEC_HDR2*0.72); sy+=SEC_HDR2+2*DPR;
+      const dutyList2=crew2.filter(m=>m.watch==='duty');
+      const watchB2=crew2.filter(m=>m.watch==='B'), watchA2=crew2.filter(m=>m.watch==='A');
+      const subW2=(availW-4*DPR)/2;
+      for(let i=0;i<dutyList2.length;i++){
+        ctx.fillStyle='rgba(140,110,10,0.12)'; ctx.fillRect(sx,sy+i*ROW_H2,availW,ROW_H2-1);
+        drawCrewRow2(dutyList2[i],sx,sy+i*ROW_H2+ROW_H2*0.82,availW,true);
+      }
+      if(dutyList2.length) sy+=dutyList2.length*ROW_H2+2*DPR;
+      if(watchB2.length||watchA2.length){
+        ctx.font=`bold ${8*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillStyle=activeWatch==='B'?'rgba(60,210,185,0.80)':'rgba(60,210,185,0.40)';
+        ctx.fillText('── WCH B ──',sx+subW2/2,sy+8*DPR);
+        ctx.fillStyle=activeWatch==='A'?'rgba(120,170,255,0.80)':'rgba(120,170,255,0.40)';
+        ctx.fillText('── WCH A ──',sx+subW2+4*DPR+subW2/2,sy+8*DPR); sy+=11*DPR;
+      }
+      const rows2=Math.max(watchB2.length,watchA2.length);
+      for(let i=0;i<watchB2.length;i++) drawCrewRow2(watchB2[i],sx,sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
+      for(let i=0;i<watchA2.length;i++) drawCrewRow2(watchA2[i],sx+subW2+4*DPR,sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
+      return sy+rows2*ROW_H2+6*DPR;
+    }
+
+    function drawSupportSection2(sx,sy,availW){
+      const allSupport2=[];
+      for(const comp of DMG.COMPS){
+        for(const m of (d.crew[comp]||[])) if(SUPPORT_DEPTS2.has(m.dept)) allSupport2.push(m);
+      }
+      if(allSupport2.length===0) return sy;
+      const fitC2=allSupport2.filter(c=>c.status==='fit').length;
+      const wndC2=allSupport2.filter(c=>c.status==='wounded').length;
+      const kiaC2=allSupport2.filter(c=>c.status==='killed').length;
+      ctx.fillStyle='rgba(20,38,70,0.60)';
+      ctx.beginPath(); ctx.roundRect(sx,sy,availW,SEC_HDR2,2*DPR); ctx.fill();
+      ctx.fillStyle='rgba(180,210,255,0.90)'; ctx.font=`bold ${11*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText('SHIP SUPPORT',sx+6*DPR,sy+SEC_HDR2*0.72);
+      ctx.font=`${10*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
+      const sumStr2=kiaC2>0?`${fitC2} fit  ${wndC2} wnd  ${kiaC2} kia`:`${fitC2}/${allSupport2.length} fit`;
+      ctx.fillStyle=kiaC2>0?'rgba(210,60,60,0.85)':wndC2>0?'rgba(220,160,30,0.80)':'rgba(80,190,100,0.70)';
+      ctx.fillText(sumStr2,sx+availW-6*DPR,sy+SEC_HDR2*0.72); sy+=SEC_HDR2+2*DPR;
+      for(const dept of ['medical','supply']){
+        const crew2=allSupport2.filter(m=>m.dept===dept);
+        if(crew2.length===0) continue;
+        ctx.fillStyle='rgba(100,130,180,0.50)'; ctx.font=`bold ${8*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+        ctx.fillText(dept==='medical'?'MEDICAL':'SUPPLY / CATERING',sx+6*DPR,sy+8*DPR); sy+=11*DPR;
+        const dutyList2=crew2.filter(m=>m.watch==='duty');
+        const watchB2=crew2.filter(m=>m.watch==='B'), watchA2=crew2.filter(m=>m.watch==='A');
+        const subW2=(availW-4*DPR)/2;
+        for(let i=0;i<dutyList2.length;i++){
+          ctx.fillStyle='rgba(140,110,10,0.12)'; ctx.fillRect(sx,sy+i*ROW_H2,availW,ROW_H2-1);
+          drawCrewRow2(dutyList2[i],sx,sy+i*ROW_H2+ROW_H2*0.82,availW,true);
+        }
+        if(dutyList2.length) sy+=dutyList2.length*ROW_H2+2*DPR;
+        const rows2=Math.max(watchB2.length,watchA2.length);
+        for(let i=0;i<watchB2.length;i++) drawCrewRow2(watchB2[i],sx,sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
+        for(let i=0;i<watchA2.length;i++) drawCrewRow2(watchA2[i],sx+subW2+4*DPR,sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
+        sy+=rows2*ROW_H2+4*DPR;
+      }
+      return sy+4*DPR;
+    }
+
+    let lcy=ry2;
+    for(const comp of leftComps2){ lcy=drawCompSection2(comp,col0x2,lcy,colW2); lcy+=4*DPR; }
+    let rcy2=ry2;
+    for(const comp of rightComps2){ rcy2=drawCompSection2(comp,col1x2,rcy2,colW2); rcy2+=4*DPR; }
+    drawSupportSection2(col1x2,rcy2,colW2);
+
+    // Hover tooltip
+    for(const h of _hoverHits2){
+      if(mx2>=h.x&&mx2<=h.x+h.w&&my2>=h.y&&my2<=h.y+h.h){
+        const tip=h.tip;
+        ctx.font=`${11*DPR}px ui-monospace,monospace`;
+        const tw=ctx.measureText(tip).width+12*DPR, th=16*DPR;
+        let tx2=mx2+10*DPR, ty2=my2-4*DPR;
+        if(tx2+tw>W) tx2=mx2-tw-4*DPR;
+        if(ty2+th>H) ty2=my2-th-4*DPR;
+        ctx.fillStyle='rgba(5,12,30,0.94)'; ctx.strokeStyle='rgba(80,140,220,0.55)'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.roundRect(tx2,ty2,tw,th,3*DPR); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='rgba(200,220,255,0.95)'; ctx.textAlign='left';
+        ctx.fillText(tip,tx2+6*DPR,ty2+th*0.72); break;
+      }
+    }
+  }
+
+  window.RPANEL = {drawStartScreen, drawLogPanel, drawDcPanel, drawDamagePanel, drawCrewPanel, drawDamageScreen, drawPanel};
 })();

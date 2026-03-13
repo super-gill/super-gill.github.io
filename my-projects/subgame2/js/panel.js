@@ -35,7 +35,12 @@
     const s=SPEED_STATES[idx];
     const p=window.G?.player;
     if(p){ p.speedOrderKts=s.kts; p.speedDir=s.dir; }
-    COMMS.panel.speedOrder(s.label, s.connOrder, s.engAck);
+    const dmgFx=window.DMG?.getEffects()||{};
+    if(dmgFx.connRoomLost){
+      COMMS.panel.speedOrderRelay(s.label, s.connOrder, s.engAck);
+    } else {
+      COMMS.panel.speedOrder(s.label, s.connOrder, s.engAck);
+    }
   }
 
   function depthStep(delta){
@@ -55,7 +60,12 @@
     clearTimeout(p._depthLogTimer);
     p._depthLogTimer=setTimeout(()=>{
       const ordStr=`${Math.round(p.depthOrder)}m`;
-      COMMS.nav.depthOrder(ordStr, delta>0?'down':'up');
+      const dmgFxD=window.DMG?.getEffects()||{};
+      if(dmgFxD.connRoomLost){
+        COMMS.nav.depthOrderRelay(ordStr, delta>0?'down':'up');
+      } else {
+        COMMS.nav.depthOrder(ordStr, delta>0?'down':'up');
+      }
     },1000);
   }
 
@@ -69,6 +79,8 @@
   function toggleSilent(){
     const p=window.G?.player;
     if(!p) return;
+    const dmgFx=window.DMG?.getEffects()||{};
+    if(dmgFx.silentRunAvail===false){ COMMS.nav.connRoomUnavail('silent running'); return; }
     p.silent=!p.silent;
     COMMS.nav.silentRunning(p.silent);
   }
@@ -109,6 +121,8 @@
     const COMMS=window.COMMS;
     const ground=window.G?.world?.ground??1900;
     if(!p||!C) return;
+    const dmgFx=window.DMG?.getEffects()||{};
+    if(dmgFx.crashDiveAvail===false){ COMMS.nav.connRoomUnavail('crash dive'); return; }
     if(p.crashDiveCd>0) return;
     p.crashDiveT=C.player.crashDive.dur;
     p.crashDiveCd=C.player.crashDive.cd;

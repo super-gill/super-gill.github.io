@@ -38,7 +38,7 @@
       crashDive:{dur:3.5, cd:12.0, noiseSpike:0.35, tauOverride:0.4, rateMult:3.5},
       noiseFloor:0.04, flowNoiseDiv:32, turnNoise:0.07,
       // ── Trim / buoyancy ──────────────────────────────────────────────────
-      trimLevers:{ fore_ends:-2.0, control_room:-0.8, reactor_comp:0.0, engine_room:0.8, aft_ends:2.0 },
+      trimLevers:{ fore_ends:-2.0, control_room:-0.8, aux_section:-0.2, reactor_comp:0.0, engine_room:0.8, aft_ends:2.0 },
       trimFullAuthority:2.0,   // trim value at which planes are fully demanded
       planeMinSpeed:10.0,      // kt — below this planes lose effectiveness linearly
       sinkRatePerUnit:0.9,     // m/s sink added per unit of buoyancy load
@@ -76,7 +76,8 @@
       pingDatumRange:5000, pingDatumSus:0.75,     // active ping alerts all enemies
       hitR:30
     },
-    detection:{detectT:7.5, seenT:2.6, proximityR:180, pingDetectR:1800},
+    detection:{detectT:7.5, seenT:2.6, proximityR:180, pingDetectR:1800,
+               cz:{min:4800, max:5500, boost:3.2}},  // convergence zone range band + signal multiplier
     tma:{
       defaultRange:   900,   // wu — how far to project bearing line when no solution
       minObs:           2,   // observations needed before attempting solver

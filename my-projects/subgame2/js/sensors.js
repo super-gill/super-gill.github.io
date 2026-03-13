@@ -7,7 +7,7 @@
 
   // Throttled sonar raw feed — one entry per contact per ~4s, per array
   const _sonarLogThrottle=new Map(); // key: `${entityId}_${array}` → last log time
-  function addSonarLog(e, array, brgDeg, signalTier){
+  function addSonarLog(e, array, brgDeg, signalTier, czContact){
     const key=`${e.x|0}_${array}`;
     const T=game.missionT||0;
     const last=_sonarLogThrottle.get(key)||0;
@@ -19,7 +19,7 @@
     const typeLabel=e.type==='boat'?'SURF':'SUB';
     const tierLabel=signalTier>=2?'STRONG':signalTier>=1?'MOD':'FAINT';
     const brgStr=Math.round(brgDeg).toString().padStart(3,'0');
-    game.sonarLog.push({t:T, array, id, typeLabel, brgStr, tierLabel});
+    game.sonarLog.push({t:T, array, id, typeLabel, brgStr, tierLabel, cz:!!czContact});
     if(game.sonarLog.length>60) game.sonarLog.shift();
   }
 
@@ -351,15 +351,26 @@
       const dx = AI.wrapDx(player.wx, e.x);
       const dy = e.y - player.wy;
       const d  = Math.hypot(dx, dy);
-      if(d > baseRange) continue;
+      const CZt=C.detection.cz||{};
+      const czMinT=CZt.min??4800, czMaxT=CZt.max??5500, czBoostT=CZt.boost??3.2;
+      const layer  = AI.layerPenalty(player.depth, e.depth||0);
+      const inCZt  = layer>=1.0 && d>=czMinT && d<=czMaxT;
+      if(d > baseRange && !inCZt) continue;
 
       const trueBrg = Math.atan2(dy, dx);
 
       // Cone of silence — no returns within ±28° of stern
       if(inDeadCone(trueBrg, heading)) continue;
 
-      const layer  = AI.layerPenalty(player.depth, e.depth||0);
-      let signal   = e.noise * layer * (1 - d/baseRange);
+      let signal;
+      if(inCZt && d>baseRange){
+        const czCenterT=(czMinT+czMaxT)/2;
+        const czHalfT=(czMaxT-czMinT)/2;
+        const czEnvT=1-Math.abs(d-czCenterT)/czHalfT;
+        signal=e.noise*layer*czBoostT*czEnvT;
+      } else {
+        signal = e.noise * layer * (1 - d/baseRange);
+      }
       if(e.type==='boat') signal *= 1.25;
       const selfMask = player.noise * selfMaskMul;
       const detect = signal - selfMask;
@@ -388,7 +399,8 @@
         // Sonar raw feed
         const brgDegT=((noisyBrg*180/Math.PI)+360)%360;
         const sigTierT=detect>0.35?2:detect>0.15?1:0;
-        addSonarLog(e,'TOWED',brgDegT,sigTierT);
+        addSonarLog(e,'TOWED',brgDegT,sigTierT,inCZt&&d>baseRange);
+        if(inCZt&&d>baseRange) COMMS.sensors.contactLabel?.('CZ — towed array');
       }
     }
   }
@@ -467,9 +479,22 @@
       const d=Math.hypot(dx,dy);
       const dmgFx=window.DMG?.getEffects()||{};
       const baseRange=2800*(dmgFx.sonarRangeMult??1.0);
-      if(baseRange<=0||d>baseRange) continue;
+      const CZ=C.detection.cz||{};
+      const czMin=CZ.min??4800, czMax=CZ.max??5500, czBoost=CZ.boost??3.2;
       const layer=AI.layerPenalty(player.depth,e.depth||0);
-      let signal=e.noise*layer*(1-d/Math.max(baseRange,1));
+      // CZ only when both platforms are below the thermal layer (layer penalty not active)
+      const inCZ=layer>=1.0 && d>=czMin && d<=czMax;
+      if(baseRange<=0||(d>baseRange&&!inCZ)) continue;
+      let signal;
+      if(inCZ && d>baseRange){
+        // Convergence zone — triangular envelope peaks at band centre
+        const czCenter=(czMin+czMax)/2;
+        const czHalf=(czMax-czMin)/2;
+        const czEnv=1-Math.abs(d-czCenter)/czHalf;
+        signal=e.noise*layer*czBoost*czEnv;
+      } else {
+        signal=e.noise*layer*(1-d/Math.max(baseRange,1));
+      }
       if(e.type==='boat') signal*=1.25;
       const selfMask=player.noise*0.55;
       const detect=(signal-selfMask)*deafness;
@@ -488,7 +513,8 @@
         // Sonar raw feed
         const brgDeg=((noisyBearing*180/Math.PI)+360)%360;
         const sigTier=detect>0.35?2:detect>0.15?1:0;
-        addSonarLog(e,'HULL',brgDeg,sigTier);
+        addSonarLog(e,'HULL',brgDeg,sigTier,inCZ&&d>baseRange);
+        if(inCZ&&d>baseRange) COMMS.sensors.contactLabel?.('Convergence zone contact');
       }
     }
   }

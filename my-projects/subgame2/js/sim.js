@@ -145,8 +145,13 @@
     if(I.keys.has("r")){ I.keys.delete("r"); game.started=false; reset(); }
     // ` (backtick) — toggle debug true-position overlay
     if(I.keys.has("`")){ I.keys.delete("`"); game.debugOverlay=!game.debugOverlay; setMsg(game.debugOverlay?"[DEBUG] TRUE POS ON":"[DEBUG] TRUE POS OFF",1.2); }
-    if(I.keys.has("h")){ I.keys.delete("h"); game.showDmgPanel=!game.showDmgPanel; }
+    if(I.keys.has("h")){ I.keys.delete("h"); game.showDamageScreen=!game.showDamageScreen; }
+    if(I.keys.has("y")){ I.keys.delete("y"); game.showDamageScreen=!game.showDamageScreen; }
+    if(I.keys.has("w")){ I.keys.delete("w"); initiateWatchChange(); }
     if(I.keys.has("a")){ I.keys.delete("a"); window.PANEL?.callActionStations(); }
+
+    // God mode — restore hp to max every tick so damage can't stick
+    if(game.godMode) player.hp=C.player.hpMax;
 
     player.torpCd=Math.max(0,player.torpCd-dt);
     // Tick tube reload timers (skip wire-occupied tubes: value -1)
@@ -344,6 +349,7 @@
     player.cmCd=Math.max(0,player.cmCd-dt);
     player.invuln=Math.max(0,player.invuln-dt);
     DMG.tick(dt);
+    tickWatchFatigue(dt);
     if(game.hitFlash>0) game.hitFlash=Math.max(0,game.hitFlash-dt*2.5);
     player.sonarPulse=Math.max(0,player.sonarPulse-dt);
     game.missionT=(game.missionT||0)+dt;
@@ -727,6 +733,7 @@
     for(const e of enemies){
       AI.enemyMaybeHearPlayer(e,dt);
       AI.enemyDecay(e,dt);
+      AI.updateEnemyNoise(e);
 
       const state=(e.suspicion>C.enemy.susEngage)?"engage":(e.suspicion>C.enemy.susInvestigate?"investigate":"patrol");
 
@@ -1433,11 +1440,70 @@
     cam.zoom = C.camera.zoom;
   }
 
+  // ── Watch fatigue & handover ──────────────────────────────────────────────
+  function _oowName(watchId){
+    const d=player.damage; if(!d) return 'unknown';
+    for(const comp of ['control_room']){
+      const m=(d.crew[comp]||[]).find(c=>c.role==='OOW'&&c.watch===watchId);
+      if(m) return m.lastName;
+    }
+    return 'unknown';
+  }
+
+  function initiateWatchChange(){
+    if(game.watchChanging) return;
+    if(game.tacticalState==='action'||game.casualtyState==='emergency'){
+      COMMS.watch.blocked(); return;
+    }
+    const outgoing=game.activeWatch;
+    const incoming=outgoing==='A'?'B':'A';
+    game.watchChanging=true;
+    game.watchChangeT=30;
+    game._watchRelief80=false;
+    game._watchRelief100=false;
+    COMMS.watch.relieving(outgoing, incoming);
+  }
+
+  function tickWatchFatigue(dt){
+    // Complete a pending handover
+    if(game.watchChanging){
+      game.watchChangeT=Math.max(0, game.watchChangeT-dt);
+      if(game.watchChangeT<=0){
+        game.activeWatch=game.activeWatch==='A'?'B':'A';
+        game.watchChanging=false;
+        game.watchFatigue=0;
+        game.watchT=0;
+        COMMS.watch.onWatch(game.activeWatch, _oowName(game.activeWatch));
+      }
+      return;
+    }
+
+    // Accumulate fatigue — faster during patrol/action (stress)
+    const rate=game.tacticalState==='action'?0.0028:
+               game.tacticalState==='patrol'?0.0018:0.0010; // per second
+    game.watchFatigue=Math.min(1.0,(game.watchFatigue||0)+rate*dt);
+    game.watchT=(game.watchT||0)+dt;
+
+    // 80% threshold — OOW requests relief
+    if(game.watchFatigue>=0.8&&!game._watchRelief80){
+      game._watchRelief80=true;
+      COMMS.watch.requestRelief(game.activeWatch);
+    }
+    // 100% — forced change (if not in action/emergency)
+    if(game.watchFatigue>=1.0&&!game._watchRelief100){
+      game._watchRelief100=true;
+      COMMS.watch.forcedChange(game.activeWatch);
+      if(game.tacticalState!=='action'&&game.casualtyState!=='emergency'){
+        initiateWatchChange();
+      }
+    }
+  }
+
   function resetScenario(scenario){
     game.scenario=scenario;
     reset();
   }
-  window.SIM={update,reset,resetScenario};
+  window.SIM={update,reset,resetScenario,initiateWatchChange};
   window.G.damageEnemy=damageEnemy;
   window.G.damagePlayer=damagePlayer;
 })()

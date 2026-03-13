@@ -180,6 +180,23 @@
     }
   }
 
+  // ── Enemy acoustic noise model ────────────────────────────────────────────────
+  // Dynamic noise updated each tick — mirrors player signature.js model.
+  // Soviet-era boats: noisier per knot, cavitate ~25% earlier than NATO boats.
+  function updateEnemyNoise(e){
+    const spd=Math.hypot(e.vx||0, e.vy||0);
+    const floor=e._noiseFloor??0.28;
+    // Flow noise: Soviet boats ~30% noisier per knot (worse vibration isolation)
+    const flow=(spd/C.player.flowNoiseDiv)*1.3;
+    let n=clamp(floor+flow, 0, 1);
+    // Cavitation: Soviet props cavitate ~25% earlier than NATO equivalents
+    const depth=e.depth??300;
+    const d=clamp((depth-world.seaLevel)/C.player.cavitationDepthRef, 0, 2.0);
+    const cavThresh=(C.player.cavitationKtsRef+d*(C.player.cavitationDepthRef*C.player.cavitationSlope))*0.75;
+    if(spd>cavThresh) n=clamp(n+C.player.cavitationSpike*0.8, 0, 1);
+    e.noise=n;
+  }
+
   // ── Spawn helpers ─────────────────────────────────────────────────────────────
   function spawnEnemy(){
     const type=(Math.random()<C.enemy.boatShare)?'boat':'sub';
@@ -198,15 +215,17 @@
     const toPlayer=Math.atan2(player.wy-ey,player.wx-ex)+rand(-0.8,0.8);
     const spd=rand(12,28);
     if(type==='boat'){
+      const nf=0.75;
       enemies.push({...common,type,x:ex,y:ey,depth:0,hitY:0,
         vx:Math.cos(toPlayer)*spd,vy:Math.sin(toPlayer)*spd,
-        r:34,hp:80,sensitivity:rand(0.70,1.05),noise:1.0,
+        r:34,hp:80,sensitivity:rand(0.70,1.05),_noiseFloor:nf,noise:nf,
         flareCd:rand(2.2,4.5),cwis:{pKillPerSec:rand(0.55,0.9),range:rand(520,760)}});
     } else {
       const depth=rand(200,1100);
+      const nf=rand(0.22,0.30);
       enemies.push({...common,type,x:ex,y:ey,depth,
         vx:Math.cos(toPlayer)*spd,vy:Math.sin(toPlayer)*spd,
-        r:30,hp:90,sensitivity:rand(0.55,0.90),noise:rand(0.45,0.7)});
+        r:30,hp:90,sensitivity:rand(0.55,0.90),_noiseFloor:nf,noise:nf});
     }
     const e=enemies[enemies.length-1]; e.navX=e.x; e.navY=e.y;
   }
@@ -242,10 +261,16 @@
       interceptState:'waiting',      // interceptor sub-state
       interceptTargetX:null, interceptTargetY:null,
     };
+    // Noise floor by role — Soviet-era acoustic characteristics at low speed
+    // Hunter: quiet stalker. Pinger: active sonar ops add machinery noise.
+    // Interceptor: ambush design, minimal running equipment.
+    const nf = role==='pinger' ? rand(0.28,0.36)
+              : role==='interceptor' ? rand(0.14,0.20)
+              : rand(0.20,0.26); // hunter / default
     enemies.push({...common,type:'sub',x:ex,y:ey,depth,
       vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
       r:30,hitR:90,hp:90,sensitivity:rand(0.55,0.90),
-      noise:rand(C.enemy.subNoiseMin||0.58,C.enemy.subNoiseMax||0.82),
+      _noiseFloor:nf, noise:nf,
       torpTubes:Array(C.enemy.subTubes).fill(0),
       torpStock:C.enemy.subTorpStock,
     });
@@ -270,5 +295,5 @@
   }
 
   window.AI={wrapDx,wrapDy,layerPenalty,enemyHasFireSolution,enemyUpdateContactFromPing,
-             enemyMaybeHearPlayer,enemyDecay,solveEnemyTMA,enemyRegisterBearing,spawnEnemy,spawnSub,wolfpackShareDatum};
+             enemyMaybeHearPlayer,enemyDecay,updateEnemyNoise,solveEnemyTMA,enemyRegisterBearing,spawnEnemy,spawnSub,wolfpackShareDatum};
 })();

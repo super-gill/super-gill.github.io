@@ -15,13 +15,13 @@
     if (!G.game.dcLog) G.game.dcLog = [];
     G.game.dcLog.push({ t: G.game.missionT || 0, text, priority });
     if (G.game.dcLog.length > 120) G.game.dcLog.shift();
-    if (!G.game._dcAutoOpened) { G.game.logTab = 'dc'; G.game._dcAutoOpened = true; }
   }
 
   // ── Station → compartment map ────────────────────────────────────────────
   const COMP_STATION = {
     fore_ends:    'TOR',
     control_room: 'CONN',
+    aux_section:  'AUX',
     reactor_comp: 'REA',
     engine_room:  'MAN',
     aft_ends:     'ENG',
@@ -50,11 +50,11 @@
       msg(`${compLabel} FLOODED`, 3.0);
     },
     critical() {
-      log('CONN', 'Conn — all hands — Escape stations, escape stations, escape stations: Abandon ship. This is not a drill.', P.CRIT);
-      msg('ESCAPE STATIONS — ESCAPE STATIONS', 4.0);
+      qlog('CONN', 'Conn — critical flooding. Loss of trim expected. All hands maintain emergency stations, stand by for orders.', 1.5, P.CRIT);
+      msg('CRITICAL FLOODING', 4.0);
     },
     evacuating(compLabel, station, out, trapped) {
-      log(station, `Conn, ${station} — abandoning ${compLabel}! Flooding critical!`, P.CRIT);
+      log(station, `Conn, ${station} — evacuating ${compLabel}! Flooding critical!`, P.CRIT);
       if (trapped > 0) qlog('CONN', `All stations — ${compLabel} evacuating. ${out} clear, ${trapped} missing`, 1.5, P.CRIT);
       else             qlog('CONN', `All stations — ${compLabel} personnel clear. ${out} accounted for`, 1.5, P.MED);
     },
@@ -76,12 +76,21 @@
   // DAMAGE CONTROL TEAMS
   // ════════════════════════════════════════════════════════════════════════
   const dc = {
+    mustering(teamLabel, compLabel) {
+      dcLog(`${teamLabel} — mustering. En route ${compLabel} in 15s`);
+      log('CONN', `DC ${teamLabel} — close up. ${compLabel}. Emergency.`, P.MED);
+    },
     dispatched(teamLabel, compLabel, eta) {
-      dcLog(`${teamLabel} — en route ${compLabel}, ETA ${eta}`);
-      log('CONN', `DC ${teamLabel} — close up in ${compLabel}. Emergency.`, P.MED);
+      dcLog(`${teamLabel} — moving. ${compLabel}, ETA ${eta}s`);
     },
     cannotCross(teamLabel) {
       msg(`${teamLabel} CANNOT CROSS — REACTOR FLOODED`, 2.0);
+    },
+    cannotReassign(teamLabel) {
+      msg(`${teamLabel} COMMITTED — neutralise threat first`, 2.0);
+    },
+    autoDispatching(teamLabel, compLabel, eta) {
+      dcLog(`${teamLabel} — auto-dispatched to ${compLabel}, ETA ${eta}s`);
     },
     recalled(teamLabel, wasBlow) {
       dcLog(wasBlow ? `${teamLabel} — HP blow aborted. Standing by` : `${teamLabel} — recalled. Ready`);
@@ -177,10 +186,16 @@
       } else if (cause === 'turn') {
         log('MANV', 'Conn, Manoeuvring — reactor SCRAM. Rods are in. Switching to EPM', P.CRIT);
         qlog('ENG', 'Conn, Eng — SCRAM on high flux signal. Coolant pumps cavitated on that angle. Reactor tripped', 1.5, P.MED);
+      } else if (cause === 'fire') {
+        log('MANV', 'Conn, Manoeuvring — fire in reactor compartment. SCRAM reactor. Rods in, switching to EPM', P.CRIT);
+        qlog('ENG', 'Conn, Eng — reactor manually tripped. EPM in service. Holding restart pending casualty resolution', 2.0, P.CRIT);
       } else {
         log('MANV', 'Conn, Manoeuvring — reactor SCRAM. Rods in. EPM', P.CRIT);
       }
       msg('REACTOR SCRAM', 2.0);
+    },
+    fireScramLifted() {
+      log('MANV', 'Conn, Manoeuvring — reactor compartment clear. Commencing fast recovery startup', P.MED);
     },
     epmon() {
       log('MANV', 'Conn, Manoeuvring — EPM on the line. Making three knots. That is all I have', P.MED);
@@ -432,6 +447,25 @@
         qlog('HELM', `Conn, Helm — aye, coming up to ${ordStr}`, 1.0);
       }
     },
+    // Conn room evacuated — depth order relayed through internal comms; CO issues from wherever he is
+    depthOrderRelay(ordStr, direction) {
+      msg(`ORDERED ${ordStr}`, 0.8);
+      if (direction === 'down') {
+        log('CO', `Manoeuvring, CO — relay to Helm: make depth ${ordStr}. Manual ballast ops`, P.MED);
+        qlog('ENG',  `CO, Manoeuvring — aye, relaying to Helm`, 2.0);
+        qlog('HELM', `Manoeuvring, Helm — making depth ${ordStr}. Operating ballast manually`, 4.5);
+      } else {
+        log('CO', `Manoeuvring, CO — relay to Helm: come up to ${ordStr}. Manual ballast ops`, P.MED);
+        qlog('ENG',  `CO, Manoeuvring — aye, relaying to Helm`, 2.0);
+        qlog('HELM', `Manoeuvring, Helm — coming up to ${ordStr}. Operating ballast manually`, 4.5);
+      }
+    },
+    // Conn room unavailable — action blocked
+    connRoomUnavail(action) {
+      const label = action.charAt(0).toUpperCase() + action.slice(1);
+      msg(`${action.toUpperCase()}: CONN EVACUATED`, 1.2);
+      log('CO', `${label} unavailable — control room evacuated`, P.MED);
+    },
     comeToPD() {
       msg('COME TO PD', 1.0);
       log('CONN', 'Helm, Conn — come to periscope depth');
@@ -457,6 +491,21 @@
     },
     towedArrayOverspeed(speed) {
       log('ENG', `Conn, Eng — array overspeed. Rated 18kt, currently ${Math.round(speed)}kt. Risk of cable loss`, P.MED);
+    },
+    steeringCasualty(state) {
+      if (state === 'degraded') {
+        msg('STEERING DEGRADED', 1.2);
+        log('ENG', 'Conn, Manoeuvring — steering casualty, rudder response degraded. Reduced authority', P.MED);
+        qlog('HELM', 'Manoeuvring, Helm — steering degraded, maintaining course best able', 2.0);
+      } else if (state === 'offline') {
+        msg('STEERING OFFLINE', 1.4);
+        log('ENG', 'Conn, Manoeuvring — steering offline. Switching to emergency tiller. Severely reduced authority', P.CRIT);
+        qlog('HELM', 'Manoeuvring, Helm — emergency tiller rigged. Turns very slow', 2.5);
+      } else if (state === 'destroyed') {
+        msg('RUDDER JAMMED', 1.6);
+        log('ENG', 'Conn, Manoeuvring — rudder jammed. No steering authority. Recommend all stop', P.CRIT);
+        qlog('HELM', 'Manoeuvring, Helm — no steering response. Rudder jammed', 2.0);
+      }
     },
   };
 
@@ -569,6 +618,15 @@
       log('CONN', connOrder);
       qlog('ENG', engAck, 1.2);
     },
+    // Conn room evacuated — speed order relayed via internal comms; CO issues from passage or aft section
+    speedOrderRelay(label, connOrder, engAck) {
+      msg(label, 1.0);
+      // Rewrite "Eng, Conn —" to "Manoeuvring, CO —" since CO is no longer at Conn
+      const coOrder = connOrder.replace(/^Eng, Conn\s*—/, 'Manoeuvring, CO —');
+      log('CO', coOrder, P.MED);
+      qlog('ENG',  `CO, Manoeuvring — order received, aye`, 2.5);
+      qlog('ENG',  engAck, 5.0);
+    },
   };
 
   // ════════════════════════════════════════════════════════════════════════
@@ -632,7 +690,11 @@
     },
 
     casualtyControlled(cause) {
-      log('CONN', `Conn — all hands, flooding casualty controlled. Secure from emergency stations. Resume normal watch.`, P.MED);
+      const lines = {
+        flood: 'Conn — all hands, flooding casualty controlled. Secure from emergency stations. Resume normal watch.',
+        fire:  'Conn — all hands, fire casualty controlled. Secure from emergency stations. Resume normal watch.',
+      };
+      log('CONN', lines[cause] || 'Conn — all hands, casualty controlled. Secure from emergency stations.', P.MED);
       msg('CASUALTY CONTROLLED', 1.5);
     },
 
@@ -794,8 +856,133 @@
   };
 
   // ════════════════════════════════════════════════════════════════════════
+  // FIRE
+  // ════════════════════════════════════════════════════════════════════════
+  const fire = {
+    ignited(compLabel, station) {
+      msg(`FIRE — ${compLabel}`, 1.5);
+      log(station, `Conn, ${station} — FIRE in ${compLabel}. Evacuating non-essential crew`, P.CRIT);
+      qlog('CONN', `${station}, Conn — aye. DC teams, fire in ${compLabel}. Emergency stations`, 2.0, P.CRIT);
+    },
+    watchkeeperResponse(compLabel, count) {
+      const countStr = count === 1 ? 'one watchkeeper' : `${count} watchkeepers`;
+      qlog('ENG', `Conn, ${compLabel} — ${countStr} staying to fight fire`, 1.5, P.MED);
+    },
+    watchkeeperCasualty(name, compLabel, status) {
+      msg('FIRE CASUALTY', 1.2);
+      log('ENG', `Conn, ${compLabel} — watchkeeper ${status}: ${name}`, P.CRIT);
+    },
+    watchkeeperOvercome(compLabel) {
+      msg('WATCHKEEPERS OVERCOME', 1.4);
+      log('ENG', `Conn, ${compLabel} — all watchkeepers overcome. Fire unattended`, P.CRIT);
+    },
+    dcArrival(teamLabel, compLabel) {
+      log('ENG', `Conn, ${teamLabel} — on scene ${compLabel}, engaging fire`, P.MED);
+    },
+    dcRelief(compLabel) {
+      log('ENG', `Conn, DC — relieving watchkeepers in ${compLabel}. Taking over fire fight`, P.MED);
+    },
+    dcStatus(teamLabel, pct, compLabel) {
+      dcLog(`${teamLabel} — FIRE ${compLabel} at ${pct}%`);
+    },
+    outOfControl(compLabel) {
+      msg('FIRE OUT OF CONTROL', 1.4);
+      log('ENG', `Conn, ${compLabel} — fire out of control, cannot suppress`, P.CRIT);
+    },
+    heatDamage(sysLabel, state, compLabel) {
+      log('ENG', `Conn, ${compLabel} — heat damage: ${sysLabel} ${state.toUpperCase()}`, P.MED);
+    },
+    extinguished(compLabel, by) {
+      msg(`FIRE OUT — ${compLabel}`, 1.2);
+      if (by === 'watch') {
+        log('ENG', `Conn, ${compLabel} — fire out. Watchkeepers secured the compartment`, P.MED);
+      } else {
+        log('ENG', `Conn, DC — fire out in ${compLabel}. Compartment secure`, P.MED);
+      }
+    },
+    drenchInitiated(compLabel) {
+      msg(`N2 DRENCH — 20s — ${compLabel}`, 1.6);
+      log('ENG', `Conn, DC — fire out of control in ${compLabel}. Evacuating, nitrogen drench in 20 seconds`, P.CRIT);
+    },
+    nitrogenDrench(compLabel, cas) {
+      msg(`N2 DRENCH — ${compLabel}`, 1.6);
+      log('ENG', `${compLabel} — N2 drench complete. Fire out. Compartment uninhabitable`, P.CRIT);
+      if (cas > 0) qlog('ENG', `${compLabel} — ${cas} personnel overcome by drench`, 2.0, P.CRIT);
+    },
+    cascade(fromLabel, toLabel) {
+      msg('FIRE SPREADING', 1.4);
+      log('ENG', `Conn, ${fromLabel} — fire spreading to ${toLabel}`, P.CRIT);
+    },
+    crewReturn(compLabel, station, n) {
+      log('CONN', `All stations, Conn — ${compLabel} fire out. Watchkeepers close up.`);
+      qlog(station, `Conn, ${station} — manned and ready`, 0.5);
+    },
+  };
+
+  // ── Medical ───────────────────────────────────────────────────────────────
+  const medical = {
+    // 1MC general announcing — "Casualty, casualty, casualty"
+    casualtyCallOut(compLabel) {
+      log('CONN', `CASUALTY CASUALTY CASUALTY — ${compLabel} — MEDICAL STAFF CLOSE UP`, P.CRIT);
+      msg(`CASUALTY — ${compLabel}`, 2.5);
+    },
+    enRoute(staffLabel, compLabel) {
+      log('MEDS', `${staffLabel} — En route to ${compLabel}`, P.NORMAL);
+    },
+    onScene(staffLabel, compLabel) {
+      log('MEDS', `${staffLabel} — On scene ${compLabel}, assessing casualties`, P.MED);
+    },
+    treating(staffLabel, victimName, severity) {
+      log('MEDS', `${staffLabel} — Treating ${victimName} (${severity})`, P.NORMAL);
+    },
+    recovered(staffLabel, victimName) {
+      log('MEDS', `${staffLabel} — ${victimName} returned to duty`, P.MED);
+    },
+    bleedOut(victimName, compLabel) {
+      log('MEDS', `CRITICAL CASUALTY LOST — ${victimName} in ${compLabel}`, P.CRIT);
+      msg(`CRITICAL CASUALTY — ${victimName}`, 3.0);
+    },
+    staffDown(staffLabel) {
+      log('MEDS', `${staffLabel} is a casualty — medical capacity reduced`, P.CRIT);
+    },
+    noMedStaff() {
+      log('MEDS', `WARNING — No medical staff available. Casualties untreated`, P.CRIT);
+      msg(`NO MEDICAL STAFF`, 3.0);
+    },
+    allClear(staffLabel) {
+      log('MEDS', `${staffLabel} — All casualties treated. Returning to sick bay`, P.NORMAL);
+    },
+  };
+
+  // ── Watch handover ────────────────────────────────────────────────────────
+  const watch = {
+    // OOW requests relief at 80% fatigue
+    requestRelief(watchId) {
+      log('CONN', `OOW — Watch ${watchId} crew fatigued. Request permission to relieve the watch, sir`, P.MED);
+    },
+    // Handover initiated — incoming watch mustering
+    relieving(outgoing, incoming) {
+      log('CONN', `Aye sir. Watch ${outgoing} — relieving the watch. Watch ${incoming} mustering now`, P.NORMAL);
+      dcLog(`Watch change initiated — Watch ${incoming} incoming`);
+    },
+    // New watch assumes
+    onWatch(incoming, oowName) {
+      log('CONN', `Watch ${incoming} on watch. Officer of the Watch: ${oowName}`, P.MED);
+      dcLog(`Watch ${incoming} assumed watch — ${oowName} OOW`);
+    },
+    // Forced change at 100% — degradation warning
+    forcedChange(watchId) {
+      log('CONN', `WARNING — Watch ${watchId} crew exhausted. Initiating emergency watch relief`, P.CRIT);
+    },
+    // Attempted during action/emergency
+    blocked() {
+      log('CONN', `Cannot relieve the watch — action stations closed up`, P.NORMAL);
+    },
+  };
+
+  // ════════════════════════════════════════════════════════════════════════
   // EXPORT
   // ════════════════════════════════════════════════════════════════════════
-  window.COMMS = { P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons, nav, sensors, tactical, panel, ui, crewState, depth, trim, planes };
+  window.COMMS = { P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons, nav, sensors, tactical, panel, ui, crewState, depth, trim, planes, fire, watch, medical };
 
 })();

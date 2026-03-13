@@ -124,8 +124,9 @@
     // ── Silent running ─────────────────────────────────────────────────────────
     if(I.keys.has("z")){
       I.keys.delete("z");
-      player.silent=!player.silent;
-      COMMS.nav.silentRunning(player.silent);
+      const dmgFxZ=window.DMG?.getEffects()||{};
+      if(dmgFxZ.silentRunAvail===false){ COMMS.nav.connRoomUnavail('silent running'); }
+      else { player.silent=!player.silent; COMMS.nav.silentRunning(player.silent); }
     }
 
     // ── Emergency turn (Q) ────────────────────────────────────────────────────
@@ -150,6 +151,11 @@
       }
     }
     if(I.keys.has("c")&&player.crashDiveCd<=0&&player.crashDiveT<=0){
+      const dmgFxC=window.DMG?.getEffects()||{};
+      if(dmgFxC.crashDiveAvail===false){
+        I.keys.delete("c");
+        COMMS.nav.connRoomUnavail('crash dive');
+      } else {
       {const ta=player.towedArray; if(ta.state==='operational'){ta.state='damaged';COMMS.nav.towedArrayStress('crash dive','damaged');}else if(ta.state==='damaged'){ta.state='destroyed';COMMS.nav.towedArrayStress('crash dive','destroyed');}}
       I.keys.delete("c");
       player.crashDiveT=C.player.crashDive.dur;
@@ -176,6 +182,7 @@
       player.planes.fwd.angle=-8;
       COMMS.nav.crashDive();
       player._crashDepthCalled=new Set();
+      } // end else (crashDiveAvail)
     }
   }
 
@@ -187,7 +194,9 @@
     const dmgFx = window.DMG?.getEffects() || {};
     if(dmgFx.speedCap!=null) orderKts=Math.min(orderKts, dmgFx.speedCap);
     const err=orderKts-player.speed;
-    player.speed+=(err/Math.max(0.05,C.player.speedTau))*dt;
+    // Conn room lost — engine orders relayed via internal comms; 4× slower response
+    const speedTauEff = dmgFx.connRoomLost ? C.player.speedTau * 4.0 : C.player.speedTau;
+    player.speed+=(err/Math.max(0.05, speedTauEff))*dt;
     player.speed=clamp(player.speed,0,Math.min(C.player.flankKts, dmgFx.speedCap??Infinity));
     // Helm speed report — fires once when actual speed settles within 0.8kt of order
     if(Math.abs(player.speed-orderKts)<0.8 && Math.abs((player._lastReportedKts??-99)-orderKts)>1.0){
@@ -202,7 +211,8 @@
     // ── Heading — steer toward next waypoint ──────────────────────────────────
     // Speed-scaled turn rate
     const speedFrac=clamp(player.speed/Math.max(1,C.player.flankKts),0,1);
-    const maxTurnDeg=lerp(C.player.turnRateMinDeg,C.player.turnRateDeg,speedFrac);
+    const steeringMult=dmgFx.steeringMult??1.0;
+    const maxTurnDeg=lerp(C.player.turnRateMinDeg,C.player.turnRateDeg,speedFrac)*steeringMult;
     const maxTurn=deg2rad(maxTurnDeg);
 
     if(route.length>0){

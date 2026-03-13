@@ -24,8 +24,12 @@
     const fov  = torp.target ? (torp.seekFOV??cfg.seekFOV) : (cfg.passiveFOV??2.4);
     const range= torp.seekRange ?? cfg.seekRange;
 
-    // Depth window — generous: ±200wu (~200m). Enough to catch targets at different depths.
-    const depthWin = 175; // tightened from 200 — crash dive alone just barely clears
+    // Depth window: use config value. Active seeker (locked) is tighter — the
+    // narrow active cone naturally constrains vertical geometry. Passive search
+    // uses full vertWindow. Layer crossing degrades passive acquisition range.
+    const depthWin = torp.target
+      ? (cfg.vertWindow??120) * 0.6   // active: ±72m — locked seeker is precise
+      : (cfg.vertWindow??120);         // passive: ±120m — wide search arc
 
     const candidates = torp.friendly ? enemies : [player];
 
@@ -36,7 +40,11 @@
       const dx=wrapDx(torp.x, tx);
       const dy=ty - torp.y;
       const dist=Math.hypot(dx,dy);
-      if(dist > range) continue;
+      // Layer crossing degrades passive seeker range (target in different depth band)
+      const layerMult = (!torp.target && window.AI)
+        ? window.AI.layerPenalty(torp.depth??200, t.depth??200)
+        : 1.0;
+      if(dist > range * layerMult) continue;
       if(Math.abs((torp.depth??200)-(t.depth??200)) > depthWin) continue;
       const angTo=Math.atan2(dy,dx);
       const dAng=Math.abs(angleNorm(angTo-torpAng));

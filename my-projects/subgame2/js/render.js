@@ -7,7 +7,7 @@
   const {doodleLine,doodleCircle,doodleText,w2s,wScale,PANEL_H,STRIP_W}=window.R;
   const {drawLand,drawRoute,drawPlayerTopDown,drawEnemySubTopDown,drawEnemyBoatTopDown,drawTorpedoTopDown}=window.RWORLD;
   const {drawDepthStrip,drawThreatBar}=window.RHUD;
-  const {drawStartScreen,drawLogPanel,drawDcPanel,drawDamagePanel,drawPanel}=window.RPANEL;
+  const {drawStartScreen,drawLogPanel,drawDcPanel,drawDamagePanel,drawCrewPanel,drawDamageScreen,drawPanel}=window.RPANEL;
 
   // ── Main draw ─────────────────────────────────────────────────────────────────
   function draw(){
@@ -737,6 +737,12 @@
     // ── Damage Control overlay ────────────────────────────────────────────────
     drawDamagePanel(W,H,panelH);
 
+    // ── Crew Manifest overlay ─────────────────────────────────────────────────
+    drawCrewPanel(W,H,panelH);
+
+    // ── Unified Damage/Crew full-screen panel ─────────────────────────────────
+    drawDamageScreen(W,H);
+
     // ── Cursor distance label ─────────────────────────────────────────────────
     // Show bearing + distance from sub to cursor while mouse is in chart area
     {
@@ -860,11 +866,13 @@
         ctx.moveTo(ex,ey-r); ctx.lineTo(ex,ey+r);
         ctx.stroke();
         ctx.beginPath(); ctx.arc(ex,ey,r*0.45,0,Math.PI*2); ctx.stroke();
-        // Label: type, speed, suspicion
+        // Label: type, speed, suspicion (+ noise floor/live when g is on)
         const spd=Math.round(Math.hypot(e.vx||0,e.vy||0));
         const sus=Math.round((e.suspicion||0)*100);
         const role=e.role?` [${e.role.slice(0,3).toUpperCase()}]`:'';
-        const label=`${e.type.toUpperCase()}${role} ${spd}kt sus${sus}%`;
+        const noisePart=game.debugNoise
+          ?` n=${(e.noise??0).toFixed(2)}(f=${(e._noiseFloor??0).toFixed(2)})`:'';
+        const label=`${e.type.toUpperCase()}${role} ${spd}kt sus${sus}%${noisePart}`;
         ctx.font=`${8*DPR}px ui-monospace,monospace`;
         ctx.textAlign='left';
         ctx.fillStyle='rgba(255,0,220,0.90)';

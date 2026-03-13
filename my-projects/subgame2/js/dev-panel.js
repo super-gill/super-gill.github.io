@@ -1,0 +1,475 @@
+// dev-panel.js — floating admin/test panel
+// Injected into the DOM after DOMContentLoaded.
+// All actions operate on window.G (game state) which is set up by sim.js.
+
+(function(){
+  // ── Styles ────────────────────────────────────────────────────────────────
+  const style=document.createElement('style');
+  style.textContent=`
+    #dev-panel{
+      position:fixed;top:8px;right:8px;z-index:9999;
+      background:rgba(10,12,20,0.92);border:1px solid rgba(0,200,255,0.35);
+      border-radius:4px;font:12px/1.5 ui-monospace,monospace;color:#9ef;
+      min-width:220px;max-width:260px;user-select:none;box-shadow:0 2px 12px rgba(0,0,0,0.6);
+    }
+    #dev-panel-header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:5px 10px;cursor:pointer;border-bottom:1px solid rgba(0,200,255,0.2);
+      letter-spacing:.08em;font-size:11px;color:#5df;
+    }
+    #dev-panel-header:hover{background:rgba(0,200,255,0.06);}
+    #dev-panel-body{padding:8px 10px;display:flex;flex-direction:column;gap:6px;
+      max-height:calc(100vh - 60px);overflow-y:auto;}
+    #dev-panel.collapsed #dev-panel-body{display:none;}
+    .dev-section-label{
+      font-size:10px;color:rgba(0,200,255,0.45);letter-spacing:.1em;
+      text-transform:uppercase;margin-top:4px;border-top:1px solid rgba(0,200,255,0.10);
+      padding-top:4px;
+    }
+    .dev-section-label:first-child{border-top:none;margin-top:0;}
+    .dev-row{display:flex;gap:4px;flex-wrap:wrap;}
+    .dev-btn{
+      background:rgba(0,200,255,0.08);border:1px solid rgba(0,200,255,0.25);
+      color:#9ef;border-radius:3px;padding:3px 8px;font:11px ui-monospace,monospace;
+      cursor:pointer;white-space:nowrap;transition:background .1s,color .1s;
+    }
+    .dev-btn:hover{background:rgba(0,200,255,0.20);color:#fff;}
+    .dev-btn.active{background:rgba(0,255,140,0.18);border-color:rgba(0,255,140,0.5);color:#0fa;}
+    .dev-btn.danger{border-color:rgba(255,80,80,0.4);color:#f99;}
+    .dev-btn.danger:hover{background:rgba(255,80,80,0.18);color:#fcc;}
+    .dev-btn.warn{border-color:rgba(255,180,0,0.4);color:#fb8;}
+    .dev-btn.warn:hover{background:rgba(255,180,0,0.15);color:#ffc;}
+    .dev-status{font-size:10px;color:rgba(0,200,255,0.5);min-height:14px;margin-top:2px;}
+    #dev-damage-state{font-size:9.5px;color:rgba(160,200,255,0.60);line-height:1.6;
+      border:1px solid rgba(0,200,255,0.12);border-radius:3px;padding:4px 6px;
+      background:rgba(0,0,0,0.25);}
+  `;
+  document.head.appendChild(style);
+
+  // ── Compartment map ───────────────────────────────────────────────────────
+  const COMPS=[
+    {key:'fore_ends',   short:'TRP', label:'Torpedo Room'},
+    {key:'control_room',short:'CON', label:'Control Room'},
+    {key:'aux_section', short:'AUX', label:'Aux Machinery'},
+    {key:'reactor_comp',short:'RCT', label:'Reactor Comp'},
+    {key:'engine_room', short:'MAN', label:'Maneuvering'},
+    {key:'aft_ends',    short:'ENG', label:'Engineering'},
+  ];
+
+  const SYS_LIST=[
+    {id:'tubes',          label:'Tubes',       comp:'fore_ends'},
+    {id:'sonar_hull',     label:'Sonar',        comp:'fore_ends'},
+    {id:'planes_fwd_hyd', label:'Fwd Planes',   comp:'fore_ends'},
+    {id:'periscope',      label:'Scope',        comp:'control_room'},
+    {id:'ballast',        label:'Ballast',      comp:'control_room'},
+    {id:'tdc_comp',       label:'TDC',          comp:'control_room'},
+    {id:'reactor',        label:'Reactor',      comp:'reactor_comp'},
+    {id:'propulsion',     label:'Prop',         comp:'engine_room'},
+    {id:'steering',       label:'Steering',     comp:'aft_ends'},
+    {id:'planes_aft_hyd', label:'Aft Planes',   comp:'aft_ends'},
+    {id:'towed_array',    label:'Towed Array',  comp:'aft_ends'},
+  ];
+
+  // ── HTML ──────────────────────────────────────────────────────────────────
+  const floodBtns  = COMPS.map(c=>`<button class="dev-btn danger" data-flood="${c.key}">${c.short}</button>`).join('');
+  const fireBtns   = ''; // replaced by per-room buttons below
+
+  const panel=document.createElement('div');
+  panel.id='dev-panel';
+  panel.innerHTML=`
+    <div id="dev-panel-header">
+      <span>⚙ DEV PANEL</span><span id="dev-panel-chevron">▲</span>
+    </div>
+    <div id="dev-panel-body">
+
+      <div class="dev-section-label">View</div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-overlay">True Pos</button>
+        <button class="dev-btn" id="dev-btn-noise">Noise</button>
+        <button class="dev-btn" id="dev-btn-dmg">Dmg Screen</button>
+      </div>
+
+      <div class="dev-section-label">Player</div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-god">God Mode</button>
+        <button class="dev-btn" id="dev-btn-torps">Reload Torps</button>
+      </div>
+
+      <div class="dev-section-label">Flood</div>
+      <div class="dev-row">${floodBtns}</div>
+      <div class="dev-row">
+        <button class="dev-btn warn" id="dev-btn-flood-clear">Clear Floods</button>
+        <button class="dev-btn danger" id="dev-btn-flood-multi">Multi-Flood</button>
+      </div>
+
+      <div class="dev-section-label">Fire</div>
+      <div id="dev-fire-rooms"></div>
+      <div class="dev-row">
+        <button class="dev-btn warn" id="dev-btn-fire-clear">Clear Fires</button>
+        <button class="dev-btn danger" id="dev-btn-fire-all">Fire All Rooms</button>
+      </div>
+
+      <div class="dev-section-label">Systems</div>
+      <div class="dev-row" id="dev-sys-row" style="flex-direction:column;gap:3px;"></div>
+
+      <div class="dev-section-label">DC Teams</div>
+      <div class="dev-row">
+        <button class="dev-btn warn" id="dev-btn-emerg">Emerg Stations</button>
+        <button class="dev-btn" id="dev-btn-normal">Secure</button>
+      </div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-reset-alpha">Reset Alpha</button>
+        <button class="dev-btn" id="dev-btn-reset-bravo">Reset Bravo</button>
+      </div>
+      <div class="dev-row">
+        <button class="dev-btn warn" id="dev-btn-clear-locks">Clear Locks</button>
+        <button class="dev-btn" id="dev-btn-skip-muster">Skip Muster</button>
+      </div>
+
+      <div class="dev-section-label">Damage State</div>
+      <div id="dev-damage-state">—</div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-refresh-state">Refresh</button>
+        <button class="dev-btn danger" id="dev-btn-full-reset">Full Reset</button>
+      </div>
+
+      <div class="dev-section-label">World</div>
+      <div class="dev-row">
+        <button class="dev-btn danger" id="dev-btn-kill">Kill All</button>
+      </div>
+
+      <div class="dev-section-label">Spawn Sub</div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-hunter">Hunter</button>
+        <button class="dev-btn" id="dev-btn-pinger">Pinger</button>
+        <button class="dev-btn" id="dev-btn-interceptor">Interceptor</button>
+        <button class="dev-btn" id="dev-btn-boat">Boat</button>
+      </div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-cz-hunter">CZ Hunter</button>
+        <button class="dev-btn" id="dev-btn-cz-pinger">CZ Pinger</button>
+      </div>
+
+      <div class="dev-status" id="dev-status"></div>
+    </div>
+  `;
+  document.body.appendChild(panel);
+
+  // ── Build systems rows ────────────────────────────────────────────────────
+  const sysRowEl=document.getElementById('dev-sys-row');
+  for(const sys of SYS_LIST){
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:3px;';
+    row.innerHTML=`
+      <span style="font-size:9px;color:rgba(0,200,255,0.55);width:72px;flex-shrink:0">${sys.label}</span>
+      <button class="dev-btn" style="padding:2px 5px;font-size:10px;" data-sys="${sys.id}" data-state="degraded">DEG</button>
+      <button class="dev-btn danger" style="padding:2px 5px;font-size:10px;" data-sys="${sys.id}" data-state="offline">OFF</button>
+      <button class="dev-btn danger" style="padding:2px 5px;font-size:10px;" data-sys="${sys.id}" data-state="destroyed">DEST</button>
+      <button class="dev-btn active" style="padding:2px 5px;font-size:10px;" data-sys="${sys.id}" data-state="nominal">NOM</button>
+    `;
+    sysRowEl.appendChild(row);
+  }
+
+  // ── Collapse toggle ───────────────────────────────────────────────────────
+  let collapsed=false;
+  document.getElementById('dev-panel-header').addEventListener('click',()=>{
+    collapsed=!collapsed;
+    panel.classList.toggle('collapsed',collapsed);
+    document.getElementById('dev-panel-chevron').textContent=collapsed?'▼':'▲';
+  });
+
+  // ── Status helper ─────────────────────────────────────────────────────────
+  let _statusT=null;
+  function status(msg){
+    const el=document.getElementById('dev-status');
+    el.textContent=msg;
+    clearTimeout(_statusT);
+    _statusT=setTimeout(()=>{ el.textContent=''; },2500);
+  }
+
+  // ── Damage state readout ──────────────────────────────────────────────────
+  function refreshState(){
+    const d=window.G?.player?.damage;
+    const el=document.getElementById('dev-damage-state');
+    if(!d){ el.textContent='No damage state'; return; }
+    const lines=[];
+    // Flood / fire per comp
+    for(const c of COMPS){
+      const fl=d.flooding?.[c.key]??0;
+      const fr=d.floodRate?.[c.key]??0;
+      const fi=Math.max(...[0,1,2].map(di=>d.fire?.[`${c.key}_d${di}`]||0));
+      const flooded=d.flooded?.[c.key];
+      if(fl>0.005||fr>0||fi>0.01||flooded){
+        const parts=[];
+        if(flooded) parts.push('FLOODED');
+        else if(fl>0.005) parts.push(`fld ${Math.round(fl*100)}%`);
+        if(fr>0) parts.push(`rate ${fr.toFixed(3)}`);
+        if(fi>0.01) parts.push(`fire ${Math.round(fi*100)}%`);
+        lines.push(`${c.short}: ${parts.join(' | ')}`);
+      }
+    }
+    // Team states
+    for(const [id,team] of Object.entries(d.teams||{})){
+      const lock=team._locked?'🔒':'';
+      const mstr=team._readyT>0?` mstr${Math.ceil(team._readyT)}s`:'';
+      const dest=team.destination?`→${COMPS.find(c=>c.key===team.destination)?.short??team.destination}`:'';
+      lines.push(`${team.label}: ${team.state}${mstr} task=${team.task??'—'} ${dest}${lock}`);
+    }
+    // Casualty state
+    lines.push(`casualty: ${window.G.game?.casualtyState??'—'}`);
+    el.textContent=lines.length?lines.join('\n'):'All clear';
+  }
+
+  // ── Active state sync ─────────────────────────────────────────────────────
+  function syncActive(){
+    const g=window.G; if(!g) return;
+    document.getElementById('dev-btn-overlay').classList.toggle('active', !!g.game?.debugOverlay);
+    document.getElementById('dev-btn-noise').classList.toggle('active',   !!g.game?.debugNoise);
+    document.getElementById('dev-btn-dmg').classList.toggle('active',     !!g.game?.showDamageScreen);
+    document.getElementById('dev-btn-god').classList.toggle('active',     !!g.game?.godMode);
+    refreshState();
+  }
+  setInterval(syncActive, 500);
+
+  // ── Button helper ─────────────────────────────────────────────────────────
+  function btn(id, fn){ document.getElementById(id).addEventListener('click', fn); }
+
+  // ── View ──────────────────────────────────────────────────────────────────
+  btn('dev-btn-overlay', ()=>{
+    const g=window.G; if(!g) return;
+    g.game.debugOverlay=!g.game.debugOverlay;
+    status(g.game.debugOverlay?'True pos ON':'True pos OFF');
+  });
+  btn('dev-btn-noise', ()=>{
+    const g=window.G; if(!g) return;
+    g.game.debugNoise=!g.game.debugNoise;
+    status(g.game.debugNoise?'Noise labels ON':'Noise labels OFF');
+  });
+  btn('dev-btn-dmg', ()=>{
+    const g=window.G; if(!g) return;
+    g.game.showDamageScreen=!g.game.showDamageScreen;
+    status(g.game.showDamageScreen?'Dmg screen ON':'Dmg screen OFF');
+  });
+
+  // ── Player ────────────────────────────────────────────────────────────────
+  btn('dev-btn-god', ()=>{
+    const g=window.G; if(!g) return;
+    g.game.godMode=!g.game.godMode;
+    status(g.game.godMode?'God mode ON':'God mode OFF');
+  });
+  btn('dev-btn-torps', ()=>{
+    const g=window.G; const C=window.CONFIG; if(!g||!C) return;
+    g.player.torpStock=C.player.torpStock||12;
+    g.player.torpTubes=(g.player.torpTubes||[]).map(()=>0);
+    if(g.player.tubeWires) g.player.tubeWires=g.player.tubeWires.map(()=>null);
+    g.player.pendingFires=[];
+    status('Tubes reloaded');
+  });
+
+  // ── Flood ─────────────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-flood]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const comp=el.dataset.flood;
+      if(typeof window.DMG?.hit==='function'){
+        window.DMG.hit(45, null, null, comp);
+        status(`Hit: ${comp}`);
+      } else { status('DMG not ready'); }
+    });
+  });
+  btn('dev-btn-flood-clear', ()=>{
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    for(const c of COMPS){
+      d.flooding[c.key]=0; d.floodRate[c.key]=0; d.flooded[c.key]=false;
+    }
+    status('Floods cleared');
+  });
+  btn('dev-btn-flood-multi', ()=>{
+    if(typeof window.DMG?.hit!=='function'){ status('DMG not ready'); return; }
+    // Flood two non-adjacent compartments for a serious casualty scenario
+    window.DMG.hit(45, null, null, 'fore_ends');
+    window.DMG.hit(45, null, null, 'engine_room');
+    status('Multi-flood: TRP + MAN');
+  });
+
+  // ── Fire ──────────────────────────────────────────────────────────────────
+  // Build per-room fire buttons organised by section
+  (function(){
+    const container=document.getElementById('dev-fire-rooms');
+    if(!container) return;
+    const SECTION_LABELS={
+      fore_ends:'FORE ENDS', control_room:'CTRL ROOM', aux_section:'AUX',
+      reactor_comp:'REACTOR', engine_room:'ENGINE ROOM', aft_ends:'AFT ENDS',
+    };
+    const ROOM_DEFS=[
+      {id:'fore_ends_d0',    sec:'fore_ends',    label:'FWD DOME',   unmanned:true,  detectionDelay:50},
+      {id:'fore_ends_d1',    sec:'fore_ends',    label:'ENG OFFICE', unmanned:true,  detectionDelay:60},
+      {id:'fore_ends_d2',    sec:'fore_ends',    label:'TRP ROOM',   unmanned:false, detectionDelay:0 },
+      {id:'control_room_d0', sec:'control_room', label:'COMMS',      unmanned:false, detectionDelay:0 },
+      {id:'control_room_d1', sec:'control_room', label:'CTRL ROOM',  unmanned:false, detectionDelay:0 },
+      {id:'control_room_d2', sec:'control_room', label:'MACH ROOM',  unmanned:false, detectionDelay:0 },
+      {id:'aux_section_d0',  sec:'aux_section',  label:'SNKL CTL',   unmanned:true,  detectionDelay:45},
+      {id:'aux_section_d1',  sec:'aux_section',  label:'VENT PLT',   unmanned:true,  detectionDelay:45},
+      {id:'aux_section_d2',  sec:'aux_section',  label:'RX E-COOL',  unmanned:true,  detectionDelay:90},
+      {id:'reactor_comp_d0', sec:'reactor_comp', label:'RC TUNNEL',  unmanned:false, detectionDelay:0 },
+      {id:'reactor_comp_d1', sec:'reactor_comp', label:'REACTOR',    unmanned:true,  detectionDelay:75},
+      {id:'reactor_comp_d2', sec:'reactor_comp', label:'RCT LOWER',  unmanned:true,  detectionDelay:75},
+      {id:'engine_room_d0',  sec:'engine_room',  label:'MANEUV',     unmanned:false, detectionDelay:0 },
+      {id:'engine_room_d1',  sec:'engine_room',  label:'ELEC DIST',  unmanned:false, detectionDelay:0 },
+      {id:'engine_room_d2',  sec:'engine_room',  label:'MACHINERY',  unmanned:false, detectionDelay:0 },
+      {id:'aft_ends_d0',     sec:'aft_ends',     label:'ENGINEER',   unmanned:false, detectionDelay:0 },
+      {id:'aft_ends_d1',     sec:'aft_ends',     label:'PROPULSN',   unmanned:false, detectionDelay:0 },
+      {id:'aft_ends_d2',     sec:'aft_ends',     label:'STEER/AFT',  unmanned:false, detectionDelay:0 },
+    ];
+    // Group by section
+    const bySec={};
+    for(const r of ROOM_DEFS){
+      if(!bySec[r.sec]) bySec[r.sec]=[];
+      bySec[r.sec].push(r);
+    }
+    for(const [sec,rooms] of Object.entries(bySec)){
+      const lbl=document.createElement('div');
+      lbl.style.cssText='font-size:9px;color:rgba(0,200,255,0.35);margin:2px 0 1px;';
+      lbl.textContent=SECTION_LABELS[sec]||sec;
+      container.appendChild(lbl);
+      const row=document.createElement('div');
+      row.className='dev-row';
+      for(const r of rooms){
+        const b=document.createElement('button');
+        b.className='dev-btn danger';
+        b.style.fontSize='10px';
+        b.style.padding='2px 5px';
+        b.textContent=(r.unmanned?'\u26a0 ':'')+r.label;
+        b.title=`${r.id}${r.unmanned?' (UNMANNED — '+(r.detectionDelay??45)+'s detect delay)':''}`;
+        b.addEventListener('click',()=>{
+          if(typeof window.DMG?.igniteFire==='function'){
+            window.DMG.igniteFire(r.id, 0.22);
+            status(`Fire: ${r.label}${r.unmanned?' (undetected)':''}`);
+          } else { status('DMG not ready'); }
+        });
+        row.appendChild(b);
+      }
+      container.appendChild(row);
+    }
+  })();
+  btn('dev-btn-fire-clear', ()=>{
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    // Clear per-room fire levels
+    for(const key of Object.keys(d.fire||{})) d.fire[key]=0;
+    if(d._fireDetected) for(const k of Object.keys(d._fireDetected)) delete d._fireDetected[k];
+    if(d._fireDetectT)  for(const k of Object.keys(d._fireDetectT))  delete d._fireDetectT[k];
+    for(const c of COMPS){
+      if(d._fireWatch) d._fireWatch[c.key]=null;
+      if(d._fireDrench) d._fireDrench[c.key]=false;
+      if(d._fireCritical) d._fireCritical[c.key]=false;
+    }
+    // Release any drench-locked teams
+    for(const team of Object.values(d.teams||{})){
+      if(team.task==='drench_pending'){ team.state='ready'; team.task=null; }
+    }
+    status('All fires cleared');
+  });
+  btn('dev-btn-fire-all', ()=>{
+    if(typeof window.DMG?.igniteFire!=='function'){ status('DMG not ready'); return; }
+    // Ignite one room per section (random manned room, to show normal detection)
+    for(const c of COMPS) window.DMG.igniteFire(c.key, 0.15);
+    status('Fires in all sections');
+  });
+
+  // ── Systems ───────────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-sys][data-state]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+      const sys=el.dataset.sys; const state=el.dataset.state;
+      d.systems[sys]=state;
+      if(state!=='nominal'&&state!=='degraded'){
+        window.COMMS?.nav?.steeringCasualty?.(state);
+      }
+      status(`${sys}: ${state}`);
+    });
+  });
+
+  // ── DC Teams ──────────────────────────────────────────────────────────────
+  btn('dev-btn-emerg', ()=>{
+    const g=window.G; if(!g){ status('G not ready'); return; }
+    g.setCasualtyState('emergency');
+    status('Emergency stations');
+  });
+  btn('dev-btn-normal', ()=>{
+    const g=window.G; if(!g){ status('G not ready'); return; }
+    g.setCasualtyState('normal');
+    const d=g.player?.damage; if(d){
+      d._emergMusterFired=false;
+      for(const t of Object.values(d.teams||{})){ t._autoMode=false; t._readyT=0; }
+    }
+    status('Secure from emergency');
+  });
+
+  function resetTeam(teamId){
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    const team=d.teams?.[teamId]; if(!team){ status(`Team ${teamId} not found`); return; }
+    const homeDef={alpha:'fore_ends', bravo:'engine_room'};
+    team.state='ready';
+    team.location=homeDef[teamId]||team.home;
+    team.destination=null;
+    team.transitEta=0;
+    team.task=null;
+    team.repairTarget=null;
+    team.repairProgress=0;
+    team.musterT=0;
+    team._locked=false;
+    team._autoMode=false;
+    team._readyT=0;
+    status(`${team.label} reset to ready`);
+  }
+  btn('dev-btn-reset-alpha', ()=>resetTeam('alpha'));
+  btn('dev-btn-reset-bravo', ()=>resetTeam('bravo'));
+
+  btn('dev-btn-clear-locks', ()=>{
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    for(const team of Object.values(d.teams||{})){ team._locked=false; }
+    status('Team locks cleared');
+  });
+  btn('dev-btn-skip-muster', ()=>{
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    for(const team of Object.values(d.teams||{})){ if(team._readyT>0) team._readyT=0; }
+    status('Muster countdown skipped');
+  });
+
+  // ── Damage state ──────────────────────────────────────────────────────────
+  btn('dev-btn-refresh-state', refreshState);
+  btn('dev-btn-full-reset', ()=>{
+    if(typeof window.SIM?.reset==='function'){
+      window.SIM.reset();
+      status('Full reset');
+    } else { status('SIM not ready'); }
+  });
+
+  // ── World ─────────────────────────────────────────────────────────────────
+  btn('dev-btn-kill', ()=>{
+    const g=window.G; if(!g) return;
+    for(const e of g.enemies) e.dead=true;
+    status('All enemies killed');
+  });
+
+  // ── Spawn ─────────────────────────────────────────────────────────────────
+  function spawnRole(role){
+    const g=window.G; if(!g) return;
+    if(role==='boat'){ window.AI?.spawnEnemy?.(); status('Spawned boat'); return; }
+    window.AI?.spawnSub(Math.random()*Math.PI*2, 1200, role, 0);
+    status(`Spawned ${role}`);
+  }
+  function spawnCZ(role){
+    const g=window.G; if(!g) return;
+    const CZ=window.CONFIG?.detection?.cz||{};
+    const czDist=((CZ.min??4800)+(CZ.max??5500))/2;
+    window.AI?.spawnSub(Math.random()*Math.PI*2, czDist, role, 0);
+    status(`Spawned CZ ${role} @ ${czDist|0}wu`);
+  }
+  btn('dev-btn-hunter',      ()=>spawnRole('hunter'));
+  btn('dev-btn-pinger',      ()=>spawnRole('pinger'));
+  btn('dev-btn-interceptor', ()=>spawnRole('interceptor'));
+  btn('dev-btn-boat',        ()=>spawnRole('boat'));
+  btn('dev-btn-cz-hunter',   ()=>spawnCZ('hunter'));
+  btn('dev-btn-cz-pinger',   ()=>spawnCZ('pinger'));
+
+})();

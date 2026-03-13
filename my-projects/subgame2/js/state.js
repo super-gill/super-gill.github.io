@@ -58,7 +58,13 @@
     tdc:{target:null, targetId:null, bearing:null, range:null, depth:null, course:null, speed:null, intercept:null},
     missionT:0,
     msgLog:[], logTab:'log',
-    dcLog:[], showDcPanel:false,
+    dcLog:[], showDcPanel:false, showCrewPanel:false, showDamageScreen:false, activeWatch:'A',
+    watchFatigue:0,          // 0→1, fatigue of on-watch crew
+    watchT:0,                // seconds current watch has been on
+    watchChanging:false,     // true during watch handover transition
+    watchChangeT:0,          // countdown to new watch assuming
+    _watchRelief80:false,    // comms gate: 80% fatigue reported
+    _watchRelief100:false,   // comms gate: 100% fatigue / forced change
     scenario:'waves', started:false,
     tacticalState:'cruising',   // cruising | patrol | action
     casualtyState:'normal',     // normal | emergency | escape
