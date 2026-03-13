@@ -126,6 +126,14 @@
         <button class="dev-btn" id="dev-btn-skip-muster">Skip Muster</button>
       </div>
 
+      <div class="dev-section-label">Watertight Doors</div>
+      <div id="dev-wtd-row" class="dev-row" style="flex-direction:column;gap:3px;"></div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-wtd-open-all">Open All</button>
+        <button class="dev-btn warn" id="dev-btn-wtd-close-all">Close All</button>
+        <button class="dev-btn danger" id="dev-btn-wtd-kill-hyd">Kill HYD</button>
+      </div>
+
       <div class="dev-section-label">Damage State</div>
       <div id="dev-damage-state">—</div>
       <div class="dev-row">
@@ -215,6 +223,14 @@
       const dest=team.destination?`→${COMPS.find(c=>c.key===team.destination)?.short??team.destination}`:'';
       lines.push(`${team.label}: ${team.state}${mstr} task=${team.task??'—'} ${dest}${lock}`);
     }
+    // WTD states
+    const WTD_SHORT=['T/C','C/A','A/R','R/M','M/E'];
+    const wtdLine=WTD_SHORT.map((lbl,i)=>{
+      const [sA,sB]=(window.DMG?.WTD_PAIRS||[])[i]||[];
+      const state=(sA&&sB)?d.wtd?.[sA+'|'+sB]||'?':'?';
+      return `${lbl}:${state==='open'?'O':'C'}`;
+    }).join(' ');
+    lines.push(`WTD: ${wtdLine} | hyd:${d.systems?.hyd_main??'?'}`);
     // Casualty state
     lines.push(`casualty: ${window.G.game?.casualtyState??'—'}`);
     el.textContent=lines.length?lines.join('\n'):'All clear';
@@ -433,6 +449,58 @@
     const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
     for(const team of Object.values(d.teams||{})){ if(team._readyT>0) team._readyT=0; }
     status('Muster countdown skipped');
+  });
+
+  // ── Watertight Doors ──────────────────────────────────────────────────────
+  (function(){
+    const container=document.getElementById('dev-wtd-row');
+    if(!container) return;
+    const WTD_LABELS=[
+      {key:'fore_ends|control_room',    label:'TORP / CTRL'},
+      {key:'control_room|aux_section',  label:'CTRL / AUX'},
+      {key:'aux_section|reactor_comp',  label:'AUX / RX'},
+      {key:'reactor_comp|engine_room',  label:'RX / MAN'},
+      {key:'engine_room|aft_ends',      label:'MAN / AFT'},
+    ];
+    for(const wtdDef of WTD_LABELS){
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:6px;';
+      row.innerHTML=`
+        <span style="font-size:9px;color:rgba(0,200,255,0.55);width:78px;flex-shrink:0">${wtdDef.label}</span>
+        <button class="dev-btn" style="padding:2px 6px;font-size:10px;" data-wtd-key="${wtdDef.key}" data-wtd-action="toggle">TOGGLE</button>
+      `;
+      container.appendChild(row);
+    }
+    // Toggle click handler
+    container.addEventListener('click', e=>{
+      const btn2=e.target.closest('[data-wtd-key]'); if(!btn2) return;
+      const key=btn2.dataset.wtdKey;
+      const [sA,sB]=key.split('|');
+      const DMG=window.DMG; if(!DMG){ status('DMG not ready'); return; }
+      DMG.toggleWTD(sA,sB);
+      const d=window.G?.player?.damage;
+      status(`WTD ${btn2.closest('div').querySelector('span').textContent}: ${d?.wtd?.[key]||'?'}`);
+    });
+  })();
+  btn('dev-btn-wtd-open-all', ()=>{
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    for(const key of Object.keys(d.wtd||{})) d.wtd[key]='open';
+    status('All WTDs opened');
+  });
+  btn('dev-btn-wtd-close-all', ()=>{
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    const DMG=window.DMG; if(!DMG) return;
+    for(const [sA,sB] of DMG.WTD_PAIRS){
+      const key=sA+'|'+sB;
+      if((d.wtd?.[key]||'open')==='open') DMG.toggleWTD(sA,sB);
+    }
+    status('All WTDs closed');
+  });
+  btn('dev-btn-wtd-kill-hyd', ()=>{
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    const cur=d.systems?.hyd_main||'nominal';
+    d.systems.hyd_main=cur==='destroyed'?'nominal':'destroyed';
+    status(`hyd_main → ${d.systems.hyd_main}`);
   });
 
   // ── Damage state ──────────────────────────────────────────────────────────

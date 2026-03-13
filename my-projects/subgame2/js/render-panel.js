@@ -3112,6 +3112,42 @@
     }
     ctx.restore();
 
+    // WTD (Watertight Door) indicators — colored bars on each divider, clickable
+    {
+      const wtd=dmg.wtd||{};
+      const hydOk=(dmg.systems?.hyd_main||'nominal')!=='destroyed';
+      const wtdBtnW=14*DPR, wtdBarW=5*DPR, wtdBarH=phBot-phTop;
+      ctx.save(); dsphPill(); ctx.clip();
+      for(let ci=1;ci<=5;ci++){
+        const [sA,sB]=DMG.WTD_PAIRS[ci-1];
+        const key=sA+'|'+sB;
+        const state=wtd[key]||'open';
+        const x=compXs[ci];
+        // Bar color: green tint when open, red when closed, amber if hyd plant out
+        let barCol;
+        if(!hydOk&&state==='open')    barCol='rgba(200,160,40,0.60)';  // amber: open, hyd out
+        else if(!hydOk)               barCol='rgba(180,80,40,0.75)';   // amber-red: closed, hyd out
+        else if(state==='closed')     barCol='rgba(180,50,30,0.80)';   // red: closed
+        else                          barCol='rgba(20,160,70,0.28)';   // dim green: open (normal)
+        ctx.fillStyle=barCol;
+        ctx.fillRect(x-wtdBarW*0.5, phTop, wtdBarW, wtdBarH);
+        // Horizontal crossbar symbol when closed — drawn in D2 mid
+        if(state==='closed'){
+          ctx.strokeStyle='rgba(255,210,190,0.88)'; ctx.lineWidth=1.5*DPR;
+          const bMid=d2Top+dH*0.5;
+          ctx.beginPath(); ctx.moveTo(x-5*DPR,bMid); ctx.lineTo(x+5*DPR,bMid); ctx.stroke();
+        }
+      }
+      ctx.restore();
+      // Click targets — wider than bar for easier clicking
+      for(let ci=1;ci<=5;ci++){
+        const [sA,sB]=DMG.WTD_PAIRS[ci-1];
+        const x=compXs[ci];
+        const _sA=sA, _sB=sB;
+        PNL.btn2(ctx,'',x-wtdBtnW*0.5,phTop,wtdBtnW,wtdBarH,'transparent',()=>DMG.toggleWTD(_sA,_sB));
+      }
+    }
+
     // Deck labels (D1/D2/D3) on left margin, outside hull
     ctx.fillStyle='rgba(80,110,160,0.55)'; ctx.font=`${8*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
     ctx.fillText('D1',phX0-phR-3*DPR,d1Top+dH*0.65);

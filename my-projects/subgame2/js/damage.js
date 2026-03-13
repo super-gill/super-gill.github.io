@@ -13,7 +13,7 @@
 
   const COMP_DEF = {
     fore_ends:    { label:'TORPEDO ROOM',  systems:['tubes','sonar_hull','planes_fwd_hyd'],    crewCount:30, tower:'fwd',  unmanned:false },
-    control_room: { label:'CONTROL ROOM',  systems:['periscope','ballast','tdc_comp'],          crewCount:22, tower:'fwd',  unmanned:false },
+    control_room: { label:'CONTROL ROOM',  systems:['periscope','ballast','tdc_comp','hyd_main'], crewCount:22, tower:'fwd',  unmanned:false },
     aux_section:  { label:'AUX MACHINERY', systems:[],                                          crewCount:0,  tower:null,   unmanned:true  },
     reactor_comp: { label:'REACTOR COMP',  systems:['reactor'],                                 crewCount:3,  tower:null,   unmanned:false },
     engine_room:  { label:'MANEUVERING',   systems:['propulsion'],                              crewCount:20, tower:'aft',  unmanned:false },
@@ -26,6 +26,7 @@
     reactor:'REACTOR', propulsion:'PROPULSION', steering:'STEERING',
     towed_array:'TOWED ARRAY',
     planes_fwd_hyd:'FWD PLANES HYD', planes_aft_hyd:'AFT PLANES HYD',
+    hyd_main:'MAIN HYD PLANT',
   };
 
   // Systems with high injury risk during repair
@@ -55,6 +56,21 @@
     engine_room:  ['reactor_comp','aft_ends'],
     aft_ends:     ['engine_room'],
   };
+  // ── Watertight Door definitions ──────────────────────────────────────────
+  // 5 WTDs, one between each adjacent section pair.
+  // State: 'open' | 'closed'
+  // Hydraulic operation — requires hyd_main (ship's central plant, control_room_d2).
+  // RC tunnel: reactor WTDs use the D1 bypass tunnel; transit never blocked by those doors.
+  const WTD_PAIRS = [
+    ['fore_ends','control_room'],
+    ['control_room','aux_section'],
+    ['aux_section','reactor_comp'],
+    ['reactor_comp','engine_room'],
+    ['engine_room','aft_ends'],
+  ];
+  // Keys where the RC tunnel provides a bypass (transit not blocked even when closed)
+  const WTD_RC_KEYS = new Set(['aux_section|reactor_comp','reactor_comp|engine_room']);
+
   // ── Room definitions (compartments within watertight sections) ────────────
   // d0=D1 top deck, d1=D2 mid deck, d2=D3 lower deck.
   // unmanned rooms have detectionDelay — fire burns undetected until countdown expires.
@@ -247,6 +263,7 @@
         ballast:'nominal',tdc_comp:'nominal',reactor:'nominal',
         propulsion:'nominal',steering:'nominal',towed_array:'nominal',
         planes_fwd_hyd:'nominal',planes_aft_hyd:'nominal',
+        hyd_main:'nominal',
       },
       // Progressive flooding: rate (units/s) and current level (0-1)
       floodRate:{fore_ends:0,control_room:0,aux_section:0,reactor_comp:0,engine_room:0,aft_ends:0},
@@ -320,6 +337,9 @@
         },
       },
       _emergMusterFired:false,
+
+      // Watertight Doors — 5 doors between adjacent sections, all open at start
+      wtd: Object.fromEntries(WTD_PAIRS.map(([a,b])=>[a+'|'+b,'open'])),
     };
     game.dcLog=[];
     game.showDcPanel=false;
@@ -347,6 +367,57 @@
   }
   function maxDCTeams(){
     return Object.values(player.damage?.teams||{}).filter(t=>t.state!=='lost').length;
+  }
+
+  // ── WTD helpers ───────────────────────────────────────────────────────────
+  function _hydMainOk(d){ return (d.systems?.hyd_main||'nominal')!=='destroyed'; }
+
+  function _wtdTransitPenalty(from, to, d){
+    if(!d.wtd) return 0;
+    const fi=COMPS.indexOf(from), ti=COMPS.indexOf(to);
+    if(fi<0||ti<0) return 0;
+    const lo=Math.min(fi,ti), hi=Math.max(fi,ti);
+    let penalty=0;
+    for(let i=lo;i<hi;i++){
+      const key=COMPS[i]+'|'+COMPS[i+1];
+      const state=d.wtd[key]||'open';
+      if(state==='closed'&&!WTD_RC_KEYS.has(key)) penalty+=20;
+    }
+    return penalty;
+  }
+
+  function _wtdFloodSpread(dt, d, pressureMult){
+    for(const [a,b] of WTD_PAIRS){
+      if((d.wtd[a+'|'+b]||'open')!=='open') continue;
+      const fa=d.flooded[a]?1:(d.flooding[a]||0);
+      const fb=d.flooded[b]?1:(d.flooding[b]||0);
+      if(fa<0.05&&fb<0.05) continue;
+      const diff=fa-fb;
+      if(Math.abs(diff)<0.05) continue;
+      const spreadAmt=0.12*pressureMult*dt;
+      if(diff>0&&!d.flooded[b])
+        d.flooding[b]=Math.min(1,(d.flooding[b]||0)+spreadAmt);
+      else if(diff<0&&!d.flooded[a])
+        d.flooding[a]=Math.min(1,(d.flooding[a]||0)+spreadAmt);
+    }
+  }
+
+  // ── Toggle a watertight door ───────────────────────────────────────────────
+  function toggleWTD(sectionA, sectionB){
+    const d=player.damage; if(!d) return;
+    const key=sectionA+'|'+sectionB;
+    if(!Object.prototype.hasOwnProperty.call(d.wtd, key)) return;
+    if(!_hydMainOk(d)){
+      dcLog('WTD — HYD PLANT DESTROYED — DOOR CANNOT BE OPERATED');
+      return;
+    }
+    const cur=d.wtd[key];
+    const next=cur==='open'?'closed':'open';
+    d.wtd[key]=next;
+    const isManual=(d.systems?.hyd_main||'nominal')==='offline';
+    const labA=COMP_DEF[sectionA]?.label||sectionA;
+    const labB=COMP_DEF[sectionB]?.label||sectionB;
+    dcLog(`WTD ${labA}/${labB} — ${next.toUpperCase()}${isManual?' (MANUAL OP)':''}`);
   }
 
   function _floodComp(comp){
@@ -742,7 +813,7 @@
         team.musterT-=dt;
         if(team.musterT<=0){
           const comp=team.destination;
-          const eta=TRAVEL[team.location]?.[comp]??60;
+          const eta=(TRAVEL[team.location]?.[comp]??60)+_wtdTransitPenalty(team.location,comp,d);
           team.state='transit';
           team.transitEta=eta;
           COMMS.dc.dispatched(team.label, COMP_DEF[comp].label, Math.round(eta));
@@ -1609,6 +1680,9 @@
     const _depthM=Math.max(0,(player.depth||0)-(window.G.world?.seaLevel||0));
     const _pressureMult=1+Math.min(_depthM/120, 4);
 
+    // Flood spread through open watertight doors
+    _wtdFloodSpread(dt, d, _pressureMult);
+
     // Progressive flooding
     for(const comp of COMPS){
       if(d.flooded[comp]) continue;
@@ -1870,7 +1944,8 @@
     assignTeam,recallTeam,teamAtComp,
     initiateEscape,canTCE,
     getTrimState,drawHPA,
-    COMP_DEF,COMPS,STATES,SYS_LABEL,ROOMS,ROOM_IDS,SECTION_ROOMS,
+    toggleWTD,
+    COMP_DEF,COMPS,STATES,SYS_LABEL,ROOMS,ROOM_IDS,SECTION_ROOMS,WTD_PAIRS,WTD_RC_KEYS,
     COMP_SYSTEMS:Object.fromEntries(Object.entries(COMP_DEF).map(([k,v])=>[k,v.systems])),
     COMPARTMENTS:COMPS,
     CREW_MANIFEST,
