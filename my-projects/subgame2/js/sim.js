@@ -267,50 +267,47 @@
       const t = player.scramT;
       const wT = wasT; // previous value
 
+      // Check whether reactor systems are fire-damaged — suppresses recovery sequence
+      // so we don't hear "all systems normal" while DC teams are still repairing the reactor.
+      const reactorDamaged = window.player?.damage?.systems?.reactor &&
+                             window.player.damage.systems.reactor !== 'nominal';
+
       // T+0 — MANV immediate call (fired from triggerScram, not here)
       // T+3 — EPM online
       if(wT>72 && t<=72 && !player.scramEPM){
         player.scramEPM=true;
         COMMS.reactor.epmon();
       }
-      // T+4 — CONN ack
-      if(wT>71 && t<=71){
-        // (ack included in COMMS.reactor.epmon)
-      }
-      // T+8 — ENG start recovery
+      // T+8 — ENG start recovery (or hold if damaged)
       if(wT>67 && t<=67){
-        COMMS.reactor.recoveryStart();
+        if(reactorDamaged){
+          COMMS.reactor.scramHoldRepair();
+        } else {
+          COMMS.reactor.recoveryStart();
+        }
       }
-      // T+9 — CONN maintain silence
-      if(wT>66 && t<=66){
-        // (included in COMMS.reactor.recoveryStart)
-      }
-      // T+20 — primary coolant circulating
-      if(wT>55 && t<=55){
-        COMMS.reactor.recoveryProgress(0);
-      }
-      // T+35 — pulling rods
-      if(wT>40 && t<=40){
-        COMMS.reactor.recoveryProgress(1);
-      }
-      // T+50 — self-sustaining reaction
-      if(wT>25 && t<=25){
-        COMMS.reactor.recoveryProgress(2);
-      }
-      // T+65 — turbines online
-      if(wT>10 && t<=10){
-        COMMS.reactor.recoveryProgress(3);
-        COMMS.reactor.recoveryProgress(4);
-      }
-      // T+70 — reactor back in band, scram clears
-      if(wT>5 && t<=5){
-        COMMS.reactor.recoveryProgress(5);
+      // Recovery progress steps — skipped entirely if reactor is damaged
+      if(!reactorDamaged){
+        // T+20 — primary coolant circulating
+        if(wT>55 && t<=55) COMMS.reactor.recoveryProgress(0);
+        // T+35 — pulling rods
+        if(wT>40 && t<=40) COMMS.reactor.recoveryProgress(1);
+        // T+50 — self-sustaining reaction
+        if(wT>25 && t<=25) COMMS.reactor.recoveryProgress(2);
+        // T+65 — turbines online
+        if(wT>10 && t<=10){
+          COMMS.reactor.recoveryProgress(3);
+          COMMS.reactor.recoveryProgress(4);
+        }
+        // T+70 — reactor back in band
+        if(wT>5 && t<=5) COMMS.reactor.recoveryProgress(5);
       }
       if(t<=0){
         player.scram=false;
         player.scramEPM=false;
         player.scramCause=null;
-        COMMS.reactor.online();
+        if(!reactorDamaged) COMMS.reactor.online();
+        // If damaged: reactor stays offline — maneuvering comms fire when repair completes
       }
     }
 
@@ -1473,6 +1470,7 @@
         game.watchChanging=false;
         game.watchFatigue=0;
         game.watchT=0;
+        window.DMG?.relocateCrewForWatch(game.activeWatch);
         COMMS.watch.onWatch(game.activeWatch, _oowName(game.activeWatch));
       }
       return;

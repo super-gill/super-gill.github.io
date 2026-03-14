@@ -403,24 +403,32 @@
           const team=teams[ti];
           const tx=bx+padX+ti*halfW;
           const isReady=team.state==='ready';
-          const stateCol=team.state==='lost'?'rgba(220,55,55,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='transit'?'rgba(220,170,35,0.90)':team.task==='flood'?'rgba(120,180,255,0.90)':team.task==='repair'?'rgba(80,210,100,0.85)':isReady?'rgba(100,100,110,0.70)':'rgba(160,200,160,0.70)';
+          const stateCol=team.state==='lost'?'rgba(220,55,55,0.90)':team.task==='drench_pending'?'rgba(255,130,0,0.90)':team.task==='vent_n2'?'rgba(0,185,165,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='transit'?'rgba(220,170,35,0.90)':team.task==='flood'?'rgba(120,180,255,0.90)':team.task==='repair'?'rgba(80,210,100,0.85)':isReady?'rgba(100,100,110,0.70)':'rgba(160,200,160,0.70)';
           ctx.fillStyle=stateCol; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
           ctx.fillText(team.label,tx,sumY+13*DPR);
           ctx.fillStyle='rgba(17,24,39,0.55)'; ctx.font=`${9*DPR}px ui-monospace,monospace`;
+          const _dT=d?._fireDrenchPending?.[DMG.roomSection(team.location)]?.t;
           const loc=team.state==='lost'?'LOST':
-            team.state==='mustering'?`MUSTER → ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.musterT||0)}s)`:
-            team.state==='blowing'?`HP BLOW — ${DMG.COMP_DEF[team.location]?.label||'?'}`:
-            team.state==='transit'?`→ ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.transitEta)}s)`:
+            team.task==='drench_pending'?`N2 DRENCH — ${DMG.ROOMS[team.location]?.label||'?'} (${Math.ceil(_dT||0)}s)`:
+            team.task==='vent_n2'?`VENT N2 — ${DMG.ROOMS[team.location]?.label||'?'} (${Math.ceil(team._ventT||0)}s)`:
+            team.state==='mustering'?`MUSTER → ${DMG.SECTION_LABEL?.[team.destination]||'?'} (${Math.ceil(team.musterT||0)}s)`:
+            team.state==='blowing'?`HP BLOW — ${DMG.ROOMS[team.location]?.label||'?'}`:
+            team.state==='transit'?`→ ${DMG.SECTION_LABEL?.[team.destination]||'?'} (${Math.ceil(team.transitEta)}s)`:
             isReady?'AVAILABLE':
-            team.task==='flood'?`FLOOD — ${DMG.COMP_DEF[team.location]?.label||'?'}`:
-            team.task==='repair'?`REPAIR ${DMG.SYS_LABEL[team.repairTarget]||'?'} — ${DMG.COMP_DEF[team.location]?.label||'?'}`:
-            `ON SCENE — ${DMG.COMP_DEF[team.location]?.label||'?'}`;
+            team.task==='flood'?`FLOOD — ${DMG.ROOMS[team.location]?.label||'?'}`:
+            team.task==='repair'?`REPAIR ${DMG.SYS_LABEL[team.repairTarget]||'?'} — ${DMG.ROOMS[team.location]?.label||'?'}`:
+            `ON SCENE — ${DMG.ROOMS[team.location]?.label||'?'}`;
           ctx.fillText(loc,tx,sumY+25*DPR);
           if(team.state==='on_scene'&&team.task==='repair'){
-            const job=window.G?.player?.damage?.repairJobs?.[team.location];
+            const job=window.G?.player?.damage?.repairJobs?.[DMG.roomSection(team.location)];
             const pct=job?Math.min(1,job.progress/job.totalTime):0;
             ctx.fillStyle='rgba(17,24,39,0.10)'; ctx.fillRect(tx,sumY+30*DPR,halfW-padX*2,5*DPR);
             ctx.fillStyle='rgba(60,180,80,0.75)'; ctx.fillRect(tx,sumY+30*DPR,(halfW-padX*2)*pct,5*DPR);
+          }
+          if(team.task==='vent_n2'){
+            const pct=1-(team._ventT||0)/60;
+            ctx.fillStyle='rgba(0,60,60,0.30)'; ctx.fillRect(tx,sumY+30*DPR,halfW-padX*2,5*DPR);
+            ctx.fillStyle='rgba(0,185,165,0.70)'; ctx.fillRect(tx,sumY+30*DPR,(halfW-padX*2)*Math.min(1,pct),5*DPR);
           }
         }
       }
@@ -533,26 +541,35 @@
           const team=teams[ti];
           const tx=px+padX+ti*(pW/2);
           const isReady=team.state==='ready';
-          const stateCol=team.state==='lost'?'rgba(220,55,55,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='transit'?'rgba(220,170,35,0.90)':team.task==='flood'?'rgba(120,180,255,0.90)':team.task==='repair'?'rgba(80,210,100,0.85)':isReady?'rgba(160,160,160,0.70)':'rgba(160,200,160,0.70)';
+          const stateCol=team.state==='lost'?'rgba(220,55,55,0.90)':team.task==='drench_pending'?'rgba(255,130,0,0.90)':team.task==='vent_n2'?'rgba(0,185,165,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='transit'?'rgba(220,170,35,0.90)':team.task==='flood'?'rgba(120,180,255,0.90)':team.task==='repair'?'rgba(80,210,100,0.85)':isReady?'rgba(160,160,160,0.70)':'rgba(160,200,160,0.70)';
           ctx.fillStyle=stateCol; ctx.font=`bold ${11*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
           ctx.fillText(team.label,tx,sumY+16*DPR);
           ctx.fillStyle='rgba(170,140,65,0.70)'; ctx.font=`${10*DPR}px ui-monospace,monospace`;
+          const _dT2=d?._fireDrenchPending?.[DMG.roomSection(team.location)]?.t;
           const loc=team.state==='lost'?'LOST':
-            team.state==='mustering'?`MUSTERING → ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.musterT||0)}s)`:
-            team.state==='blowing'?`HP BLOW — ${DMG.COMP_DEF[team.location]?.label||'?'}`:
-            team.state==='transit'?`MOVING → ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.transitEta)}s)`:
+            team.task==='drench_pending'?`N2 DRENCH — ${DMG.ROOMS[team.location]?.label||'?'} (${Math.ceil(_dT2||0)}s)`:
+            team.task==='vent_n2'?`VENT N2 — ${DMG.ROOMS[team.location]?.label||'?'} (${Math.ceil(team._ventT||0)}s)`:
+            team.state==='mustering'?`MUSTERING → ${DMG.SECTION_LABEL?.[team.destination]||'?'} (${Math.ceil(team.musterT||0)}s)`:
+            team.state==='blowing'?`HP BLOW — ${DMG.ROOMS[team.location]?.label||'?'}`:
+            team.state==='transit'?`MOVING → ${DMG.SECTION_LABEL?.[team.destination]||'?'} (${Math.ceil(team.transitEta)}s)`:
             isReady?'AVAILABLE':
-            team.task==='flood'?`FIGHTING FLOOD — ${DMG.COMP_DEF[team.location]?.label||'?'}`:
-            team.task==='repair'?`REPAIRING ${DMG.SYS_LABEL[team.repairTarget]||'?'} — ${DMG.COMP_DEF[team.location]?.label||'?'}`:
-            `ON SCENE — ${DMG.COMP_DEF[team.location]?.label||'?'}`;
+            team.task==='flood'?`FIGHTING FLOOD — ${DMG.ROOMS[team.location]?.label||'?'}`:
+            team.task==='repair'?`REPAIRING ${DMG.SYS_LABEL[team.repairTarget]||'?'} — ${DMG.ROOMS[team.location]?.label||'?'}`:
+            `ON SCENE — ${DMG.ROOMS[team.location]?.label||'?'}`;
           ctx.fillText(loc,tx,sumY+30*DPR);
-          // Repair progress bar
+          // Progress bars
           if(team.state==='on_scene'&&team.task==='repair'){
-            const job=window.G?.player?.damage?.repairJobs?.[team.location];
+            const job=window.G?.player?.damage?.repairJobs?.[DMG.roomSection(team.location)];
             const pct=job?Math.min(1,job.progress/job.totalTime):0;
             const bx=tx,by=sumY+34*DPR,bw=pW/2-padX-8*DPR,bh=6*DPR;
             ctx.fillStyle='rgba(20,40,20,0.60)'; ctx.fillRect(bx,by,bw,bh);
             ctx.fillStyle='rgba(60,180,80,0.75)'; ctx.fillRect(bx,by,bw*pct,bh);
+          }
+          if(team.task==='vent_n2'){
+            const pct=1-(team._ventT||0)/60;
+            const bx=tx,by=sumY+34*DPR,bw=pW/2-padX-8*DPR,bh=6*DPR;
+            ctx.fillStyle='rgba(0,60,60,0.50)'; ctx.fillRect(bx,by,bw,bh);
+            ctx.fillStyle='rgba(0,185,165,0.70)'; ctx.fillRect(bx,by,bw*Math.min(1,pct),bh);
           }
         }
       }
@@ -624,19 +641,32 @@
     for(let ti=0;ti<teamList.length;ti++){
       const team=teamList[ti];
       const tx=OX+P+ti*(OW-P*2)/2+4*DPR;
-      const stateCol=team.state==='lost'?'rgba(200,50,50,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='blowing'?'rgba(255,140,0,0.90)':team.state==='transit'?'rgba(220,170,30,0.90)':team.state==='on_scene'&&team.task==='fire'?'rgba(255,100,20,0.90)':team.state==='on_scene'&&team.task==='flood'?'rgba(100,160,255,0.90)':team.state==='on_scene'&&team.task==='repair'?'rgba(80,200,100,0.90)':team.state==='on_scene'?'rgba(160,200,160,0.70)':'rgba(140,140,140,0.60)';
+      const stateCol=team.state==='lost'?'rgba(200,50,50,0.90)':team.task==='drench_pending'?'rgba(255,130,0,0.90)':team.task==='vent_n2'?'rgba(0,185,165,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='blowing'?'rgba(255,140,0,0.90)':team.state==='transit'?'rgba(220,170,30,0.90)':team.state==='on_scene'&&team.task==='fire'?'rgba(255,100,20,0.90)':team.state==='on_scene'&&team.task==='flood'?'rgba(100,160,255,0.90)':team.state==='on_scene'&&team.task==='repair'?'rgba(80,200,100,0.90)':team.state==='on_scene'?'rgba(160,200,160,0.70)':'rgba(140,140,140,0.60)';
       ctx.fillStyle=stateCol; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
       ctx.fillText(team.label,tx,cy+13*DPR);
-      const taskStr=team.state==='lost'?'— LOST':team.state==='mustering'?`MUSTER → ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.musterT||0)}s)`:team.state==='blowing'?`HP BLOW — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='transit'?`→ ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.transitEta)}s)`:team.state==='on_scene'&&team.task==='fire'?`FIRE — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='flood'?`FLOOD — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='repair'?`REPAIR — ${DMG.SYS_LABEL[team.repairTarget]||'?'}`:team.state==='on_scene'?`STANDBY — ${DMG.COMP_DEF[team.location]?.label||'?'}`:'STANDBY';
+      const _drenchT=dmg._fireDrenchPending?.[DMG.roomSection(team.location)]?.t;
+      const taskStr=team.state==='lost'?'— LOST':team.task==='drench_pending'?`N2 DRENCH — ${DMG.ROOMS[team.location]?.label||'?'} (${Math.ceil(_drenchT||0)}s)`:team.task==='vent_n2'?`VENT N2 — ${DMG.ROOMS[team.location]?.label||'?'} (${Math.ceil(team._ventT||0)}s)`:team.state==='mustering'?`MUSTER → ${DMG.SECTION_LABEL?.[team.destination]||'?'} (${Math.ceil(team.musterT||0)}s)`:team.state==='blowing'?`HP BLOW — ${DMG.ROOMS[team.location]?.label||'?'}`:team.state==='transit'?`→ ${DMG.SECTION_LABEL?.[team.destination]||'?'} (${Math.ceil(team.transitEta)}s)`:team.state==='on_scene'&&team.task==='fire'?`FIRE — ${DMG.ROOMS[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='flood'?`FLOOD — ${DMG.ROOMS[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='repair'?`REPAIR — ${DMG.SYS_LABEL[team.repairTarget]||'?'}`:team.state==='on_scene'?`STANDBY — ${DMG.ROOMS[team.location]?.label||'?'}`:'STANDBY';
       ctx.fillStyle='rgba(160,180,220,0.65)'; ctx.font=`${9*DPR}px ui-monospace,monospace`;
       ctx.fillText(taskStr,tx,cy+26*DPR);
-      // Repair progress bar
+      // Progress bars
       if(team.state==='on_scene'&&team.task==='repair'&&team.repairTarget){
-        const job=window.G?.player?.damage?.repairJobs?.[team.location];
+        const job=window.G?.player?.damage?.repairJobs?.[DMG.roomSection(team.location)];
         const pct=job?Math.min(1,job.progress/job.totalTime):0;
         const bx=tx,by=cy+30*DPR,bw=(OW-P*2)/2-8*DPR,bh=5*DPR;
         ctx.fillStyle='rgba(20,40,80,0.50)'; ctx.fillRect(bx,by,bw,bh);
         ctx.fillStyle='rgba(50,160,80,0.70)'; ctx.fillRect(bx,by,bw*pct,bh);
+      }
+      if(team.task==='vent_n2'){
+        const pct=1-(team._ventT||0)/60;
+        const bx=tx,by=cy+30*DPR,bw=(OW-P*2)/2-8*DPR,bh=5*DPR;
+        ctx.fillStyle='rgba(0,60,60,0.50)'; ctx.fillRect(bx,by,bw,bh);
+        ctx.fillStyle='rgba(0,185,165,0.70)'; ctx.fillRect(bx,by,bw*Math.min(1,pct),bh);
+      }
+      if(team.task==='drench_pending'&&_drenchT!=null){
+        const pct=1-_drenchT/20;
+        const bx=tx,by=cy+30*DPR,bw=(OW-P*2)/2-8*DPR,bh=5*DPR;
+        ctx.fillStyle='rgba(60,30,0,0.50)'; ctx.fillRect(bx,by,bw,bh);
+        ctx.fillStyle='rgba(255,130,0,0.70)'; ctx.fillRect(bx,by,bw*Math.min(1,pct),bh);
       }
     }
     cy+=teamBarH+8*DPR;
@@ -646,7 +676,7 @@
     const schH=148*DPR;
     const schY=cy;
     const compKeys=DMG.COMPS;
-    const compLabels=['TORP RM','CONTROL','AUX MCH','REACTOR','MANEUVR','ENGINRG'];
+    const compLabels=['WTS 1','WTS 2','WTS 3','WTS 4','WTS 5','WTS 6'];
     const compFracs=[0.21,0.21,0.08,0.10,0.21,0.19];
 
     // ── Geometry ──────────────────────────────────────────────────────────────
@@ -825,22 +855,37 @@
       ctx.fillText(crewLabel, cMid, phBot-10*DPR);
 
       // Fire overlay — section max across all rooms
-      const fireLevel=Math.max(...[0,1,2].map(di=>dmg.fire?.[`${comp}_d${di}`]||0));
-      if(fireLevel>0.02){
+      const fireLevel=Math.max(...(DMG.SECTION_ROOMS[comp]||[]).map(rid=>dmg.fire?.[rid]||0));
+      const drench=dmg._fireDrench?.[comp];
+      const drenchLevel=drench?.level??0;
+      if(fireLevel>0.02&&drenchLevel<1){
         ctx.save(); pillPath(); ctx.clip();
         const fx2=ci===0?cx2-phR:cx2, fw2=(ci===0||ci===5)?cw+phR:cw;
-        ctx.fillStyle=`rgba(200,80,0,${0.15+fireLevel*0.30})`;
+        ctx.fillStyle=`rgba(200,80,0,${(0.15+fireLevel*0.30)*(1-drenchLevel)})`;
         ctx.fillRect(fx2,phTop,fw2,phBot-phTop);
+        ctx.restore();
+      }
+      // N2 drench overlay — teal fill rising with level
+      if(drenchLevel>0){
+        ctx.save(); pillPath(); ctx.clip();
+        const fx2=ci===0?cx2-phR:cx2, fw2=(ci===0||ci===5)?cw+phR:cw;
+        const fillH=(phBot-phTop)*drenchLevel;
+        ctx.fillStyle=`rgba(0,210,190,${0.18+drenchLevel*0.32})`;
+        ctx.fillRect(fx2, phBot-fillH, fw2, fillH);
         ctx.restore();
       }
 
       if(isFlooded){
         ctx.fillStyle='rgba(140,180,255,0.95)'; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`;
         ctx.fillText('FLOODED', cMid, phMid+4*DPR);
+      } else if(drenchLevel>0){
+        ctx.fillStyle=drenchLevel>=1?'rgba(0,240,220,0.95)':'rgba(0,210,190,0.90)';
+        ctx.font=`bold ${9*DPR}px ui-monospace,monospace`;
+        ctx.fillText(`N2 ${Math.round(drenchLevel*100)}%`, cMid, phMid+4*DPR);
       } else if(fireLevel>0.02){
         ctx.fillStyle=fireLevel>0.85?'rgba(255,80,20,0.95)':'rgba(255,140,40,0.90)';
         ctx.font=`bold ${9*DPR}px ui-monospace,monospace`;
-        ctx.fillText(dmg._fireDrench?.[comp]?'DRENCHED':`FIRE ${Math.round(fireLevel*100)}%`, cMid, phMid+4*DPR);
+        ctx.fillText(`FIRE ${Math.round(fireLevel*100)}%`, cMid, phMid+4*DPR);
       } else if(flood>0.02){
         ctx.fillStyle='rgba(140,190,255,0.90)'; ctx.font=`${9*DPR}px ui-monospace,monospace`;
         ctx.fillText(`${Math.round(flood*100)}%`, cMid, phMid+4*DPR);
@@ -878,24 +923,41 @@
           const bx=compXs[ci]+dispGap/2;
           const bw=compWs[ci]-dispGap;
           const lbl=compLabels[ci].slice(0,3);
-          const isOnScene   = team.state==='on_scene'  && team.location===comp;
+          const isOnScene   = team.state==='on_scene'  && DMG.roomSection(team.location)===comp;
           const isInTransit = team.state==='transit'   && team.destination===comp;
           const isMustering = team.state==='mustering' && team.destination===comp;
           const isFlooded  = dmg.flooded[comp];
-          const fireLevel  = Math.max(...[0,1,2].map(di=>dmg.fire?.[`${comp}_d${di}`]||0));
+          const fireLevel  = Math.max(...(DMG.SECTION_ROOMS[comp]||[]).map(rid=>dmg.fire?.[rid]||0));
           const hasFire    = fireLevel>0.02;
           const isDrenched = !!dmg._fireDrench?.[comp];
+
+          const isVenting   = team.state==='on_scene'&&DMG.roomSection(team.location)===comp&&team.task==='vent_n2';
+          const isVentTransit=(team.state==='transit'||team.state==='mustering')&&team.destination===comp&&team._ventIntent===comp;
+          const isDrenchWaiting=team.task==='drench_pending'&&DMG.roomSection(team.location)===comp;
 
           let bCol, bLabel, clickFn;
           if(team.state==='lost'){
             bCol='rgba(30,30,30,0.22)'; bLabel=lbl; clickFn=null;
-          } else if(team.state==='blowing'&&team.location===comp){
+          } else if(team.state==='blowing'&&DMG.roomSection(team.location)===comp){
             bCol='rgba(180,90,0,0.85)'; bLabel='BLOW';
             clickFn=()=>DMG.recallTeam(team.id);
+          } else if(isDrenchWaiting){
+            // Team at N2 panel — player can fire immediately
+            bCol='rgba(220,100,0,0.90)'; bLabel='N2!\u25b6';
+            clickFn=()=>DMG.manualDrench(team.id);
           } else if(isDrenched){
-            bCol='rgba(40,40,50,0.45)'; bLabel='N2'; clickFn=null;
+            if(isVenting){
+              bCol='rgba(0,150,135,0.85)'; bLabel='VENT \u25a0';
+              clickFn=()=>DMG.recallTeam(team.id);
+            } else if(isVentTransit){
+              bCol='rgba(0,130,120,0.80)'; bLabel='\u2192VENT';
+              clickFn=()=>DMG.recallTeam(team.id);
+            } else {
+              bCol='rgba(0,100,90,0.70)'; bLabel='VENT';
+              clickFn=()=>DMG.ventN2(team.id,comp);
+            }
           } else if(isFlooded){
-            const isBlowingHere=(team.state==='blowing'&&team.location===comp)||(team.state==='transit'&&team.destination===comp);
+            const isBlowingHere=(team.state==='blowing'&&DMG.roomSection(team.location)===comp)||(team.state==='transit'&&team.destination===comp);
             if(isBlowingHere){
               bCol='rgba(180,90,0,0.85)'; bLabel='BLOW \u25a0';
               clickFn=()=>DMG.recallTeam(team.id);
@@ -2827,7 +2889,7 @@
     const activeWatch=game.activeWatch||'A';
     const P=10*DPR;
     const HDR_H=44*DPR;
-    const LW=Math.round(W*0.60);
+    const LW=W;  // full width — crew panel is below, not beside
     const BODY_Y=HDR_H;
 
     // Full-screen background
@@ -2895,13 +2957,8 @@
     const closeBtnX=W-88*DPR-P;
     PNL.btn2(ctx,'[H] CLOSE',closeBtnX,6*DPR,86*DPR,22*DPR,'rgba(30,40,70,0.80)',()=>{ game.showDamageScreen=false; });
 
-    // Vertical pane divider
-    ctx.strokeStyle='rgba(50,80,130,0.40)';
-    ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(LW,BODY_Y); ctx.lineTo(LW,H); ctx.stroke();
-
     // ──────────────────────────────────────────────────────────────────────────
-    // LEFT PANE — damage control
+    // TOP PANEL — damage control (full width)
     // ──────────────────────────────────────────────────────────────────────────
     let cy=BODY_Y+10*DPR;
 
@@ -2940,11 +2997,11 @@
       const stateCol=team.state==='lost'?'rgba(200,50,50,0.90)':team.state==='mustering'?'rgba(200,140,30,0.80)':team.state==='blowing'?'rgba(255,140,0,0.90)':team.state==='transit'?'rgba(220,170,30,0.90)':team.state==='on_scene'&&team.task==='fire'?'rgba(255,100,20,0.90)':team.state==='on_scene'&&team.task==='flood'?'rgba(100,160,255,0.90)':team.state==='on_scene'&&team.task==='repair'?'rgba(80,200,100,0.90)':team.state==='on_scene'?'rgba(160,200,160,0.70)':'rgba(140,140,140,0.60)';
       ctx.fillStyle=stateCol; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
       ctx.fillText(team.label,tx,cy+13*DPR);
-      const taskStr=team.state==='lost'?'— LOST':team.state==='mustering'?`MUSTER → ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.musterT||0)}s)`:team.state==='blowing'?`HP BLOW — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='transit'?`→ ${DMG.COMP_DEF[team.destination]?.label||'?'} (${Math.ceil(team.transitEta)}s)`:team.state==='on_scene'&&team.task==='fire'?`FIRE — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='flood'?`FLOOD — ${DMG.COMP_DEF[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='repair'?`REPAIR — ${DMG.SYS_LABEL[team.repairTarget]||'?'}`:team.state==='on_scene'?`STANDBY — ${DMG.COMP_DEF[team.location]?.label||'?'}`:'STANDBY';
+      const taskStr=team.state==='lost'?'— LOST':team.state==='mustering'?`MUSTER → ${DMG.SECTION_LABEL?.[team.destination]||'?'} (${Math.ceil(team.musterT||0)}s)`:team.state==='blowing'?`HP BLOW — ${DMG.ROOMS[team.location]?.label||'?'}`:team.state==='transit'?`→ ${DMG.SECTION_LABEL?.[team.destination]||'?'} (${Math.ceil(team.transitEta)}s)`:team.state==='on_scene'&&team.task==='fire'?`FIRE — ${DMG.ROOMS[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='flood'?`FLOOD — ${DMG.ROOMS[team.location]?.label||'?'}`:team.state==='on_scene'&&team.task==='repair'?`REPAIR — ${DMG.SYS_LABEL[team.repairTarget]||'?'}`:team.state==='on_scene'?`STANDBY — ${DMG.ROOMS[team.location]?.label||'?'}`:'STANDBY';
       ctx.fillStyle='rgba(160,180,220,0.65)'; ctx.font=`${9*DPR}px ui-monospace,monospace`;
       ctx.fillText(taskStr,tx,cy+26*DPR);
       if(team.state==='on_scene'&&team.task==='repair'&&team.repairTarget){
-        const job=window.G?.player?.damage?.repairJobs?.[team.location];
+        const job=window.G?.player?.damage?.repairJobs?.[DMG.roomSection(team.location)];
         const pct=job?Math.min(1,job.progress/job.totalTime):0;
         const bx=tx,by=cy+30*DPR,bw=(LW-P*2)/2-8*DPR,bh=5*DPR;
         ctx.fillStyle='rgba(20,40,80,0.50)'; ctx.fillRect(bx,by,bw,bh);
@@ -2954,18 +3011,19 @@
     cy+=teamBarH+8*DPR;
 
     // ── 3-Deck Schematic ───────────────────────────────────────────────────────
-    const schX=P, schW=LW-P*2, schH=185*DPR, schY=cy;
+    const schX=P, schW=LW-P*2, schH=310*DPR, schY=cy;
     const compKeys=DMG.COMPS;
-    const compLabels=['TORP RM','CONTROL','AUX MCH','REACTOR','MANEUVR','ENGINRG'];
-    const compFracs=[0.21,0.21,0.08,0.10,0.21,0.19];
-    // 3 decks of 32px each → inner hull height 96px
-    const dH=32*DPR;
-    const phTop=schY+52*DPR, phBot=schY+148*DPR, phMid=(phTop+phBot)*0.5;
-    const phR=(phBot-phTop)*0.5;                              // 48px
+    const compLabels=['WT SECT 1','WT SECT 2','WT SECT 3','WT SECT 4','WT SECT 5','WT SECT 6'];
+    const compFracs=[0.18,0.22,0.14,0.10,0.22,0.14];
+    // 3 decks of 64px each — geometry derived from dH so hull always fits
+    const dH=64*DPR;
+    const phTop=schY+Math.round(schH*0.26), phBot=schY+Math.round(schH*0.26)+3*dH;
+    const phMid=(phTop+phBot)*0.5;
+    const phR=(phBot-phTop)*0.5;                              // 96px
     const phX0=schX+phR+18*DPR, phX1=schX+schW-phR-18*DPR, phSpan=phX1-phX0;
     const ohR=phR+8*DPR, ohTop=phMid-ohR, ohBot=phMid+ohR;
     const sailCX=phX0+phSpan*(0.21+0.105);
-    const sailW2=44*DPR, sailH2=24*DPR, sailBot2=ohTop, sailTop2=sailBot2-sailH2;
+    const sailW2=86*DPR, sailH2=58*DPR, sailBot2=ohTop, sailTop2=sailBot2-sailH2;
     // Deck top boundaries (D1=top, D2=middle, D3=bottom)
     const d1Top=phTop, d2Top=phTop+dH, d3Top=phTop+2*dH;
     const deckTops=[d1Top,d2Top,d3Top];
@@ -2973,21 +3031,57 @@
     let compXs=[],compWs=[];
     { let xx=phX0; for(let i=0;i<6;i++){ compWs[i]=phSpan*compFracs[i]; compXs[i]=xx; xx+=compWs[i]; } }
     // Per-deck cell labels based on real layout [D1, D2, D3]
-    const DECK_CELL={
-      fore_ends:    ['FWD DOME / PLANES','ENG OFFICE (UNM)','TORPEDO ROOM'],
-      control_room: ['COMMS · SCOPE · ESC','CONTROL ROOM','MACH · HYD · HPA'],
-      aux_section:  ['SNKL CTL','VENT PLT','RX E-COOL'],
-      reactor_comp: ['RC TUNNEL','REACTOR','REACTOR'],
-      engine_room:  ['MANEUVERING','ELEC DIST','MACHINERY'],
-      aft_ends:     ['ENGINEERING','PROPULSION','STEER / AFT'],
+    // Block-based layout: {c:colStart(0-2), cs:colSpan, d:deckStart(0-2), ds:deckSpan, lbl}
+    // 3 columns per section, 3 decks. Blocks may span cols or decks.
+    // cap = cs × ds × 6  (base capacity 6 per 1×1 unit; doubles/trebles scale linearly)
+    const COMP_LAYOUT = {
+      fore_ends: [
+        {c:0,cs:1,d:0,ds:1,lbl:'FWD DOME',   cap:6,  rid:'fore_ends_d0'},
+        {c:1,cs:2,d:0,ds:1,lbl:'COMMS',      cap:12, rid:'fore_ends_d0b'},
+        {c:0,cs:1,d:1,ds:1,lbl:'ENG OFFICE', cap:6,  rid:'fore_ends_d1'},
+        {c:1,cs:2,d:1,ds:1,lbl:'COMPUTER RM',cap:12, rid:'fore_ends_d1b'},
+        {c:0,cs:3,d:2,ds:1,lbl:'TORPEDO ROOM',cap:18,rid:'fore_ends_d2'},
+      ],
+      control_room: [
+        {c:0,cs:1,d:0,ds:1,lbl:'NAV',         cap:6,  rid:'control_room_d0'},
+        {c:1,cs:1,d:0,ds:1,lbl:'SCOPE',       cap:6,  rid:'control_room_d0b'},
+        {c:2,cs:1,d:0,ds:1,lbl:'WARDROOM',    cap:6,  rid:'control_room_d0c'},
+        {c:0,cs:1,d:1,ds:1,lbl:'CO CABIN',    cap:6,  rid:'control_room_d1b'},
+        {c:1,cs:2,d:1,ds:1,lbl:'CONTROL ROOM',cap:12, rid:'control_room_d1'},
+        {c:0,cs:3,d:2,ds:1,lbl:'MACHINERY SP',cap:18, rid:'control_room_d2'},
+      ],
+      aux_section: [
+        {c:0,cs:1,d:0,ds:1,lbl:'JR MESS',    cap:6,  rid:'aux_section_d0'},
+        {c:1,cs:2,d:0,ds:1,lbl:'SR MESS',    cap:12, rid:'aux_section_d0b'},
+        {c:0,cs:2,d:1,ds:1,lbl:'BUNKS',      cap:12, rid:'aux_section_d1'},
+        {c:2,cs:1,d:1,ds:1,lbl:'VENT PLANT', cap:6,  rid:'aux_section_d1b'},
+        {c:0,cs:1,d:2,ds:1,lbl:'AMS 1',      cap:6,  rid:'aux_section_d2'},
+        {c:1,cs:1,d:2,ds:1,lbl:'RX E-COOL',  cap:6,  rid:'aux_section_d2b'},
+        {c:2,cs:1,d:2,ds:1,lbl:'SICKBAY',    cap:6,  rid:'aux_section_d2c'},
+      ],
+      reactor_comp: [
+        {c:0,cs:3,d:0,ds:1,lbl:'RC TUNNEL',  cap:18, rid:'reactor_comp_d0'},
+        {c:0,cs:3,d:1,ds:2,lbl:'REACTOR',    cap:36, rid:['reactor_comp_d1','reactor_comp_d2']},
+      ],
+      engine_room: [
+        {c:0,cs:1,d:0,ds:1,lbl:'AFT PASS',    cap:6,  rid:'engine_room_d0'},
+        {c:1,cs:2,d:0,ds:1,lbl:'MANEUVERING', cap:12, rid:'engine_room_d0b'},
+        {c:0,cs:3,d:1,ds:1,lbl:'ELEC DIST',   cap:18, rid:'engine_room_d1'},
+        {c:0,cs:3,d:2,ds:1,lbl:'AFT ATMOS',   cap:18, rid:'engine_room_d2'},
+      ],
+      aft_ends: [
+        {c:0,cs:1,d:0,ds:1,lbl:'AFT ESCAPE',  cap:6,  rid:'aft_ends_d2b'},
+        {c:1,cs:2,d:0,ds:1,lbl:'ENGINEERING', cap:12, rid:'aft_ends_d0'},
+        {c:0,cs:2,d:1,ds:1,lbl:'PROPULSION',  cap:12, rid:'aft_ends_d1'},
+        {c:2,cs:1,d:1,ds:1,lbl:'SHAFT ALLEY', cap:6,  rid:'aft_ends_d1b'},
+        {c:0,cs:3,d:2,ds:1,lbl:'STEER GEAR',  cap:18, rid:'aft_ends_d2'},
+      ],
     };
+    // All sections total 9 grid units × 6 = 54 max occupancy
+    const SECTION_CAP = 54;
     const stFill={nominal:'rgba(18,55,28,0.88)',degraded:'rgba(75,58,4,0.90)',offline:'rgba(75,22,4,0.92)',destroyed:'rgba(55,4,4,0.96)'};
     const stStroke={nominal:'rgba(50,200,80,0.55)',degraded:'rgba(220,170,20,0.80)',offline:'rgba(220,80,20,0.90)',destroyed:'rgba(200,30,30,1.0)'};
-    // Special cell backgrounds
-    const BG_UNMANNED ='rgba(12,28,20,0.92)';   // aux_section all decks
-    const BG_RX_ZONE  ='rgba(38,20,4,0.96)';    // reactor D2+D3
-    const BG_RC_TUNNEL='rgba(14,38,50,0.95)';   // reactor D1 (passageway)
-    const BG_UNMANNED2='rgba(14,30,22,0.88)';   // fore_ends D2 (unmanned office)
+    // (Special cell background overrides removed — all sections use system-state colour)
     function dsphPill(){
       ctx.beginPath();
       ctx.arc(phX0,phMid,phR,Math.PI*0.5,-Math.PI*0.5,false);
@@ -3010,7 +3104,8 @@
     const cState=compKeys.map(comp=>{
       const sysList=DMG.COMP_DEF[comp].systems; let wi=0;
       for(const s of sysList) wi=Math.max(wi,DMG.STATES.indexOf(dmg.systems[s]));
-      const fires=[0,1,2].map(di=>dmg.fire?.[`${comp}_d${di}`]||0);
+      const rooms=DMG.SECTION_ROOMS[comp]||[];
+      const fires=[0,1,2].map(di=>Math.max(...rooms.filter(rid=>(DMG.ROOMS[rid]?.deck??-1)===di).map(rid=>dmg.fire?.[rid]||0),0));
       return {wi,worst:DMG.STATES[wi],flood:dmg.flooding[comp]||0,isFlooded:!!dmg.flooded[comp],fireLevel:Math.max(...fires),fires};
     });
 
@@ -3023,9 +3118,9 @@
     const sX0=sailCX-sailW2*0.5, sX1=sailCX+sailW2*0.5;
     ctx.strokeStyle='rgba(140,170,220,0.55)'; ctx.lineWidth=1.5*DPR;
     ctx.beginPath();
-    ctx.moveTo(sX0+4*DPR,sailBot2); ctx.lineTo(sX0+4*DPR,sailTop2+4*DPR);
-    ctx.bezierCurveTo(sX0+4*DPR,sailTop2,sX0+10*DPR,sailTop2,sX0+12*DPR,sailTop2);
-    ctx.lineTo(sX1-5*DPR,sailTop2); ctx.lineTo(sX1,sailTop2+8*DPR); ctx.lineTo(sX1,sailBot2);
+    ctx.moveTo(sX0+8*DPR,sailBot2); ctx.lineTo(sX0+8*DPR,sailTop2+8*DPR);
+    ctx.bezierCurveTo(sX0+8*DPR,sailTop2,sX0+20*DPR,sailTop2,sX0+24*DPR,sailTop2);
+    ctx.lineTo(sX1-10*DPR,sailTop2); ctx.lineTo(sX1,sailTop2+16*DPR); ctx.lineTo(sX1,sailBot2);
     ctx.stroke();
     // Fins
     const finX=phX1+ohR*0.7;
@@ -3055,16 +3150,12 @@
       for(let di=0;di<3;di++){
         const dTop=deckTops[di];
         ctx.save(); dsphPill(); ctx.clip();
-        // Base background — special cells override system state color
-        let bg=stFill[cs.worst]||stFill.nominal;
-        if(comp==='aux_section')                  bg=BG_UNMANNED;
-        else if(comp==='reactor_comp'&&di===0)    bg=BG_RC_TUNNEL;
-        else if(comp==='reactor_comp'&&di>0)      bg=BG_RX_ZONE;
-        else if(comp==='fore_ends'&&di===1)       bg=BG_UNMANNED2;
+        // Base background — system state colour for all sections
+        const bg=stFill[cs.worst]||stFill.nominal;
         ctx.fillStyle=cs.isFlooded?'rgba(8,18,70,0.98)':bg;
         ctx.fillRect(fx,dTop,fw,dH);
-        // System glow on damaged normal cells
-        if(cs.wi>0&&comp!=='aux_section'&&!(comp==='reactor_comp'&&di>0)){
+        // System glow on damaged cells
+        if(cs.wi>0){
           const gc=['','rgba(220,170,20,0.13)','rgba(220,80,20,0.17)','rgba(200,30,30,0.22)'];
           ctx.fillStyle=gc[cs.wi]||''; ctx.fillRect(fx,dTop,fw,dH);
         }
@@ -3078,11 +3169,6 @@
             ctx.beginPath(); ctx.moveTo(fx,dTop+dH-fH); ctx.lineTo(fx+fw,dTop+dH-fH); ctx.stroke();
           }
         }
-        // Fire overlay — per-room
-        const roomFire=cs.fires[di]||0;
-        if(roomFire>0.02){
-          ctx.fillStyle=`rgba(200,80,0,${0.11+roomFire*0.20})`; ctx.fillRect(fx,dTop,fw,dH);
-        }
         ctx.restore();
       }
     }
@@ -3090,12 +3176,45 @@
     // Hull border
     dsphPill(); ctx.strokeStyle='rgba(80,120,180,0.50)'; ctx.lineWidth=1.5*DPR; ctx.stroke();
 
-    // Deck divider lines (horizontal, clipped to hull)
+    // ── Fire overlay — per COMP_LAYOUT block, respecting compartment boundaries ─
+    // Each block has a rid (room ID or array of IDs). Only the block whose
+    // room is actually burning gets the fire glow.
+    ctx.save(); dsphPill(); ctx.clip();
+    for(let ci=0;ci<6;ci++){
+      const comp=compKeys[ci]; const cs=cState[ci];
+      const cx2=compXs[ci], cw=compWs[ci];
+      const drenchLvl2=dmg._fireDrench?.[comp]?.level??0;
+      for(const b of (COMP_LAYOUT[comp]||[])){
+        const rids=Array.isArray(b.rid)?b.rid:[b.rid];
+        const fire=Math.max(...rids.map(rid=>dmg.fire?.[rid]||0));
+        if(fire>0.02&&drenchLvl2<1){
+          ctx.fillStyle=`rgba(200,80,0,${(0.11+fire*0.20)*(1-drenchLvl2)})`;
+          ctx.fillRect(cx2+cw*(b.c/3), deckTops[b.d], cw*(b.cs/3), dH*b.ds);
+        }
+      }
+      // N2 drench overlay — teal fill rising from bottom of hull block
+      if(drenchLvl2>0){
+        const hullTop=deckTops[0], hullBot=deckTops[2]+dH;
+        const fillH=(hullBot-hullTop)*drenchLvl2;
+        const x0=ci===0?cx2-phR:cx2, w0=(ci===0||ci===5)?cw+phR:cw;
+        ctx.fillStyle=`rgba(0,210,190,${0.18+drenchLvl2*0.32})`;
+        ctx.fillRect(x0, hullBot-fillH, w0, fillH);
+      }
+    }
+    ctx.restore();
+
+    // Deck divider lines — per section, skipping where blocks span across deck boundaries
     ctx.save(); dsphPill(); ctx.clip();
     ctx.strokeStyle='rgba(70,100,150,0.50)'; ctx.lineWidth=1*DPR;
     for(let di=1;di<3;di++){
       const y=deckTops[di];
-      ctx.beginPath(); ctx.moveTo(phX0-phR,y); ctx.lineTo(phX1+phR,y); ctx.stroke();
+      for(let ci=0;ci<6;ci++){
+        const comp=compKeys[ci];
+        const x0=ci===0 ? compXs[0]-phR : compXs[ci];
+        const x1=ci===5 ? compXs[5]+compWs[5]+phR : compXs[ci]+compWs[ci];
+        const spans=(COMP_LAYOUT[comp]||[]).some(b=>b.d<di && b.d+b.ds>di);
+        if(!spans){ ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke(); }
+      }
     }
     ctx.restore();
 
@@ -3109,6 +3228,21 @@
       ctx.strokeStyle=['rgba(50,120,65,0.55)','rgba(160,130,20,0.65)','rgba(160,60,20,0.75)','rgba(150,30,30,0.85)'][wDiv]||'rgba(60,90,140,0.50)';
       ctx.lineWidth=1.5*DPR;
       ctx.beginPath(); ctx.moveTo(x,phTop); ctx.lineTo(x,phBot); ctx.stroke();
+    }
+    ctx.restore();
+
+    // Sub-compartment dividers — right edge of each block (unless it reaches col 3)
+    ctx.save(); dsphPill(); ctx.clip();
+    ctx.strokeStyle='rgba(50,80,120,0.40)'; ctx.lineWidth=0.75*DPR;
+    for(let ci=0;ci<6;ci++){
+      const comp=compKeys[ci]; const cx2=compXs[ci], cw=compWs[ci];
+      for(const b of (COMP_LAYOUT[comp]||[])){
+        if(b.c+b.cs>=3) continue;  // no right-edge divider at section boundary
+        const x=cx2+cw*(b.c+b.cs)/3;
+        const y0=deckTops[b.d]+1*DPR;
+        const y1=deckTops[b.d]+dH*b.ds-1*DPR;
+        ctx.beginPath(); ctx.moveTo(x,y0); ctx.lineTo(x,y1); ctx.stroke();
+      }
     }
     ctx.restore();
 
@@ -3154,58 +3288,61 @@
     ctx.fillText('D2',phX0-phR-3*DPR,d2Top+dH*0.65);
     ctx.fillText('D3',phX0-phR-3*DPR,d3Top+dH*0.65);
 
-    // Cell content: labels + status text (clipped to hull)
+    // Cell content: section labels + block labels + status (clipped to hull)
     ctx.save(); dsphPill(); ctx.clip();
     for(let ci=0;ci<6;ci++){
       const comp=compKeys[ci]; const cs=cState[ci];
       const cx2=compXs[ci],cw=compWs[ci],cMid=cx2+cw*0.5;
-      const cellLabels=DECK_CELL[comp]||['','',''];
       // Section header label at top of D1
-      ctx.fillStyle='rgba(200,220,255,0.88)'; ctx.font=`bold ${8.5*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
-      ctx.fillText(compLabels[ci],cMid,d1Top+9*DPR);
-      // Per-deck cell labels
-      for(let di=0;di<3;di++){
-        const dMid=deckTops[di]+dH*0.62;
-        const ff=deckFloodFrac(cs.flood,cs.isFlooded,di);
-        if(ff>=0.95) continue;  // fully flooded cell — skip text
-        let lblCol='rgba(150,185,225,0.65)';
-        if(comp==='aux_section')               lblCol='rgba(80,125,100,0.70)';
-        else if(comp==='reactor_comp'&&di===0) lblCol='rgba(70,155,185,0.80)';
-        else if(comp==='reactor_comp'&&di>0)   lblCol='rgba(175,100,40,0.80)';
-        else if(comp==='fore_ends'&&di===1)    lblCol='rgba(80,115,100,0.65)';
-        ctx.fillStyle=lblCol;
-        ctx.font=`${7.5*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
-        ctx.fillText(cellLabels[di],cMid,dMid);
+      ctx.fillStyle='rgba(200,220,255,0.92)'; ctx.font=`bold ${11*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+      ctx.fillText(compLabels[ci],cMid,d1Top+14*DPR);
+      // Per-block labels
+      for(const b of (COMP_LAYOUT[comp]||[])){
+        const bx=cx2+cw*(b.c/3);
+        const by=deckTops[b.d];
+        const bw=cw*(b.cs/3);
+        const bh=dH*b.ds;
+        // Skip if all spanned decks are fully flooded
+        let anyVisible=false;
+        for(let di=b.d;di<b.d+b.ds;di++) if(deckFloodFrac(cs.flood,cs.isFlooded,di)<0.95) anyVisible=true;
+        if(!anyVisible) continue;
+        ctx.fillStyle='rgba(150,185,225,0.70)';
+        ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillText(b.lbl, bx+bw*0.5, by+bh*0.5);
+        // Room crew count — from ROOMS[rid].crew (watchkeepers/personnel in this compartment)
+        const rids=Array.isArray(b.rid)?b.rid:[b.rid];
+        const roomCrew=rids.reduce((sum,rid)=>(DMG.ROOMS[rid]?.crew||0)+sum,0);
+        if(roomCrew>0){
+          ctx.globalAlpha=0.45;
+          ctx.font=`${9*DPR}px ui-monospace,monospace`;
+          ctx.fillText(`crew: ${roomCrew}`, bx+bw*0.5, by+bh*0.5+12*DPR);
+          ctx.globalAlpha=1.0;
+        }
       }
-      // Status overlay — centered in D2 band
+      // Status overlay — at center of burning deck (fire) or D2 band (other states)
       const d2Mid=d2Top+dH*0.56;
+      const drenchLvl3=dmg._fireDrench?.[comp]?.level??0;
       if(cs.isFlooded){
-        ctx.fillStyle='rgba(140,180,255,0.95)'; ctx.font=`bold ${9*DPR}px ui-monospace,monospace`;
+        ctx.fillStyle='rgba(140,180,255,0.95)'; ctx.font=`bold ${11*DPR}px ui-monospace,monospace`;
         ctx.fillText('FLOODED',cMid,d2Mid);
+      } else if(drenchLvl3>0){
+        ctx.fillStyle=drenchLvl3>=1?'rgba(0,240,220,0.95)':'rgba(0,210,190,0.90)';
+        ctx.font=`bold ${10*DPR}px ui-monospace,monospace`;
+        ctx.fillText(`N2 ${Math.round(drenchLvl3*100)}%`,cMid,d2Mid);
       } else if(cs.fireLevel>0.02){
+        // Show fire text at center of the burning deck (whichever has highest fire)
+        const fireDi=[0,1,2].reduce((best,di)=>cs.fires[di]>cs.fires[best]?di:best,0);
+        const fireDeckMid=deckTops[fireDi]+dH*0.56;
         ctx.fillStyle=cs.fireLevel>0.85?'rgba(255,80,20,0.95)':'rgba(255,140,40,0.90)';
-        ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
-        ctx.fillText(dmg._fireDrench?.[comp]?'DRENCHED':`FIRE ${Math.round(cs.fireLevel*100)}%`,cMid,d2Mid);
+        ctx.font=`bold ${10*DPR}px ui-monospace,monospace`;
+        ctx.fillText(`FIRE ${Math.round(cs.fireLevel*100)}%`,cMid,fireDeckMid);
       } else if(cs.flood>0.02){
-        ctx.fillStyle='rgba(140,190,255,0.90)'; ctx.font=`${8*DPR}px ui-monospace,monospace`;
+        ctx.fillStyle='rgba(140,190,255,0.90)'; ctx.font=`${10*DPR}px ui-monospace,monospace`;
         ctx.fillText(`${Math.round(cs.flood*100)}%`,cMid,d2Mid);
       } else if(cs.wi>0){
         const stColD={degraded:'rgba(230,170,20,0.80)',offline:'rgba(230,90,30,0.85)',destroyed:'rgba(200,50,50,0.90)'};
-        ctx.fillStyle=stColD[cs.worst]||''; ctx.font=`bold ${8*DPR}px ui-monospace,monospace`;
+        ctx.fillStyle=stColD[cs.worst]||''; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`;
         ctx.fillText(cs.worst.toUpperCase(),cMid,d2Mid);
-      }
-      // Watchkeeper count at bottom of D3
-      const cc=dmg.crew[comp]||[];
-      const wk=cc.filter(c=>(c.watch===aw2||c.watch==='duty')&&c.dept!=='medical'&&c.dept!=='supply');
-      const wkFit=wk.filter(c=>c.status==='fit'&&!c.displaced).length;
-      const wkDisp=wk.filter(c=>c.displaced&&c.status!=='killed').length;
-      const wkKia=wk.filter(c=>c.status==='killed').length;
-      const wkTotal=wk.length-wkKia;
-      if(wkTotal>0||wkKia>0){
-        ctx.fillStyle=wkKia>0?'rgba(220,80,80,0.85)':wkDisp>0?'rgba(200,170,50,0.80)':'rgba(90,190,110,0.72)';
-        ctx.font=`${8*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
-        const crewLabel=wkDisp>0?`${wkFit}+${wkDisp}d/${wkTotal}`:`${wkFit}/${wkTotal}`;
-        ctx.fillText(crewLabel,cMid,d3Top+dH-4*DPR);
       }
     }
     ctx.restore();
@@ -3230,18 +3367,18 @@
           const comp=compKeys[ci];
           const bx=compXs[ci]+dispGap/2,bw=compWs[ci]-dispGap;
           const lbl=compLabels[ci].slice(0,3);
-          const isOnScene=team.state==='on_scene'&&team.location===comp;
+          const isOnScene=team.state==='on_scene'&&DMG.roomSection(team.location)===comp;
           const isInTransit=team.state==='transit'&&team.destination===comp;
           const isMustering2=team.state==='mustering'&&team.destination===comp;
           const isFloodedD=dmg.flooded[comp];
-          const fireLevelD=Math.max(...[0,1,2].map(di=>dmg.fire?.[`${comp}_d${di}`]||0)),hasFireD=fireLevelD>0.02;
+          const fireLevelD=Math.max(...(DMG.SECTION_ROOMS[comp]||[]).map(rid=>dmg.fire?.[rid]||0)),hasFireD=fireLevelD>0.02;
           const isDrenchedD=!!dmg._fireDrench?.[comp];
           let bCol,bLabel,clickFn;
           if(team.state==='lost'){ bCol='rgba(30,30,30,0.22)'; bLabel=lbl; clickFn=null; }
-          else if(team.state==='blowing'&&team.location===comp){ bCol='rgba(180,90,0,0.85)'; bLabel='BLOW'; clickFn=()=>DMG.recallTeam(team.id); }
+          else if(team.state==='blowing'&&DMG.roomSection(team.location)===comp){ bCol='rgba(180,90,0,0.85)'; bLabel='BLOW'; clickFn=()=>DMG.recallTeam(team.id); }
           else if(isDrenchedD){ bCol='rgba(40,40,50,0.45)'; bLabel='N2'; clickFn=null; }
           else if(isFloodedD){
-            const isBlowingHere=(team.state==='blowing'&&team.location===comp)||(team.state==='transit'&&team.destination===comp);
+            const isBlowingHere=(team.state==='blowing'&&DMG.roomSection(team.location)===comp)||(team.state==='transit'&&team.destination===comp);
             if(isBlowingHere){ bCol='rgba(180,90,0,0.85)'; bLabel='BLOW \u25a0'; clickFn=()=>DMG.recallTeam(team.id); }
             else { bCol='rgba(60,30,10,0.70)'; bLabel='BLOW?'; clickFn=()=>DMG.assignTeam(team.id,comp); }
           } else if(hasFireD&&isOnScene&&team.task==='fire'){ bCol='rgba(160,50,10,0.85)'; bLabel='FIRE \u25a0'; clickFn=()=>DMG.recallTeam(team.id); }
@@ -3318,30 +3455,43 @@
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // RIGHT PANE — Ship's Company
+    // BOTTOM PANE — Ship's Company
     // ──────────────────────────────────────────────────────────────────────────
-    const RX=LW+P, RW=W-LW-P*2;
+    const SPLIT_Y=Math.min(cy+4*DPR, Math.round(H*0.74));
+    ctx.strokeStyle='rgba(60,100,160,0.30)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,SPLIT_Y); ctx.lineTo(W,SPLIT_Y); ctx.stroke();
+
+    // Clip bottom panel to prevent overflow past screen edge
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0,SPLIT_Y,W,H-SPLIT_Y); ctx.clip();
+
     const d=player.damage;
-    let ry2=BODY_Y+10*DPR;
-    ctx.fillStyle='rgba(140,180,240,0.92)';
-    ctx.font=`bold ${13*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
-    ctx.fillText("SHIP'S COMPANY",RX,ry2); ry2+=16*DPR;
+    let ry2=SPLIT_Y+10*DPR;
 
-    ctx.font=`${12*DPR}px ui-monospace,monospace`;
-    ctx.fillStyle='rgba(60,200,90,0.85)';   ctx.fillText(`FIT ${fit}`,  RX,           ry2);
-    ctx.fillStyle='rgba(230,170,30,0.90)';  ctx.fillText(`WND ${wnd}`,  RX+72*DPR,   ry2);
-    ctx.fillStyle='rgba(210,50,50,0.90)';   ctx.fillText(`KIA ${kia}`,  RX+144*DPR,  ry2);
-    ctx.fillStyle='rgba(140,165,210,0.60)'; ctx.fillText(`/ ${total}`,  RX+216*DPR,  ry2);
-    ry2+=10*DPR;
-    ctx.strokeStyle='rgba(60,100,160,0.25)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(LW,ry2); ctx.lineTo(W,ry2); ctx.stroke(); ry2+=8*DPR;
+    // Header row
+    ctx.fillStyle='rgba(130,168,232,0.82)';
+    ctx.font=`bold ${12*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+    ctx.fillText("SHIP'S COMPANY",P,ry2);
+    const sumX=172*DPR;
+    ctx.font=`${11*DPR}px ui-monospace,monospace`;
+    ctx.fillStyle='rgba(60,200,90,0.85)';   ctx.fillText(`FIT ${fit}`,  sumX,          ry2);
+    ctx.fillStyle='rgba(230,170,30,0.90)';  ctx.fillText(`WND ${wnd}`,  sumX+56*DPR,   ry2);
+    ctx.fillStyle='rgba(210,50,50,0.90)';   ctx.fillText(`KIA ${kia}`,  sumX+112*DPR,  ry2);
+    ctx.fillStyle='rgba(140,165,210,0.55)'; ctx.fillText(`/ ${total}`,  sumX+168*DPR,  ry2);
+    ry2+=16*DPR;
+    ctx.strokeStyle='rgba(60,100,160,0.20)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(P,ry2); ctx.lineTo(W-P,ry2); ctx.stroke();
+    ry2+=8*DPR;
 
-    const colW2=(RW-8*DPR)/2, col0x2=RX, col1x2=RX+colW2+8*DPR;
-    const COMP_LABELS2={fore_ends:'TORPEDO ROOM',control_room:'CONTROL ROOM',aux_section:'AUX MACHINERY',reactor_comp:'REACTOR COMP',engine_room:'MANEUVERING',aft_ends:'ENGINEERING'};
+    // 6-section columns — one per section, full width
+    const nCols2=6, colGap2=6*DPR;
+    const colW2=(W-P*2-colGap2*(nCols2-1))/nCols2;
+    const COMP_LABELS2={
+      fore_ends:'TORPEDO ROOM', control_room:'CONTROL ROOM', aux_section:'AUX / MESS',
+      reactor_comp:'REACTOR COMP', engine_room:'ENGINE ROOM',  aft_ends:'AFT ENDS',
+    };
     const SUPPORT_DEPTS2=new Set(['medical','supply']);
-    const leftComps2=['fore_ends','control_room','aux_section','reactor_comp'];
-    const rightComps2=['engine_room','aft_ends'];
-    const ROW_H2=16*DPR, SEC_HDR2=20*DPR;
+    const ROW_H2=13*DPR, SEC_HDR2=18*DPR;
     const STATUS_COL2={fit:'rgba(50,190,80,0.90)',wounded:'rgba(230,165,25,0.90)',killed:'rgba(200,40,40,0.75)'};
     const _hoverHits2=[];
     const mx2=window.I?.mouseX||0, my2=window.I?.mouseY||0;
@@ -3350,69 +3500,72 @@
       const isKia=m.status==='killed',isWnd=m.status==='wounded';
       const isOnWatch2=m.watch==='duty'||m.watch===activeWatch;
       ctx.globalAlpha=isKia?0.35:isOnWatch2?1.0:0.55;
-      const pillW2=32*DPR, rowTop2=ry-ROW_H2*0.82;
+      const pillW2=28*DPR, rowTop2=ry-ROW_H2*0.82;
       ctx.fillStyle=STATUS_COL2[m.status]||STATUS_COL2.fit;
-      ctx.beginPath(); ctx.arc(rx+5*DPR,ry-4*DPR,3.5*DPR,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(rx+4*DPR,ry-3*DPR,3*DPR,0,Math.PI*2); ctx.fill();
       ctx.fillStyle=isWnd?'rgba(200,140,20,0.70)':isKia?'rgba(140,20,20,0.50)':'rgba(30,55,100,0.65)';
-      ctx.beginPath(); ctx.roundRect(rx+12*DPR,rowTop2,pillW2,ROW_H2*0.85,2*DPR); ctx.fill();
-      ctx.fillStyle='rgba(200,220,255,0.90)'; ctx.font=`bold ${9*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
-      ctx.fillText(m.rating,rx+12*DPR+pillW2/2,ry-2*DPR);
+      ctx.beginPath(); ctx.roundRect(rx+10*DPR,rowTop2,pillW2,ROW_H2*0.85,2*DPR); ctx.fill();
+      ctx.fillStyle='rgba(200,220,255,0.90)'; ctx.font=`bold ${8*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+      ctx.fillText(m.rating,rx+10*DPR+pillW2/2,ry-2*DPR);
       ctx.fillStyle=isKia?'rgba(180,60,60,0.60)':isWnd?'rgba(220,165,30,0.90)':'rgba(200,215,245,0.90)';
-      ctx.font=`${11*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
-      ctx.fillText(`${m.firstName[0]}.${m.lastName}`,rx+48*DPR,ry-2*DPR);
-      const badgesW2=isDuty?20*DPR:36*DPR;
-      ctx.fillStyle='rgba(120,170,220,0.70)'; ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
-      ctx.fillText(m.role||'',rx+subW-badgesW2-4*DPR,ry-2*DPR);
+      ctx.font=`${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText(`${m.firstName[0]}.${m.lastName}`,rx+42*DPR,ry-2*DPR);
+      const badgesW2=isDuty?18*DPR:32*DPR;
+      ctx.fillStyle='rgba(120,170,220,0.70)'; ctx.font=`${8*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
+      ctx.fillText(m.role||'',rx+subW-badgesW2-3*DPR,ry-2*DPR);
       const badgeX2=rx+subW-badgesW2;
       const wBg2=m.watch==='duty'?'rgba(160,120,20,0.65)':m.watch==='A'?'rgba(25,55,130,0.65)':'rgba(10,90,80,0.65)';
       const wFg2=m.watch==='duty'?'rgba(255,210,60,0.95)':m.watch==='A'?'rgba(120,170,255,0.95)':'rgba(60,210,185,0.95)';
-      ctx.fillStyle=wBg2; ctx.beginPath(); ctx.roundRect(badgeX2,rowTop2,16*DPR,ROW_H2*0.80,2*DPR); ctx.fill();
-      ctx.fillStyle=wFg2; ctx.font=`bold ${8*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
-      ctx.fillText(m.watch==='duty'?'★':m.watch,badgeX2+8*DPR,ry-2*DPR);
+      ctx.fillStyle=wBg2; ctx.beginPath(); ctx.roundRect(badgeX2,rowTop2,14*DPR,ROW_H2*0.80,2*DPR); ctx.fill();
+      ctx.fillStyle=wFg2; ctx.font=`bold ${7*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+      ctx.fillText(m.watch==='duty'?'★':m.watch,badgeX2+7*DPR,ry-2*DPR);
       if(m.dcTeam){
-        const dcX2=badgeX2+18*DPR;
+        const dcX2=badgeX2+16*DPR;
         ctx.fillStyle=m.dcTeam==='alpha'?'rgba(140,40,130,0.65)':'rgba(40,100,40,0.65)';
-        ctx.beginPath(); ctx.roundRect(dcX2,rowTop2,16*DPR,ROW_H2*0.80,2*DPR); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(dcX2,rowTop2,14*DPR,ROW_H2*0.80,2*DPR); ctx.fill();
         ctx.fillStyle=m.dcTeam==='alpha'?'rgba(230,140,220,0.95)':'rgba(120,230,120,0.95)';
-        ctx.font=`bold ${8*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
-        ctx.fillText(m.dcTeam==='alpha'?'α':'β',dcX2+8*DPR,ry-2*DPR);
+        ctx.font=`bold ${7*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillText(m.dcTeam==='alpha'?'α':'β',dcX2+7*DPR,ry-2*DPR);
       }
       ctx.globalAlpha=1.0;
       if(m.roleDesc) _hoverHits2.push({x:rx,y:rowTop2,w:subW,h:ROW_H2,tip:m.roleDesc});
     }
 
     function drawCompSection2(comp,sx,sy,availW){
-      const crew2=(d.crew[comp]||[]).filter(m=>!SUPPORT_DEPTS2.has(m.dept));
+      // Show crew by billet (stationComp), not physical location, so B-watch crew
+      // always appear under their home section even when resting in aux_section.
+      const crew2=DMG.COMPS.flatMap(s=>d.crew[s]||[]).filter(m=>m.stationComp===comp&&!SUPPORT_DEPTS2.has(m.dept));
       const fitC2=crew2.filter(c=>c.status==='fit'&&!c.displaced).length;
       const wndC2=crew2.filter(c=>c.status==='wounded').length;
       const kiaC2=crew2.filter(c=>c.status==='killed').length;
       const hasFF2=[0,1,2].some(di=>(d.fire?.[`${comp}_d${di}`]||0)>0.02)||d.flooded?.[comp]||(d.flooding?.[comp]||0)>0.01;
       ctx.fillStyle=hasFF2?'rgba(100,30,10,0.55)':'rgba(20,38,70,0.60)';
       ctx.beginPath(); ctx.roundRect(sx,sy,availW,SEC_HDR2,2*DPR); ctx.fill();
-      ctx.fillStyle='rgba(180,210,255,0.90)'; ctx.font=`bold ${11*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
-      ctx.fillText(COMP_LABELS2[comp],sx+6*DPR,sy+SEC_HDR2*0.72);
-      ctx.font=`${10*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
-      const sumStr2=kiaC2>0?`${fitC2} fit  ${wndC2} wnd  ${kiaC2} kia`:`${fitC2}/${crew2.length} fit`;
+      ctx.fillStyle='rgba(180,210,255,0.90)'; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText(COMP_LABELS2[comp],sx+5*DPR,sy+SEC_HDR2*0.72);
+      ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
+      const sumStr2=kiaC2>0?`${fitC2}f ${wndC2}w ${kiaC2}k`:`${fitC2}/${crew2.length}`;
       ctx.fillStyle=kiaC2>0?'rgba(210,60,60,0.85)':wndC2>0?'rgba(220,160,30,0.80)':'rgba(80,190,100,0.70)';
-      ctx.fillText(sumStr2,sx+availW-6*DPR,sy+SEC_HDR2*0.72); sy+=SEC_HDR2+2*DPR;
+      ctx.fillText(sumStr2,sx+availW-5*DPR,sy+SEC_HDR2*0.72); sy+=SEC_HDR2+2*DPR;
+      if(crew2.length===0) return sy+4*DPR;
       const dutyList2=crew2.filter(m=>m.watch==='duty');
       const watchB2=crew2.filter(m=>m.watch==='B'), watchA2=crew2.filter(m=>m.watch==='A');
-      const subW2=(availW-4*DPR)/2;
+      const subW2=(availW-3*DPR)/2;
       for(let i=0;i<dutyList2.length;i++){
         ctx.fillStyle='rgba(140,110,10,0.12)'; ctx.fillRect(sx,sy+i*ROW_H2,availW,ROW_H2-1);
         drawCrewRow2(dutyList2[i],sx,sy+i*ROW_H2+ROW_H2*0.82,availW,true);
       }
       if(dutyList2.length) sy+=dutyList2.length*ROW_H2+2*DPR;
       if(watchB2.length||watchA2.length){
-        ctx.font=`bold ${8*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
-        ctx.fillStyle=activeWatch==='B'?'rgba(60,210,185,0.80)':'rgba(60,210,185,0.40)';
-        ctx.fillText('── WCH B ──',sx+subW2/2,sy+8*DPR);
-        ctx.fillStyle=activeWatch==='A'?'rgba(120,170,255,0.80)':'rgba(120,170,255,0.40)';
-        ctx.fillText('── WCH A ──',sx+subW2+4*DPR+subW2/2,sy+8*DPR); sy+=11*DPR;
+        ctx.font=`bold ${7*DPR}px ui-monospace,monospace`; ctx.textAlign='center';
+        ctx.fillStyle=activeWatch==='B'?'rgba(60,210,185,0.80)':'rgba(60,210,185,0.35)';
+        ctx.fillText('WCH B',sx+subW2/2,sy+8*DPR);
+        ctx.fillStyle=activeWatch==='A'?'rgba(120,170,255,0.80)':'rgba(120,170,255,0.35)';
+        ctx.fillText('WCH A',sx+subW2+3*DPR+subW2/2,sy+8*DPR); sy+=11*DPR;
       }
       const rows2=Math.max(watchB2.length,watchA2.length);
-      for(let i=0;i<watchB2.length;i++) drawCrewRow2(watchB2[i],sx,sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
-      for(let i=0;i<watchA2.length;i++) drawCrewRow2(watchA2[i],sx+subW2+4*DPR,sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
+      for(let i=0;i<watchB2.length;i++) drawCrewRow2(watchB2[i],sx,          sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
+      for(let i=0;i<watchA2.length;i++) drawCrewRow2(watchA2[i],sx+subW2+3*DPR,sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
       return sy+rows2*ROW_H2+6*DPR;
     }
 
@@ -3423,44 +3576,47 @@
       }
       if(allSupport2.length===0) return sy;
       const fitC2=allSupport2.filter(c=>c.status==='fit').length;
-      const wndC2=allSupport2.filter(c=>c.status==='wounded').length;
       const kiaC2=allSupport2.filter(c=>c.status==='killed').length;
       ctx.fillStyle='rgba(20,38,70,0.60)';
       ctx.beginPath(); ctx.roundRect(sx,sy,availW,SEC_HDR2,2*DPR); ctx.fill();
-      ctx.fillStyle='rgba(180,210,255,0.90)'; ctx.font=`bold ${11*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
-      ctx.fillText('SHIP SUPPORT',sx+6*DPR,sy+SEC_HDR2*0.72);
-      ctx.font=`${10*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
-      const sumStr2=kiaC2>0?`${fitC2} fit  ${wndC2} wnd  ${kiaC2} kia`:`${fitC2}/${allSupport2.length} fit`;
-      ctx.fillStyle=kiaC2>0?'rgba(210,60,60,0.85)':wndC2>0?'rgba(220,160,30,0.80)':'rgba(80,190,100,0.70)';
-      ctx.fillText(sumStr2,sx+availW-6*DPR,sy+SEC_HDR2*0.72); sy+=SEC_HDR2+2*DPR;
+      ctx.fillStyle='rgba(180,210,255,0.90)'; ctx.font=`bold ${10*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText('SHIP SUPPORT',sx+5*DPR,sy+SEC_HDR2*0.72);
+      ctx.font=`${9*DPR}px ui-monospace,monospace`; ctx.textAlign='right';
+      ctx.fillStyle=kiaC2>0?'rgba(210,60,60,0.85)':'rgba(80,190,100,0.70)';
+      ctx.fillText(`${fitC2}/${allSupport2.length}`,sx+availW-5*DPR,sy+SEC_HDR2*0.72);
+      sy+=SEC_HDR2+2*DPR;
       for(const dept of ['medical','supply']){
         const crew2=allSupport2.filter(m=>m.dept===dept);
         if(crew2.length===0) continue;
-        ctx.fillStyle='rgba(100,130,180,0.50)'; ctx.font=`bold ${8*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
-        ctx.fillText(dept==='medical'?'MEDICAL':'SUPPLY / CATERING',sx+6*DPR,sy+8*DPR); sy+=11*DPR;
+        ctx.fillStyle='rgba(100,130,180,0.50)'; ctx.font=`bold ${7*DPR}px ui-monospace,monospace`; ctx.textAlign='left';
+        ctx.fillText(dept==='medical'?'MEDICAL':'SUPPLY',sx+5*DPR,sy+7*DPR); sy+=10*DPR;
         const dutyList2=crew2.filter(m=>m.watch==='duty');
         const watchB2=crew2.filter(m=>m.watch==='B'), watchA2=crew2.filter(m=>m.watch==='A');
-        const subW2=(availW-4*DPR)/2;
+        const subW2=(availW-3*DPR)/2;
         for(let i=0;i<dutyList2.length;i++){
           ctx.fillStyle='rgba(140,110,10,0.12)'; ctx.fillRect(sx,sy+i*ROW_H2,availW,ROW_H2-1);
           drawCrewRow2(dutyList2[i],sx,sy+i*ROW_H2+ROW_H2*0.82,availW,true);
         }
         if(dutyList2.length) sy+=dutyList2.length*ROW_H2+2*DPR;
         const rows2=Math.max(watchB2.length,watchA2.length);
-        for(let i=0;i<watchB2.length;i++) drawCrewRow2(watchB2[i],sx,sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
-        for(let i=0;i<watchA2.length;i++) drawCrewRow2(watchA2[i],sx+subW2+4*DPR,sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
+        for(let i=0;i<watchB2.length;i++) drawCrewRow2(watchB2[i],sx,            sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
+        for(let i=0;i<watchA2.length;i++) drawCrewRow2(watchA2[i],sx+subW2+3*DPR,sy+i*ROW_H2+ROW_H2*0.82,subW2,false);
         sy+=rows2*ROW_H2+4*DPR;
       }
-      return sy+4*DPR;
+      return sy+2*DPR;
     }
 
-    let lcy=ry2;
-    for(const comp of leftComps2){ lcy=drawCompSection2(comp,col0x2,lcy,colW2); lcy+=4*DPR; }
-    let rcy2=ry2;
-    for(const comp of rightComps2){ rcy2=drawCompSection2(comp,col1x2,rcy2,colW2); rcy2+=4*DPR; }
-    drawSupportSection2(col1x2,rcy2,colW2);
+    // Draw 6 section columns — one per section, support folded into aft_ends column
+    for(let ci=0;ci<6;ci++){
+      const comp=DMG.COMPS[ci];
+      const cx=P+ci*(colW2+colGap2);
+      const colEnd=drawCompSection2(comp,cx,ry2,colW2);
+      if(ci===5) drawSupportSection2(cx,colEnd+4*DPR,colW2);
+    }
 
-    // Hover tooltip
+    ctx.restore();
+
+    // Hover tooltip (drawn outside clip so it can extend into top panel if needed)
     for(const h of _hoverHits2){
       if(mx2>=h.x&&mx2<=h.x+h.w&&my2>=h.y&&my2<=h.y+h.h){
         const tip=h.tip;

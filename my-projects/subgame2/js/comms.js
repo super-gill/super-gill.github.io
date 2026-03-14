@@ -44,6 +44,11 @@
       msg(`FLOODING — ${compLabel}`, 2.5);
       dcLog(`FLOODING — ${compLabel} | ${urgency} ~${t}s to loss without DC`, P.CRIT);
     },
+    secondBreach(compLabel, station) {
+      log(station, `Conn, ${station} — second breach! ${compLabel} flooding fast! Evacuate!`, P.CRIT);
+      qlog('CONN', `All stations, Conn — second breach in ${compLabel}. Flooding critical. All hands clear of ${compLabel}.`, 1.0, P.CRIT);
+      msg(`${compLabel} — SECOND BREACH`, 3.0);
+    },
     uncontrolled(compLabel, station, lost) {
       log(station, `Conn, ${station} — flooding uncontrolled! ${compLabel} lost!`, P.CRIT);
       qlog('CONN', `Conn — all hands, close all watertight doors. ${compLabel} lost${lost > 0 ? `. ${lost} hands` : ''}.`, 1.5, P.CRIT);
@@ -57,6 +62,18 @@
       log(station, `Conn, ${station} — evacuating ${compLabel}! Flooding critical!`, P.CRIT);
       if (trapped > 0) qlog('CONN', `All stations — ${compLabel} evacuating. ${out} clear, ${trapped} missing`, 1.5, P.CRIT);
       else             qlog('CONN', `All stations — ${compLabel} personnel clear. ${out} accounted for`, 1.5, P.MED);
+    },
+    closeWTDs(compLabel) {
+      qlog('CONN', `All stations, Conn — close all watertight doors. Flooding in ${compLabel}`, 2.5, P.CRIT);
+    },
+    wtdClosed(station, doorLabel, delay) {
+      qlog(station, `Conn, ${station} — WTD ${doorLabel} closed`, delay, P.MED);
+    },
+    openWTDs() {
+      qlog('CONN', 'All stations, Conn — casualty controlled. Open all watertight doors. Resume normal watch.', 2.0, P.MED);
+    },
+    wtdOpen(station, doorLabel, delay) {
+      qlog(station, `Conn, ${station} — WTD ${doorLabel} open`, delay, P.NORMAL);
     },
     crewReturn(compLabel, station, n) {
       log('CONN', `All stations, Conn — ${compLabel} secure. Watchkeepers close up.`);
@@ -196,6 +213,18 @@
     },
     fireScramLifted() {
       log('MANV', 'Conn, Manoeuvring — reactor compartment clear. Commencing fast recovery startup', P.MED);
+    },
+    scramHoldRepair() {
+      log('MANV', 'Conn, Manoeuvring — SCRAM cleared. Reactor fire damage confirmed. Holding restart pending DC repairs', P.MED);
+      qlog('ENG', 'Conn, Eng — reactor panels show multiple faults. Cannot restart until systems restored. DC teams to work', 2.0, P.MED);
+    },
+    repairReadyRestart(state) {
+      if(state==='nominal'){
+        log('MANV', 'Conn, Manoeuvring — reactor systems nominal. Ready to recommence startup procedure', P.MED);
+        qlog('ENG', 'Conn, Eng — commencing fast recovery startup. Standing by on rod withdrawal', 1.5, P.MED);
+      } else {
+        log('MANV', `Conn, Manoeuvring — reactor partially repaired (${state}). Reactor non-operational. Further repairs required`, P.MED);
+      }
     },
     epmon() {
       log('MANV', 'Conn, Manoeuvring — EPM on the line. Making three knots. That is all I have', P.MED);
@@ -859,10 +888,22 @@
   // FIRE
   // ════════════════════════════════════════════════════════════════════════
   const fire = {
+    // Manned room: crew see it immediately
     ignited(compLabel, station) {
       msg(`FIRE — ${compLabel}`, 1.5);
       log(station, `Conn, ${station} — FIRE in ${compLabel}. Evacuating non-essential crew`, P.CRIT);
       qlog('CONN', `${station}, Conn — aye. DC teams, fire in ${compLabel}. Emergency stations`, 2.0, P.CRIT);
+    },
+    // Unmanned room: automated sensor alarm at 40% — triggers investigation
+    fireAlarm(roomLabel, station) {
+      msg(`FIRE ALARM — ${roomLabel}`, 1.5);
+      log('CONN', `All stations, Conn — fire detection alarm ${roomLabel}. Investigate and report`, P.CRIT);
+      qlog(station, `Conn, ${station} — aye. En route to investigate`, 2.5, P.MED);
+    },
+    // Called after investigation delay (~12s) when fire is physically confirmed
+    fireInvestigated(roomLabel, station) {
+      log(station, `Conn, ${station} — fire confirmed in ${roomLabel}. Request emergency stations`, P.CRIT);
+      qlog('CONN', `${station}, Conn — aye. DC teams, fire in ${roomLabel}. Emergency stations`, 2.0, P.CRIT);
     },
     watchkeeperResponse(compLabel, count) {
       const countStr = count === 1 ? 'one watchkeeper' : `${count} watchkeepers`;
@@ -906,8 +947,21 @@
     },
     nitrogenDrench(compLabel, cas) {
       msg(`N2 DRENCH — ${compLabel}`, 1.6);
-      log('ENG', `${compLabel} — N2 drench complete. Fire out. Compartment uninhabitable`, P.CRIT);
+      log('ENG', `${compLabel} — N2 drench complete. Fire out. Compartment uninhabitable — DC team venting`, P.CRIT);
       if (cas > 0) qlog('ENG', `${compLabel} — ${cas} personnel overcome by drench`, 2.0, P.CRIT);
+    },
+    ventN2Required(compLabel) {
+      msg(`VENT REQUIRED — ${compLabel}`, 1.3);
+      log('CONN', `All stations, Conn — ${compLabel} drenched. DC team required to vent before securing`, P.CRIT);
+    },
+    ventN2Started(compLabel, teamLabel) {
+      msg(`VENT N2 — ${compLabel}`, 1.2);
+      log('ENG', `Conn, ${teamLabel} — commencing N2 vent ${compLabel}. Stand by 60 seconds`, P.MED);
+    },
+    ventN2Complete(compLabel) {
+      msg(`N2 CLEAR — ${compLabel}`, 1.2);
+      log('ENG', `Conn, ENG — N2 clear in ${compLabel}. Entering for inspection`, P.MED);
+      qlog('CONN', `ENG, Conn — aye. Enter ${compLabel} and report`, 1.5, P.MED);
     },
     cascade(fromLabel, toLabel) {
       msg('FIRE SPREADING', 1.4);

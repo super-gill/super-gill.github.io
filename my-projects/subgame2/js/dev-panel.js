@@ -46,14 +46,14 @@
   `;
   document.head.appendChild(style);
 
-  // ── Compartment map ───────────────────────────────────────────────────────
+  // ── Watertight sections ──────────────────────────────────────────────────
   const COMPS=[
-    {key:'fore_ends',   short:'TRP', label:'Torpedo Room'},
-    {key:'control_room',short:'CON', label:'Control Room'},
-    {key:'aux_section', short:'AUX', label:'Aux Machinery'},
-    {key:'reactor_comp',short:'RCT', label:'Reactor Comp'},
-    {key:'engine_room', short:'MAN', label:'Maneuvering'},
-    {key:'aft_ends',    short:'ENG', label:'Engineering'},
+    {key:'fore_ends',   short:'WTS1', label:'WT Section 1'},
+    {key:'control_room',short:'WTS2', label:'WT Section 2'},
+    {key:'aux_section', short:'WTS3', label:'WT Section 3'},
+    {key:'reactor_comp',short:'WTS4', label:'WT Section 4'},
+    {key:'engine_room', short:'WTS5', label:'WT Section 5'},
+    {key:'aft_ends',    short:'WTS6', label:'WT Section 6'},
   ];
 
   const SYS_LIST=[
@@ -63,6 +63,7 @@
     {id:'periscope',      label:'Scope',        comp:'control_room'},
     {id:'ballast',        label:'Ballast',      comp:'control_room'},
     {id:'tdc_comp',       label:'TDC',          comp:'control_room'},
+    {id:'hyd_main',       label:'Hyd Main',     comp:'control_room'},
     {id:'reactor',        label:'Reactor',      comp:'reactor_comp'},
     {id:'propulsion',     label:'Prop',         comp:'engine_room'},
     {id:'steering',       label:'Steering',     comp:'aft_ends'},
@@ -313,28 +314,47 @@
     const container=document.getElementById('dev-fire-rooms');
     if(!container) return;
     const SECTION_LABELS={
-      fore_ends:'FORE ENDS', control_room:'CTRL ROOM', aux_section:'AUX',
-      reactor_comp:'REACTOR', engine_room:'ENGINE ROOM', aft_ends:'AFT ENDS',
+      fore_ends:'WT SECTION 1 — FORE ENDS', control_room:'WT SECTION 2 — CONTROL',
+      aux_section:'WT SECTION 3 — AUX', reactor_comp:'WT SECTION 4 — REACTOR',
+      engine_room:'WT SECTION 5 — ENGINE', aft_ends:'WT SECTION 6 — AFT',
     };
     const ROOM_DEFS=[
-      {id:'fore_ends_d0',    sec:'fore_ends',    label:'FWD DOME',   unmanned:true,  detectionDelay:50},
-      {id:'fore_ends_d1',    sec:'fore_ends',    label:'ENG OFFICE', unmanned:true,  detectionDelay:60},
-      {id:'fore_ends_d2',    sec:'fore_ends',    label:'TRP ROOM',   unmanned:false, detectionDelay:0 },
-      {id:'control_room_d0', sec:'control_room', label:'COMMS',      unmanned:false, detectionDelay:0 },
-      {id:'control_room_d1', sec:'control_room', label:'CTRL ROOM',  unmanned:false, detectionDelay:0 },
-      {id:'control_room_d2', sec:'control_room', label:'MACH ROOM',  unmanned:false, detectionDelay:0 },
-      {id:'aux_section_d0',  sec:'aux_section',  label:'SNKL CTL',   unmanned:true,  detectionDelay:45},
-      {id:'aux_section_d1',  sec:'aux_section',  label:'VENT PLT',   unmanned:true,  detectionDelay:45},
-      {id:'aux_section_d2',  sec:'aux_section',  label:'RX E-COOL',  unmanned:true,  detectionDelay:90},
-      {id:'reactor_comp_d0', sec:'reactor_comp', label:'RC TUNNEL',  unmanned:false, detectionDelay:0 },
-      {id:'reactor_comp_d1', sec:'reactor_comp', label:'REACTOR',    unmanned:true,  detectionDelay:75},
-      {id:'reactor_comp_d2', sec:'reactor_comp', label:'RCT LOWER',  unmanned:true,  detectionDelay:75},
-      {id:'engine_room_d0',  sec:'engine_room',  label:'MANEUV',     unmanned:false, detectionDelay:0 },
-      {id:'engine_room_d1',  sec:'engine_room',  label:'ELEC DIST',  unmanned:false, detectionDelay:0 },
-      {id:'engine_room_d2',  sec:'engine_room',  label:'MACHINERY',  unmanned:false, detectionDelay:0 },
-      {id:'aft_ends_d0',     sec:'aft_ends',     label:'ENGINEER',   unmanned:false, detectionDelay:0 },
-      {id:'aft_ends_d1',     sec:'aft_ends',     label:'PROPULSN',   unmanned:false, detectionDelay:0 },
-      {id:'aft_ends_d2',     sec:'aft_ends',     label:'STEER/AFT',  unmanned:false, detectionDelay:0 },
+      // WT Section 1 — Fore Ends (5)
+      {id:'fore_ends_d0',     sec:'fore_ends',    label:'FWD DOME',     crew:0,  detectionDelay:40},
+      {id:'fore_ends_d0b',    sec:'fore_ends',    label:'COMMS',        crew:3,  detectionDelay:0 },
+      {id:'fore_ends_d1',     sec:'fore_ends',    label:'ENG OFFICE',   crew:1,  detectionDelay:20},
+      {id:'fore_ends_d1b',    sec:'fore_ends',    label:'COMPUTER RM',  crew:0,  detectionDelay:35},
+      {id:'fore_ends_d2',     sec:'fore_ends',    label:'TORPEDO ROOM', crew:4,  detectionDelay:0 },
+      // WT Section 2 — Control Room (6)
+      {id:'control_room_d0',  sec:'control_room', label:'NAV',          crew:1,  detectionDelay:0 },
+      {id:'control_room_d0b', sec:'control_room', label:'SCOPE WELL',   crew:2,  detectionDelay:0 },
+      {id:'control_room_d0c', sec:'control_room', label:'WARDROOM',     crew:3,  detectionDelay:0 },
+      {id:'control_room_d1',  sec:'control_room', label:'CTRL ROOM',    crew:6,  detectionDelay:0 },
+      {id:'control_room_d1b', sec:'control_room', label:'CO CABIN',     crew:0,  detectionDelay:30},
+      {id:'control_room_d2',  sec:'control_room', label:'MACH SPACE',   crew:0,  detectionDelay:40},
+      // WT Section 3 — Aux Section (7)
+      {id:'aux_section_d0',   sec:'aux_section',  label:'JR MESS',      crew:6,  detectionDelay:0 },
+      {id:'aux_section_d0b',  sec:'aux_section',  label:'SR MESS',      crew:4,  detectionDelay:0 },
+      {id:'aux_section_d1',   sec:'aux_section',  label:'BUNKS',        crew:2,  detectionDelay:20},
+      {id:'aux_section_d1b',  sec:'aux_section',  label:'VENT PLANT',   crew:0,  detectionDelay:45},
+      {id:'aux_section_d2',   sec:'aux_section',  label:'AMS 1',        crew:0,  detectionDelay:50},
+      {id:'aux_section_d2b',  sec:'aux_section',  label:'RX E-COOL',    crew:0,  detectionDelay:50},
+      {id:'aux_section_d2c',  sec:'aux_section',  label:'SICKBAY',      crew:1,  detectionDelay:0 },
+      // WT Section 4 — Reactor Comp (3)
+      {id:'reactor_comp_d0',  sec:'reactor_comp', label:'RC TUNNEL',    crew:0,  detectionDelay:30},
+      {id:'reactor_comp_d1',  sec:'reactor_comp', label:'REACTOR',      crew:3,  detectionDelay:0 },
+      {id:'reactor_comp_d2',  sec:'reactor_comp', label:'RCT LOWER',    crew:0,  detectionDelay:60},
+      // WT Section 5 — Engine Room (4)
+      {id:'engine_room_d0',   sec:'engine_room',  label:'AFT PASSAGE',  crew:0,  detectionDelay:0 },
+      {id:'engine_room_d0b',  sec:'engine_room',  label:'MANEUVERING',  crew:4,  detectionDelay:0 },
+      {id:'engine_room_d1',   sec:'engine_room',  label:'ELEC DIST',    crew:2,  detectionDelay:0 },
+      {id:'engine_room_d2',   sec:'engine_room',  label:'AFT ATMOS',    crew:0,  detectionDelay:45},
+      // WT Section 6 — Aft Ends (5)
+      {id:'aft_ends_d0',      sec:'aft_ends',     label:'ENGINEERING',  crew:2,  detectionDelay:0 },
+      {id:'aft_ends_d1',      sec:'aft_ends',     label:'PROPULSION',   crew:2,  detectionDelay:0 },
+      {id:'aft_ends_d1b',     sec:'aft_ends',     label:'SHAFT ALLEY',  crew:1,  detectionDelay:0 },
+      {id:'aft_ends_d2',      sec:'aft_ends',     label:'STEERING GEAR',crew:2,  detectionDelay:0 },
+      {id:'aft_ends_d2b',     sec:'aft_ends',     label:'AFT ESCAPE',   crew:0,  detectionDelay:50},
     ];
     // Group by section
     const bySec={};
@@ -354,12 +374,13 @@
         b.className='dev-btn danger';
         b.style.fontSize='10px';
         b.style.padding='2px 5px';
-        b.textContent=(r.unmanned?'\u26a0 ':'')+r.label;
-        b.title=`${r.id}${r.unmanned?' (UNMANNED — '+(r.detectionDelay??45)+'s detect delay)':''}`;
+        const isEmpty=(r.unmanned||!r.crew);
+        b.textContent=(isEmpty?'\u26a0 ':'')+r.label;
+        b.title=`${r.id}${isEmpty?' (EMPTY — '+(r.detectionDelay??45)+'s detect delay)':' (crew: '+(r.crew||0)+')'}`;
         b.addEventListener('click',()=>{
           if(typeof window.DMG?.igniteFire==='function'){
             window.DMG.igniteFire(r.id, 0.22);
-            status(`Fire: ${r.label}${r.unmanned?' (undetected)':''}`);
+            status(`Fire: ${r.label}${isEmpty?' (undetected)':''}`);
           } else { status('DMG not ready'); }
         });
         row.appendChild(b);
@@ -423,7 +444,7 @@
   function resetTeam(teamId){
     const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
     const team=d.teams?.[teamId]; if(!team){ status(`Team ${teamId} not found`); return; }
-    const homeDef={alpha:'fore_ends', bravo:'engine_room'};
+    const homeDef={alpha:'aux_section_d0b', bravo:'engine_room_d0'};
     team.state='ready';
     team.location=homeDef[teamId]||team.home;
     team.destination=null;

@@ -12,9 +12,9 @@
   const COMPS = ['fore_ends','control_room','aux_section','reactor_comp','engine_room','aft_ends'];
 
   const COMP_DEF = {
-    fore_ends:    { label:'TORPEDO ROOM',  systems:['tubes','sonar_hull','planes_fwd_hyd'],    crewCount:30, tower:'fwd',  unmanned:false },
-    control_room: { label:'CONTROL ROOM',  systems:['periscope','ballast','tdc_comp','hyd_main'], crewCount:22, tower:'fwd',  unmanned:false },
-    aux_section:  { label:'AUX MACHINERY', systems:[],                                          crewCount:0,  tower:null,   unmanned:true  },
+    fore_ends:    { label:'TORPEDO ROOM',  systems:['tubes','sonar_hull','planes_fwd_hyd'],    crewCount:23, tower:'fwd',  unmanned:false },
+    control_room: { label:'CONTROL ROOM',  systems:['periscope','ballast','tdc_comp','hyd_main'], crewCount:20, tower:'fwd',  unmanned:false },
+    aux_section:  { label:'MESS DECKS',    systems:[],                                          crewCount:7,  tower:null,   unmanned:false },
     reactor_comp: { label:'REACTOR COMP',  systems:['reactor'],                                 crewCount:3,  tower:null,   unmanned:false },
     engine_room:  { label:'MANEUVERING',   systems:['propulsion'],                              crewCount:20, tower:'aft',  unmanned:false },
     aft_ends:     { label:'ENGINEERING',   systems:['towed_array','steering','planes_aft_hyd'], crewCount:15, tower:'aft',  unmanned:false },
@@ -35,6 +35,23 @@
   const STATES = ['nominal','degraded','offline','destroyed'];
   const REPAIR_TIME = { degraded:20, offline:45, destroyed:120 };
 
+  // Which visual deck each system sits on: D1=0 (top), D2=1 (mid), D3=2 (bottom).
+  // Flooding fills from D3 upward, so deck-2 systems are damaged first.
+  const SYS_DECK = {
+    tubes:          2,   // torpedo tubes — D3
+    sonar_hull:     2,   // hull array    — D3
+    planes_fwd_hyd: 1,   // fwd planes hyd — D2
+    periscope:      0,   // periscope     — D1
+    ballast:        1,   // ballast ctrl  — D2
+    tdc_comp:       0,   // TDC computer  — D1
+    hyd_main:       1,   // main hyd plant — D2
+    reactor:        1,   // reactor plant — D2
+    propulsion:     1,   // propulsion    — D2
+    towed_array:    2,   // towed array   — D3
+    steering:       1,   // steering      — D2
+    planes_aft_hyd: 1,   // aft planes hyd — D2
+  };
+
   // ── Travel time table (seconds) ──────────────────────────────────────────
   // aux_section is unmanned machinery space between control_room and reactor_comp.
   // Reactor crossing (RC tunnel, D1 bypass) adds ~10s penalty through reactor_comp.
@@ -50,12 +67,17 @@
   // Adjacent compartments for crew evacuation
   const EVAC_TO = {
     fore_ends:    ['control_room'],
-    control_room: ['fore_ends','aux_section'],
+    control_room: ['aux_section','fore_ends'],
     aux_section:  ['control_room','reactor_comp'],
     reactor_comp: ['aux_section','engine_room'],
     engine_room:  ['reactor_comp','aft_ends'],
     aft_ends:     ['engine_room'],
   };
+
+  // Maximum occupancy per section: 9 grid units (3×3) × 6 base capacity = 54
+  // Used by evacuation routing to avoid routing crew into an already-full section.
+  const SECTION_CAP = 54;
+
   // ── Watertight Door definitions ──────────────────────────────────────────
   // 5 WTDs, one between each adjacent section pair.
   // State: 'open' | 'closed'
@@ -74,25 +96,63 @@
   // ── Room definitions (compartments within watertight sections) ────────────
   // d0=D1 top deck, d1=D2 mid deck, d2=D3 lower deck.
   // unmanned rooms have detectionDelay — fire burns undetected until countdown expires.
+  // ── Section display labels ────────────────────────────────────────────────
+  // Sections = the 6 watertight divisions of the hull. Compartments = rooms within.
+  const SECTION_LABEL = {
+    fore_ends:    'WATERTIGHT SECTION 1',
+    control_room: 'WATERTIGHT SECTION 2',
+    aux_section:  'WATERTIGHT SECTION 3',
+    reactor_comp: 'WATERTIGHT SECTION 4',
+    engine_room:  'WATERTIGHT SECTION 5',
+    aft_ends:     'WATERTIGHT SECTION 6',
+  };
+  // Short labels for compact UI
+  const SECTION_SHORT = {
+    fore_ends:'WTS1', control_room:'WTS2', aux_section:'WTS3',
+    reactor_comp:'WTS4', engine_room:'WTS5', aft_ends:'WTS6',
+  };
+
   const ROOMS = {
-    fore_ends_d0:    { label:'FWD DOME / PLANES', section:'fore_ends',    deck:0, unmanned:true,  detectionDelay:50 },
-    fore_ends_d1:    { label:'ENG OFFICE',         section:'fore_ends',    deck:1, unmanned:true,  detectionDelay:60 },
-    fore_ends_d2:    { label:'TORPEDO ROOM',       section:'fore_ends',    deck:2, unmanned:false, detectionDelay:0  },
-    control_room_d0: { label:'COMMS / SCOPE',      section:'control_room', deck:0, unmanned:false, detectionDelay:0  },
-    control_room_d1: { label:'CONTROL ROOM',       section:'control_room', deck:1, unmanned:false, detectionDelay:0  },
-    control_room_d2: { label:'MACHINERY ROOM',     section:'control_room', deck:2, unmanned:false, detectionDelay:0  },
-    aux_section_d0:  { label:'SNKL CONTROL',       section:'aux_section',  deck:0, unmanned:true,  detectionDelay:45 },
-    aux_section_d1:  { label:'VENT PLANT',         section:'aux_section',  deck:1, unmanned:true,  detectionDelay:45 },
-    aux_section_d2:  { label:'RX E-COOL',          section:'aux_section',  deck:2, unmanned:true,  detectionDelay:90 },
-    reactor_comp_d0: { label:'RC TUNNEL',          section:'reactor_comp', deck:0, unmanned:false, detectionDelay:0  },
-    reactor_comp_d1: { label:'REACTOR',            section:'reactor_comp', deck:1, unmanned:true,  detectionDelay:75 },
-    reactor_comp_d2: { label:'REACTOR (LOWER)',    section:'reactor_comp', deck:2, unmanned:true,  detectionDelay:75 },
-    engine_room_d0:  { label:'MANEUVERING',        section:'engine_room',  deck:0, unmanned:false, detectionDelay:0  },
-    engine_room_d1:  { label:'ELEC DIST',          section:'engine_room',  deck:1, unmanned:false, detectionDelay:0  },
-    engine_room_d2:  { label:'MACHINERY',          section:'engine_room',  deck:2, unmanned:false, detectionDelay:0  },
-    aft_ends_d0:     { label:'ENGINEERING',        section:'aft_ends',     deck:0, unmanned:false, detectionDelay:0  },
-    aft_ends_d1:     { label:'PROPULSION',         section:'aft_ends',     deck:1, unmanned:false, detectionDelay:0  },
-    aft_ends_d2:     { label:'STEER / AFT',        section:'aft_ends',     deck:2, unmanned:false, detectionDelay:0  },
+    // ── WT Section 1 — Fore Ends ──────────────────────────────────────────
+    // crew = on-watch personnel who can fight fire / detect casualties.
+    // crew:0 = empty room (fire burns undetected until sensor alarm at 40%).
+    // detectionDelay = seconds before crew notice fire (0 = immediate report to Conn).
+    fore_ends_d0:    { label:'FWD DOME',       section:'fore_ends',    deck:0, crew:0, detectionDelay:40 },
+    fore_ends_d0b:   { label:'COMMS',          section:'fore_ends',    deck:0, crew:3, detectionDelay:0  },
+    fore_ends_d1:    { label:'ENG OFFICE',     section:'fore_ends',    deck:1, crew:1, detectionDelay:20 },
+    fore_ends_d1b:   { label:'COMPUTER RM',    section:'fore_ends',    deck:1, crew:0, detectionDelay:35 },
+    fore_ends_d2:    { label:'TORPEDO ROOM',   section:'fore_ends',    deck:2, crew:4, detectionDelay:0  },
+    // ── WT Section 2 — Control Room ───────────────────────────────────────
+    control_room_d0:  { label:'NAV',           section:'control_room', deck:0, crew:1, detectionDelay:0  },
+    control_room_d0b: { label:'SCOPE WELL',    section:'control_room', deck:0, crew:2, detectionDelay:0  },
+    control_room_d0c: { label:'WARDROOM',      section:'control_room', deck:0, crew:3, detectionDelay:0  },
+    control_room_d1:  { label:'CONTROL ROOM',  section:'control_room', deck:1, crew:6, detectionDelay:0  },
+    control_room_d1b: { label:'CO CABIN',      section:'control_room', deck:1, crew:0, detectionDelay:30 },
+    control_room_d2:  { label:'MACHINERY SPACE',section:'control_room',deck:2, crew:0, detectionDelay:40 },
+    // ── WT Section 3 — Aux Section ────────────────────────────────────────
+    aux_section_d0:   { label:'JR MESS',       section:'aux_section',  deck:0, crew:6, detectionDelay:0  },
+    aux_section_d0b:  { label:'SR MESS',       section:'aux_section',  deck:0, crew:4, detectionDelay:0  },
+    aux_section_d1:   { label:'BUNKS',         section:'aux_section',  deck:1, crew:2, detectionDelay:20 },
+    aux_section_d1b:  { label:'VENT PLANT',    section:'aux_section',  deck:1, crew:0, detectionDelay:45 },
+    aux_section_d2:   { label:'AMS 1',         section:'aux_section',  deck:2, crew:0, detectionDelay:50 },
+    aux_section_d2b:  { label:'RX E-COOL',     section:'aux_section',  deck:2, crew:0, detectionDelay:50 },
+    aux_section_d2c:  { label:'SICKBAY',       section:'aux_section',  deck:2, crew:1, detectionDelay:0  },
+    // ── WT Section 4 — Reactor Comp ───────────────────────────────────────
+    // noEvac: reactor spaces must not receive evacuees (radiation boundary)
+    reactor_comp_d0: { label:'RC TUNNEL',      section:'reactor_comp', deck:0, crew:0, detectionDelay:30, noEvac:true },
+    reactor_comp_d1: { label:'REACTOR',        section:'reactor_comp', deck:1, crew:3, detectionDelay:0,  noEvac:true },
+    reactor_comp_d2: { label:'REACTOR (LOWER)',section:'reactor_comp', deck:2, crew:0, detectionDelay:60, noEvac:true },
+    // ── WT Section 5 — Engine Room ────────────────────────────────────────
+    engine_room_d0:   { label:'AFT PASSAGE',   section:'engine_room',  deck:0, crew:0, detectionDelay:0  },
+    engine_room_d0b:  { label:'MANEUVERING',   section:'engine_room',  deck:0, crew:4, detectionDelay:0  },
+    engine_room_d1:   { label:'ELEC DIST',     section:'engine_room',  deck:1, crew:2, detectionDelay:0  },
+    engine_room_d2:   { label:'AFT ATMOS',     section:'engine_room',  deck:2, crew:0, detectionDelay:45 },
+    // ── WT Section 6 — Aft Ends ───────────────────────────────────────────
+    aft_ends_d0:      { label:'ENGINEERING',   section:'aft_ends',     deck:0, crew:2, detectionDelay:0  },
+    aft_ends_d1:      { label:'PROPULSION',    section:'aft_ends',     deck:1, crew:2, detectionDelay:0  },
+    aft_ends_d1b:     { label:'SHAFT ALLEY',   section:'aft_ends',     deck:1, crew:1, detectionDelay:0  },
+    aft_ends_d2:      { label:'STEERING GEAR', section:'aft_ends',     deck:2, crew:2, detectionDelay:0  },
+    aft_ends_d2b:     { label:'AFT ESCAPE',    section:'aft_ends',     deck:0, crew:0, detectionDelay:50 },
   };
   const ROOM_IDS = Object.keys(ROOMS);
   const SECTION_ROOMS = {};
@@ -100,6 +160,26 @@
     if(!SECTION_ROOMS[r.section]) SECTION_ROOMS[r.section]=[];
     SECTION_ROOMS[r.section].push(id);
   }
+
+  // ── Room adjacency (fire spread / DC traversal within a section) ────────
+  // Rooms are adjacent if they share a wall: same deck (left/right) or
+  // adjacent decks (up/down). Only within the same watertight section.
+  // Built automatically: all rooms sharing same deck or adjacent decks in same section.
+  const ROOM_ADJ = {};
+  for(const [id,r] of Object.entries(ROOMS)){
+    ROOM_ADJ[id]=[];
+    for(const [otherId,o] of Object.entries(ROOMS)){
+      if(id===otherId) continue;
+      if(r.section!==o.section) continue;
+      // Same deck (left/right) or adjacent decks (up/down)
+      if(r.deck===o.deck||Math.abs(r.deck-o.deck)===1) ROOM_ADJ[id].push(otherId);
+    }
+  }
+
+  // Helper: get the section a room belongs to
+  function roomSection(roomId){ return ROOMS[roomId]?.section; }
+  // True if a section bars evacuees (e.g. reactor — radiation boundary)
+  function _sectionNoEvac(sec){ return (SECTION_ROOMS[sec]||[]).some(rid=>ROOMS[rid].noEvac); }
 
   // ── Static crew manifest ──────────────────────────────────────────────────
   // 90 named crew. role=short display label. roleDesc=full tooltip.
@@ -128,30 +208,32 @@
     { id:'marsh',    comp:'control_room', rating:'LS',   firstName:'Dean',    lastName:'Marsh',    role:'RADIO',    roleDesc:'Radio Operator',                         gender:'m', watch:'B',    dcTeam:null    },
     { id:'peel',     comp:'control_room', rating:'AB',   firstName:'Tom',     lastName:'Peel',     role:'CR RTG',   roleDesc:'Control Room Rating',                    gender:'m', watch:'B',    dcTeam:null    },
     { id:'briggs',   comp:'control_room', rating:'AB',   firstName:'Chloe',   lastName:'Briggs',   role:'CR RTG',   roleDesc:'Control Room Rating',                    gender:'f', watch:'B',    dcTeam:null    },
-    // ── MEDICAL (2, physically in control_room — sick bay adjacent) ───────
-    { id:'oconnor',  comp:'control_room', rating:'LMA',  firstName:'Patrick', lastName:"O'Connor", role:'LMA',      roleDesc:'Leading Medical Assistant',                  gender:'m', watch:'duty', dcTeam:null,    dept:'medical' },
-    { id:'hayes',    comp:'control_room', rating:'MA',   firstName:'Claire',  lastName:'Hayes',    role:'MA',       roleDesc:'Medical Assistant',                          gender:'f', watch:'duty', dcTeam:null,    dept:'medical' },
+    // ── MEDICAL (2, sickbay in aux_section D3) ────────────────────────────
+    { id:'oconnor',  comp:'aux_section', rating:'LMA',  firstName:'Patrick', lastName:"O'Connor", role:'LMA',      roleDesc:'Leading Medical Assistant — Sickbay',        gender:'m', watch:'duty', dcTeam:null,    dept:'medical' },
+    { id:'hayes',    comp:'aux_section', rating:'MA',   firstName:'Claire',  lastName:'Hayes',    role:'MA',       roleDesc:'Medical Assistant — Sickbay',                gender:'f', watch:'duty', dcTeam:null,    dept:'medical' },
     // ── FORE ENDS (25) ────────────────────────────────────────────────────
-    // A(13): Jacobs Drake Sadler Reeves Shaw Cullen Pearce Lane Hobbs Dunn Yates Quinn Gill
-    // B(12): Nash Burns Cole Morton Porter Holt Finch Baxter Frost Pratt Norris Flynn
+    // D1 COMMS: Sadler(WA) Pearce(WA) Nash(WB) Morton(WB) — 4 total, 2 per watch
+    // D2 ENG OFFICE: Jacobs (duty — TORPS section CPO)
+    // D3 TORPEDO ROOM: Drake Reeves Shaw Cullen Lane Hobbs (WA) | Burns Cole Porter Holt Finch Baxter Frost Pratt Norris Flynn (WB)
     // DC Alpha: Drake Reeves Shaw Cullen Lane Hobbs
-    { id:'jacobs',   comp:'fore_ends', rating:'CPO', firstName:'Ron',    lastName:'Jacobs',  role:'COW(T)',   roleDesc:'Chief of the Watch (Torpedo)',           gender:'m', watch:'A', dcTeam:null    },
+    // COMMS watchkeepers (D1, 2 per watch)
+    { id:'sadler',   comp:'fore_ends', rating:'PO',  firstName:'Frank',  lastName:'Sadler',  role:'COMMS PO', roleDesc:'Communications PO on Watch',             gender:'m', watch:'A', dcTeam:null    },
+    { id:'pearce',   comp:'fore_ends', rating:'AB',  firstName:'Aiden',  lastName:'Pearce',  role:'COMMS OP', roleDesc:'Communications Operator on Watch',       gender:'m', watch:'A', dcTeam:null    },
+    { id:'nash',     comp:'fore_ends', rating:'CPO', firstName:'Frank',  lastName:'Nash',    role:'COMMS CPO',roleDesc:'Chief Petty Officer Communications',      gender:'m', watch:'B', dcTeam:null    },
+    { id:'morton',   comp:'fore_ends', rating:'LS',  firstName:'Pete',   lastName:'Morton',  role:'COMMS OP', roleDesc:'Communications Operator on Watch',       gender:'m', watch:'B', dcTeam:null    },
+    // ENG OFFICE (D2 col1, 1 duty person — Torpedo CPO)
+    { id:'jacobs',   comp:'fore_ends', rating:'CPO', firstName:'Ron',    lastName:'Jacobs',  role:'COW(T)',   roleDesc:'Chief of the Watch (Torpedo)',           gender:'m', watch:'duty', dcTeam:null  },
+    // TORPEDO ROOM (D3 full width)
     { id:'drake',    comp:'fore_ends', rating:'PO',  firstName:'Kevin',  lastName:'Drake',   role:'TRP RDY',  roleDesc:'Torpedo Ready Duty',                    gender:'m', watch:'A', dcTeam:'alpha' },
-    { id:'sadler',   comp:'fore_ends', rating:'PO',  firstName:'Frank',  lastName:'Sadler',  role:'SON PO',   roleDesc:'Sonar PO on Watch',                     gender:'m', watch:'A', dcTeam:null    },
     { id:'reeves',   comp:'fore_ends', rating:'LS',  firstName:'Tony',   lastName:'Reeves',  role:'TORP',     roleDesc:'Torpedo Rating on Watch',                gender:'m', watch:'A', dcTeam:'alpha' },
     { id:'shaw',     comp:'fore_ends', rating:'LS',  firstName:'Gary',   lastName:'Shaw',    role:'TORP',     roleDesc:'Torpedo Rating on Watch',                gender:'m', watch:'A', dcTeam:'alpha' },
     { id:'cullen',   comp:'fore_ends', rating:'AB',  firstName:'Lee',    lastName:'Cullen',  role:'TORP',     roleDesc:'Torpedo Tube Maintainer',                gender:'m', watch:'A', dcTeam:'alpha' },
-    { id:'pearce',   comp:'fore_ends', rating:'AB',  firstName:'Aiden',  lastName:'Pearce',  role:'SON OP',   roleDesc:'Sonar Operator',                         gender:'m', watch:'A', dcTeam:null    },
     { id:'lane',     comp:'fore_ends', rating:'AB',  firstName:'Chris',  lastName:'Lane',    role:'TORP',     roleDesc:'Torpedo Rating',                         gender:'m', watch:'A', dcTeam:'alpha' },
     { id:'hobbs',    comp:'fore_ends', rating:'AB',  firstName:'Nick',   lastName:'Hobbs',   role:'SON OP',   roleDesc:'Sonar Operator',                         gender:'m', watch:'A', dcTeam:'alpha' },
     { id:'dunn',     comp:'fore_ends', rating:'LS',  firstName:'Bobby',  lastName:'Dunn',    role:'FE MAINT', roleDesc:'Fore Ends Maintenance',                  gender:'m', watch:'A', dcTeam:null    },
-    { id:'yates',    comp:'fore_ends', rating:'AB',  firstName:'Carl',   lastName:'Yates',   role:'TUBE MNT', roleDesc:'Torpedo Tube Maintenance',               gender:'m', watch:'A', dcTeam:null    },
     { id:'quinn',    comp:'fore_ends', rating:'LS',  firstName:'Ben',    lastName:'Quinn',   role:'FE LS',    roleDesc:'Fore Ends Leading Seaman',               gender:'m', watch:'A', dcTeam:null    },
-    { id:'gill',     comp:'fore_ends', rating:'AB',  firstName:'Terry',  lastName:'Gill',    role:'SON OP',   roleDesc:'Sonar Operator',                         gender:'m', watch:'A', dcTeam:null    },
-    { id:'nash',     comp:'fore_ends', rating:'CPO', firstName:'Frank',  lastName:'Nash',    role:'COW(S)',   roleDesc:'Chief of the Watch (Sonar)',              gender:'m', watch:'B', dcTeam:null    },
     { id:'burns',    comp:'fore_ends', rating:'PO',  firstName:'Andy',   lastName:'Burns',   role:'SON PO',   roleDesc:'Sonar PO on Watch',                      gender:'m', watch:'B', dcTeam:null    },
     { id:'cole',     comp:'fore_ends', rating:'PO',  firstName:'Martin', lastName:'Cole',    role:'TRP RDY',  roleDesc:'Torpedo Ready Duty',                     gender:'m', watch:'B', dcTeam:null    },
-    { id:'morton',   comp:'fore_ends', rating:'LS',  firstName:'Pete',   lastName:'Morton',  role:'SON OP',   roleDesc:'Sonar Operator',                         gender:'m', watch:'B', dcTeam:null    },
     { id:'porter',   comp:'fore_ends', rating:'LS',  firstName:'Sam',    lastName:'Porter',  role:'SON LS',   roleDesc:'Sonar Leading Seaman on Watch',           gender:'m', watch:'B', dcTeam:null    },
     { id:'holt',     comp:'fore_ends', rating:'AB',  firstName:'Phil',   lastName:'Holt',    role:'TORP',     roleDesc:'Torpedo Rating',                         gender:'m', watch:'B', dcTeam:null    },
     { id:'finch',    comp:'fore_ends', rating:'AB',  firstName:'Joe',    lastName:'Finch',   role:'TORP',     roleDesc:'Torpedo Rating',                         gender:'m', watch:'B', dcTeam:null    },
@@ -160,12 +242,12 @@
     { id:'pratt',    comp:'fore_ends', rating:'AB',  firstName:'Ray',    lastName:'Pratt',   role:'TORP',     roleDesc:'Torpedo Rating',                         gender:'m', watch:'B', dcTeam:null    },
     { id:'norris',   comp:'fore_ends', rating:'AB',  firstName:'Emma',   lastName:'Norris',  role:'SON OP',   roleDesc:'Sonar Operator',                         gender:'f', watch:'B', dcTeam:null    },
     { id:'flynn',    comp:'fore_ends', rating:'AB',  firstName:'Danny',  lastName:'Flynn',   role:'TORP',     roleDesc:'Torpedo Rating',                         gender:'m', watch:'B', dcTeam:null    },
-    // ── SUPPLY / CATERING (5, physically fore_ends — galley is forward) ──
-    { id:'taylor',   comp:'fore_ends', rating:'CPOSA', firstName:'George', lastName:'Taylor',  role:'CPOSA',    roleDesc:'Chief Petty Officer Supply & Secretariat', gender:'m', watch:'duty', dcTeam:null, dept:'supply' },
-    { id:'mackay',   comp:'fore_ends', rating:'PO',    firstName:'Ian',    lastName:'MacKay',  role:'PO(CS)',   roleDesc:'Petty Officer Catering Services',           gender:'m', watch:'A',    dcTeam:null, dept:'supply' },
-    { id:'wright',   comp:'fore_ends', rating:'PO',    firstName:'Linda',  lastName:'Wright',  role:'PO(CS)',   roleDesc:'Petty Officer Catering Services',           gender:'f', watch:'B',    dcTeam:null, dept:'supply' },
-    { id:'cross',    comp:'fore_ends', rating:'AB',    firstName:'Danny',  lastName:'Cross',   role:'AB(CS)',   roleDesc:'Able Rating Catering Services',             gender:'m', watch:'A',    dcTeam:null, dept:'supply' },
-    { id:'reed',     comp:'fore_ends', rating:'AB',    firstName:'Kate',   lastName:'Reed',    role:'AB(CS)',   roleDesc:'Able Rating Catering Services',             gender:'f', watch:'B',    dcTeam:null, dept:'supply' },
+    // ── SUPPLY / CATERING (5, aux_section — galley/messes) ───────────────
+    { id:'taylor',   comp:'aux_section', rating:'CPOSA', firstName:'George', lastName:'Taylor',  role:'CPOSA',    roleDesc:'Chief Petty Officer Supply & Secretariat', gender:'m', watch:'duty', dcTeam:null, dept:'supply' },
+    { id:'mackay',   comp:'aux_section', rating:'PO',    firstName:'Ian',    lastName:'MacKay',  role:'PO(CS)',   roleDesc:'Petty Officer Catering Services',           gender:'m', watch:'duty', dcTeam:null, dept:'supply' },
+    { id:'wright',   comp:'aux_section', rating:'PO',    firstName:'Linda',  lastName:'Wright',  role:'PO(CS)',   roleDesc:'Petty Officer Catering Services',           gender:'f', watch:'duty', dcTeam:null, dept:'supply' },
+    { id:'cross',    comp:'aux_section', rating:'AB',    firstName:'Danny',  lastName:'Cross',   role:'AB(CS)',   roleDesc:'Able Rating Catering Services',             gender:'m', watch:'duty', dcTeam:null, dept:'supply' },
+    { id:'reed',     comp:'aux_section', rating:'AB',    firstName:'Kate',   lastName:'Reed',    role:'AB(CS)',   roleDesc:'Able Rating Catering Services',             gender:'f', watch:'duty', dcTeam:null, dept:'supply' },
     // ── REACTOR COMP (3) ──────────────────────────────────────────────────
     { id:'sinclair', comp:'reactor_comp', rating:'LCDR', firstName:'Paul',  lastName:'Sinclair', role:'MEO',      roleDesc:'Marine Engineering Officer',            gender:'m', watch:'duty', dcTeam:null },
     { id:'hadley',   comp:'reactor_comp', rating:'CPO',  firstName:'Doug',  lastName:'Hadley',   role:'REAC WKP', roleDesc:'Reactor Panel Watchkeeper',              gender:'m', watch:'A',    dcTeam:null },
@@ -223,32 +305,53 @@
     'CPOSA':'supply','PO(CS)':'supply','AB(CS)':'supply',
   };
   const _DEPT_BY_COMP = {
-    fore_ends:'weapons', control_room:'warfare', aux_section:'engineering',
+    fore_ends:'weapons', control_room:'warfare', aux_section:'warfare',
     reactor_comp:'reactor', engine_room:'engineering', aft_ends:'engineering',
   };
 
   function buildCrewManifest(){
     const manifest={};
     for(const comp of COMPS) manifest[comp]=[];
+    // Watch A is on at game start. Off-watch (B) crew rest in aux_section (messes).
+    const INITIAL_WATCH='A';
     for(const m of CREW_MANIFEST){
       const dept=m.dept||_DEPT_BY_ROLE[m.role]||_DEPT_BY_COMP[m.comp]||'warfare';
-      manifest[m.comp].push({
-        id:        m.id,
-        name:      `${m.rating} ${m.firstName[0]}.${m.lastName}`,
-        firstName: m.firstName,
-        lastName:  m.lastName,
-        rating:    m.rating,
-        role:      m.role,
-        roleDesc:  m.roleDesc,
-        gender:    m.gender,
-        watch:     m.watch,
-        dcTeam:    m.dcTeam,
+      const stationComp=m.comp;  // where they stand watch / their billet
+      // Non-duty watchkeepers start in their rest location when off watch
+      const physComp=(m.watch!=='duty'&&m.watch!==INITIAL_WATCH&&dept!=='supply'&&dept!=='medical')
+                     ? 'aux_section' : stationComp;
+      manifest[physComp].push({
+        id:          m.id,
+        name:        `${m.rating} ${m.firstName[0]}.${m.lastName}`,
+        firstName:   m.firstName,
+        lastName:    m.lastName,
+        rating:      m.rating,
+        role:        m.role,
+        roleDesc:    m.roleDesc,
+        gender:      m.gender,
+        watch:       m.watch,
+        dcTeam:      m.dcTeam,
         dept,
-        status:    'fit',
-        comp:      m.comp,
+        status:      'fit',
+        comp:        physComp,
+        stationComp: stationComp,
       });
     }
     return manifest;
+  }
+
+  // Move crew to their watch station or rest location (messes) on watch change.
+  function _relocateCrewForWatch(d, activeWatch){
+    const allCrew=COMPS.flatMap(comp=>d.crew[comp]);
+    for(const comp of COMPS) d.crew[comp]=[];
+    for(const cr of allCrew){
+      // Displaced crew stay wherever they evacuated to — don't route them back into danger
+      if(cr.displaced){ d.crew[cr.comp].push(cr); continue; }
+      const goStation=cr.watch===activeWatch||cr.watch==='duty'||cr.dept==='supply'||cr.dept==='medical';
+      const dest=goStation ? (cr.stationComp||cr.comp) : 'aux_section';
+      d.crew[dest].push(cr);
+      cr.comp=dest;
+    }
   }
 
   // ── DC team log (separate from main ship log) ─────────────────────────────
@@ -296,6 +399,8 @@
       _fireDrench:{},        // comp -> true (one-shot, compartment uninhabitable)
       _fireDrenchPending:{}, // comp -> { t: secondsRemaining } during 20s drench countdown
       _fireCritical:{},      // comp -> true (emergency stations already fired for this fire)
+      _fireAlarmFired:{},    // roomId -> true (initial detection alarm already broadcast)
+      _floodDeckDmg:{},      // comp -> {0,1,2: true} once deck damage has been applied
 
       // Compartment-level repair jobs (both teams contribute to one shared job)
       repairJobs:{},  // comp -> {sys, progress, totalTime} or null
@@ -311,10 +416,10 @@
       teams:{
         alpha:{
           id:'alpha', label:'DC ALPHA',
-          home:'fore_ends',       // natural home compartment
-          state:'ready',          // ready|transit|on_scene|blowing|lost
-          location:'fore_ends',   // last known / used for travel calc
-          destination:null,       // comp being travelled to
+          home:'aux_section_d0b',       // SR MESS — forward DC team berths here
+          state:'ready',
+          location:'aux_section_d0b',   // current compartment (room ID)
+          destination:null,             // target compartment (room ID)
           transitEta:0,
           task:null,              // null|'flood'|'repair'
           repairTarget:null,      // sys name or null (auto)
@@ -324,10 +429,10 @@
         },
         bravo:{
           id:'bravo', label:'DC BRAVO',
-          home:'engine_room',
-          state:'ready',          // ready|transit|on_scene|blowing|lost
-          location:'engine_room',
-          destination:null,
+          home:'engine_room_d0',        // AFT PASSAGE — aft DC team berths here
+          state:'ready',
+          location:'engine_room_d0',    // current compartment (room ID)
+          destination:null,             // target compartment (room ID)
           transitEta:0,
           task:null,
           repairTarget:null,
@@ -340,6 +445,7 @@
 
       // Watertight Doors — 5 doors between adjacent sections, all open at start
       wtd: Object.fromEntries(WTD_PAIRS.map(([a,b])=>[a+'|'+b,'open'])),
+      _wtdSpreadAlerted:{},  // comp -> true once watchkeepers have reported WTD ingress
     };
     game.dcLog=[];
     game.showDcPanel=false;
@@ -395,10 +501,94 @@
       const diff=fa-fb;
       if(Math.abs(diff)<0.05) continue;
       const spreadAmt=0.12*pressureMult*dt;
-      if(diff>0&&!d.flooded[b])
-        d.flooding[b]=Math.min(1,(d.flooding[b]||0)+spreadAmt);
-      else if(diff<0&&!d.flooded[a])
-        d.flooding[a]=Math.min(1,(d.flooding[a]||0)+spreadAmt);
+      // Spread from higher to lower, fire watchkeeper alert on first ingress into manned section
+      const _wtdCheckIngress=(dest, prev)=>{
+        const destHasCrew=(SECTION_ROOMS[dest]||[]).some(rid=>(ROOMS[rid].crew||0)>0);
+        if(prev<0.05 && (d.flooding[dest]||0)>=0.05 && destHasCrew && !(d._wtdSpreadAlerted||{})[dest]){
+          if(!d._wtdSpreadAlerted) d._wtdSpreadAlerted={};
+          d._wtdSpreadAlerted[dest]=true;
+          _alert('FLOODING — '+SECTION_LABEL[dest]);
+          dcLog(`${SECTION_LABEL[dest]} — FLOODING — water entering through open WTD`);
+          window.G.setCasualtyState?.('emergency');
+        }
+      };
+      if(diff>0&&!d.flooded[b]){
+        const prev=d.flooding[b]||0;
+        d.flooding[b]=Math.min(1,prev+spreadAmt);
+        _wtdCheckIngress(b,prev);
+      } else if(diff<0&&!d.flooded[a]){
+        const prev=d.flooding[a]||0;
+        d.flooding[a]=Math.min(1,prev+spreadAmt);
+        _wtdCheckIngress(a,prev);
+      }
+    }
+  }
+
+  // ── Emergency WTD close — called on first flood detection ────────────────
+  // Closes all open WTDs and fires staggered watchkeeper reports.
+  // Short door labels for comms use abbreviated section names.
+  const _WTD_COMMS = {
+    'fore_ends|control_room':   { station:'CONN', door:'TORPS/CTRL' },
+    'control_room|aux_section': { station:'AUX',  door:'CTRL/MESS'  },
+    'aux_section|reactor_comp': { station:'REA',  door:'MESS/RCTR'  },
+    'reactor_comp|engine_room': { station:'MAN',  door:'RCTR/MANV'  },
+    'engine_room|aft_ends':     { station:'ENG',  door:'MANV/AFT'   },
+  };
+  function _emergencyCloseWTDs(d){
+    if(!d.wtd) return;
+    if(!d._wtdAutoClose) d._wtdAutoClose=[];
+    if(!d._wtdAutoClosedKeys) d._wtdAutoClosedKeys=new Set();
+    // Each door gets its own independent random delay — crew across the boat
+    // arrive at their local door at different times and may close out of order.
+    for(const [a,b] of WTD_PAIRS){
+      const key=a+'|'+b;
+      if((d.wtd[key]||'open')!=='open') continue;
+      const delay=4.0+Math.random()*16.0; // 4–20 s, independent per door
+      d._wtdAutoClose.push({key, t: delay-0.5});
+      d._wtdAutoClosedKeys.add(key);
+      const info=_WTD_COMMS[key];
+      if(info) COMMS.flood.wtdClosed(info.station, info.door, delay);
+    }
+  }
+
+  // Reopen all auto-closed WTDs after the flooding emergency is controlled
+  function _emergencyOpenWTDs(d){
+    if(!d.wtd||!d._wtdAutoClosedKeys?.size) return;
+    if(!d._wtdAutoOpen) d._wtdAutoOpen=[];
+    COMMS.flood.openWTDs();
+    for(const key of d._wtdAutoClosedKeys){
+      if((d.wtd[key]||'open')!=='closed') continue;
+      const delay=4.0+Math.random()*16.0; // 4–20 s, independent per door
+      d._wtdAutoOpen.push({key, t: delay-0.5});
+      const info=_WTD_COMMS[key];
+      if(info) COMMS.flood.wtdOpen(info.station, info.door, delay);
+    }
+    d._wtdAutoClosedKeys.clear();
+  }
+
+  // Tick pending emergency WTD openings (physically opens each door on schedule)
+  function _tickWTDAutoOpen(dt, d){
+    const pending=d._wtdAutoOpen;
+    if(!pending?.length) return;
+    for(let i=pending.length-1;i>=0;i--){
+      pending[i].t-=dt;
+      if(pending[i].t<=0){
+        if(d.wtd) d.wtd[pending[i].key]='open';
+        pending.splice(i,1);
+      }
+    }
+  }
+
+  // Tick pending emergency WTD closures (physically closes each door on schedule)
+  function _tickWTDAutoClose(dt, d){
+    const pending=d._wtdAutoClose;
+    if(!pending?.length) return;
+    for(let i=pending.length-1;i>=0;i--){
+      pending[i].t-=dt;
+      if(pending[i].t<=0){
+        if(d.wtd) d.wtd[pending[i].key]='closed';
+        pending.splice(i,1);
+      }
     }
   }
 
@@ -505,11 +695,11 @@
     return Math.max(0.15, fit/members.length);
   }
 
-  // Which team is assigned to a compartment?
+  // Which team is assigned to a section? (comp = section key)
   function teamAtComp(comp){
     const d=player.damage; if(!d) return null;
     for(const t of Object.values(d.teams)){
-      if(t.state==='on_scene'&&t.location===comp) return t;
+      if(t.state==='on_scene'&&roomSection(t.location)===comp) return t;
       if((t.state==='transit'||t.state==='mustering')&&t.destination===comp) return t;
     }
     return null;
@@ -526,14 +716,15 @@
     // Cannot interrupt a drench sequence
     if(team.task==='drench_pending') return;
     // If same team already there, do nothing
-    if((team.state==='on_scene'||team.state==='transit')&&(team.location===comp||team.destination===comp)) return;
+    if((team.state==='on_scene'||team.state==='transit')&&(roomSection(team.location)===comp||team.destination===comp)) return;
 
     // Can team cross? (reactor flooded blocks crossing)
     const fwd=['fore_ends','control_room','aux_section'];
     const aft=['engine_room','aft_ends'];
     const reactorFlooded=d.flooded.reactor_comp||d.flooded.aux_section;
     if(reactorFlooded){
-      const teamFwd=fwd.includes(team.location)||team.location==='reactor_comp';
+      const teamSec=roomSection(team.location)||team.location;
+      const teamFwd=fwd.includes(teamSec)||teamSec==='reactor_comp';
       const destFwd=fwd.includes(comp)||comp==='reactor_comp';
       if(teamFwd!==destFwd){ COMMS.dc.cannotCross(team.label); return; }
     }
@@ -545,7 +736,7 @@
     team.repairTarget=null;
     team.repairProgress=0;
 
-    COMMS.dc.mustering(team.label, COMP_DEF[comp].label);
+    COMMS.dc.mustering(team.label, SECTION_LABEL[comp]);
   }
 
   // ── Recall a DC team to home compartment ─────────────────────────────────
@@ -561,6 +752,8 @@
     team.state='ready';
     team.destination=null;
     team.task=null;
+    team._ventIntent=null;
+    team._ventT=0;
     team.repairTarget=null;
     team.repairProgress=0;
     COMMS.dc.recalled(team.label, wasBlow);
@@ -571,18 +764,18 @@
     const fwd=['fore_ends','control_room','aux_section'];
     const reactorFlooded=d.flooded.reactor_comp||d.flooded.aux_section;
     if(!reactorFlooded) return true;
-    const loc=team.location||team.home;
+    const loc=roomSection(team.location)||roomSection(team.home)||team.location;
     const teamFwd=fwd.includes(loc)||loc==='reactor_comp';
     const destFwd=fwd.includes(comp)||comp==='reactor_comp';
     return teamFwd===destFwd;
   }
 
   function _bestDCTarget(team,d){
-    // Build set of comps where another locked team is already committed
+    // Build set of comps already covered by another team (locked on-scene or auto-transiting)
     const covered=new Set(
       Object.values(d.teams)
-        .filter(t=>t!==team&&t._locked)
-        .map(t=>t.destination||t.location)
+        .filter(t=>t!==team&&(t._locked||(t.state==='transit'&&t._autoMode)||t.state==='mustering'))
+        .map(t=>t.destination||roomSection(t.location)||t.location)
         .filter(Boolean)
     );
     // Fire takes priority over flood
@@ -610,7 +803,8 @@
   }
 
   function _autoAssignDirect(team,comp,d){
-    const eta=TRAVEL[team.location]?.[comp]??60;
+    const fromSec=roomSection(team.location)||team.location;
+    const eta=TRAVEL[fromSec]?.[comp]??60;
     team.state='transit';
     team.destination=comp;
     team.transitEta=eta;
@@ -618,7 +812,7 @@
     team.repairTarget=null;
     team.repairProgress=0;
     team._autoMode=true;
-    COMMS.dc.autoDispatching(team.label,COMP_DEF[comp].label,Math.round(eta));
+    COMMS.dc.autoDispatching(team.label,SECTION_LABEL[comp],Math.round(eta));
   }
 
   function _autoDispatchDC(dt,d){
@@ -630,6 +824,9 @@
       if(team._readyT>0){
         team._readyT=Math.max(0,team._readyT-dt);
         if(team._readyT===0){
+          // Mark auto-mode at muster completion regardless of whether a target exists now.
+          // This ensures the team responds if a new fire/flood appears while it is standing by.
+          team._autoMode=true;
           const target=_bestDCTarget(team,d);
           if(target) _autoAssignDirect(team,target,d);
         }
@@ -656,39 +853,36 @@
     game.hitFlash=0.8;
 
     if(prev>=1){
-      // ── SECOND HIT → INSTANT FLOOD ───────────────────────────────────
+      // ── SECOND HIT → CRITICAL BREACH (fast but not instant) ──────────
+      // Section was already damaged — structural failure greatly increases ingress rate.
+      // Systems are NOT instantly destroyed; deck-level damage events handle that as
+      // water rises. 'destroyed' state only applies when a damaged system takes another hit.
       d.strikes[comp]=2;
-      d.flooded[comp]=true;
-      d.flooding[comp]=1.0;
-      d.floodRate[comp]=0;
-      for(const sys of def.systems) d.systems[sys]='destroyed';
-      const lost=_floodComp(comp);
+      d.floodRate[comp]=Math.max(d.floodRate[comp]||0, 0.04+severity*0.04);
+      // Reset deck-damage tracking so rising water applies a fresh damage pass
+      if(!d._floodDeckDmg) d._floodDeckDmg={};
+      d._floodDeckDmg[comp]={};
       if(def.tower&&d.towers[def.tower]!=='destroyed') d.towers[def.tower]='destroyed';
 
-      // DC teams: on_scene → evacuation roll; transit → keep going, will blow on arrival
+      // DC teams on scene — evacuation roll; transit teams continue to arrive
       for(const team of Object.values(d.teams)){
-        if(team.state==='on_scene'&&team.location===comp){
-          // Evacuation roll — 75% escape
+        if(team.state==='on_scene'&&roomSection(team.location)===comp){
           if(Math.random()<0.75){
-            team.state='ready';
-            team.task=null;
-            // Wound a team member to reflect the scramble
+            team.state='ready'; team.task=null;
             _woundDcTeamMember(team, d);
-            COMMS.dc.teamEvacuated(team.label, def.label);
+            COMMS.dc.teamEvacuated(team.label, SECTION_LABEL[comp]);
           } else {
             team.state='lost';
-            COMMS.dc.teamLost(team.label, def.label);
+            COMMS.dc.teamLost(team.label, SECTION_LABEL[comp]);
           }
         }
-        // Teams in transit continue — they will arrive and start HP blow automatically
       }
 
-      _alert(`${def.label} FLOODED`);
-      COMMS.flood.uncontrolled(def.label, COMP_STATION[comp]||'ENG', lost);
-      if(comp==='reactor_comp'){
-        if(!player.scram&&typeof window.G.triggerScram==='function') window.G.triggerScram('damage');
-        d.systems.reactor='destroyed';
-        COMMS.flood.reactorFlooded();
+      _alert(`${SECTION_LABEL[comp]} — SECOND BREACH`);
+      COMMS.flood.secondBreach(SECTION_LABEL[comp], COMP_STATION[comp]||'ENG');
+      if(comp==='reactor_comp'&&!player.scram&&typeof window.G.triggerScram==='function'){
+        window.G.triggerScram('damage');
+        COMMS.reactor.scram('damage');
       }
       _checkSinking();
 
@@ -718,9 +912,9 @@
       const cas=_injureComp(comp,severity);
       if(cas.killed>0||cas.wounded>0){
         _alert(`CASUALTIES — ${cas.killed} KIA${cas.wounded>0?`, ${cas.wounded} WND`:''}`);
-        COMMS.sys.casualties(cas.killed, cas.wounded, def.label);
+        COMMS.sys.casualties(cas.killed, cas.wounded, SECTION_LABEL[comp]);
       }
-      if(cas.wounded>0) COMMS.medical.casualtyCallOut(def.label);
+      if(cas.wounded>0) COMMS.medical.casualtyCallOut(SECTION_LABEL[comp]);
       if(def.tower&&severity>0.7&&rand(0,1)>0.6&&d.towers[def.tower]==='nominal'){
         d.towers[def.tower]='damaged';
         _alert(`ESCAPE TOWER ${def.tower.toUpperCase()} DAMAGED`);
@@ -737,7 +931,9 @@
       const tFlood=d.floodRate[comp]>0?Math.round(1/(d.floodRate[comp]*_bPMult)):999;
       const urgency=tFlood<60?'CRITICAL — ':tFlood<120?'URGENT — ':'';
       window.G.setCasualtyState('emergency');
-      COMMS.flood.firstHit(def.label, COMP_STATION[comp]||'ENG', urgency, tFlood);
+      COMMS.flood.firstHit(SECTION_LABEL[comp], COMP_STATION[comp]||'ENG', urgency, tFlood);
+      COMMS.flood.closeWTDs(SECTION_LABEL[comp]);
+      _emergencyCloseWTDs(d);
     }
     player.hp=Math.max(1,100-Object.values(d.strikes).reduce((a,b)=>a+b,0)*15);
   }
@@ -768,18 +964,19 @@
     if(!d||(d.flooding[comp]||0)<=0) return;
     // Kill any team inside
     for(const team of Object.values(d.teams)){
-      if(team.state==='on_scene'&&team.location===comp){
+      if(team.state==='on_scene'&&roomSection(team.location)===comp){
         team.state='lost';
-        COMMS.dc.teamLostSealed(team.label, COMP_DEF[comp].label);
+        COMMS.dc.teamLostSealed(team.label, SECTION_LABEL[comp]||comp);
       }
     }
     d.floodRate[comp]=0;
     d.flooding[comp]=0;
+    if(d._floodDeckDmg?.[comp]) d._floodDeckDmg[comp]={};
     for(const sys of COMP_DEF[comp].systems){
-      if(d.systems[sys]==='nominal') d.systems[sys]='offline';
+      if(d.systems[sys]==='nominal') damageSystem(sys);
     }
-    COMMS.flood.sealed(COMP_DEF[comp].label);
-    dcLog(`${COMP_DEF[comp].label} — SEALED. All systems offline`);
+    COMMS.flood.sealed(SECTION_LABEL[comp]||comp);
+    dcLog(`${SECTION_LABEL[comp]||comp} — SEALED. All systems offline`);
   }
 
   // ── System helpers ────────────────────────────────────────────────────────
@@ -801,6 +998,19 @@
     return repairable[0]||null;
   }
 
+  // Pick the best room in a section for DC team arrival (worst fire room, or first room)
+  function _bestArrivalRoom(section,d){
+    const rooms=SECTION_ROOMS[section]||[];
+    if(!rooms.length) return section; // fallback
+    // Prefer the room with the worst fire
+    let best=rooms[0], bestFire=0;
+    for(const rid of rooms){
+      const f=d.fire[rid]||0;
+      if(f>bestFire){ bestFire=f; best=rid; }
+    }
+    return best;
+  }
+
   // ── DC team tick ──────────────────────────────────────────────────────────
   function _tickTeams(dt,d){
     for(const team of Object.values(d.teams)){
@@ -812,11 +1022,12 @@
       if(team.state==='mustering'){
         team.musterT-=dt;
         if(team.musterT<=0){
-          const comp=team.destination;
-          const eta=(TRAVEL[team.location]?.[comp]??60)+_wtdTransitPenalty(team.location,comp,d);
+          const destSec=team.destination; // section key
+          const fromSec=roomSection(team.location)||team.location;
+          const eta=(TRAVEL[fromSec]?.[destSec]??60)+_wtdTransitPenalty(fromSec,destSec,d);
           team.state='transit';
           team.transitEta=eta;
-          COMMS.dc.dispatched(team.label, COMP_DEF[comp].label, Math.round(eta));
+          COMMS.dc.dispatched(team.label, SECTION_LABEL[destSec]||COMP_DEF[destSec]?.label||destSec, Math.round(eta));
         }
         continue;
       }
@@ -825,33 +1036,43 @@
       if(team.state==='transit'){
         team.transitEta-=dt;
         if(team.transitEta<=0){
-          const arrComp=team.destination;
-          team.location=arrComp;
+          const arrSec=team.destination; // section key
+          // Pick the most relevant compartment in the section
+          const arrRoom=_bestArrivalRoom(arrSec,d);
+          team.location=arrRoom;
           team.destination=null;
           team.repairProgress=0;
-          if(d.flooded[arrComp]){
-            // Compartment fully flooded — work from outside with HP air
+          if(d.flooded[arrSec]){
             team.state='blowing';
             team.task='blow';
             team._locked=true;
-            COMMS.dc.blow.started(team.label, COMP_DEF[arrComp].label);
+            COMMS.dc.blow.started(team.label, ROOMS[arrRoom]?.label||arrSec);
           } else {
             team.state='on_scene';
             team.task=null;
-            if(_sectionHasFire(arrComp,d)){
-              // Fire takes priority — dcArrival is the sole arrival message
+            if(d._fireDrench?.[arrSec]&&team._ventIntent===arrSec){
+              team._ventIntent=null;
+              team.task='vent_n2';
+              team._ventT=VENT_N2_TIME;
+              if(d._fireDrench[arrSec]) d._fireDrench[arrSec].venting=true;
+              COMMS.dc.onScene(team.label, ROOMS[arrRoom]?.label||arrSec);
+              COMMS.fire.ventN2Started(SECTION_LABEL[arrSec]||arrSec, team.label);
+            } else if(_sectionHasFire(arrSec,d)){
+              team._ventIntent=null;
               team.task='fire';
               team._locked=true;
               team._fireLosing=0;
-              COMMS.fire.dcArrival(team.label, COMP_DEF[arrComp].label);
-            } else if(d.floodRate[arrComp]>0||d.flooding[arrComp]>0.05){
-              COMMS.dc.onScene(team.label, COMP_DEF[arrComp].label);
+              COMMS.fire.dcArrival(team.label, ROOMS[arrRoom]?.label||arrSec);
+            } else if(d.floodRate[arrSec]>0||d.flooding[arrSec]>0.05){
+              team._ventIntent=null;
+              COMMS.dc.onScene(team.label, ROOMS[arrRoom]?.label||arrSec);
               team.task='flood';
               team._locked=true;
               COMMS.dc.floodingActive(team.label);
             } else {
-              COMMS.dc.onScene(team.label, COMP_DEF[arrComp].label);
-              const sys=_nextRepairTarget(arrComp,d);
+              team._ventIntent=null;
+              COMMS.dc.onScene(team.label, ROOMS[arrRoom]?.label||arrSec);
+              const sys=_nextRepairTarget(arrSec,d);
               if(sys){
                 team.task='repair';
                 team.repairTarget=sys;
@@ -859,7 +1080,7 @@
               } else {
                 team.task=null;
                 team.state='ready';
-                dcLog(`${team.label} — ${COMP_DEF[arrComp].label} secure. Standing by`);
+                dcLog(`${team.label} — ${SECTION_LABEL[arrSec]||arrSec} secure. Standing by`);
               }
             }
           }
@@ -869,132 +1090,121 @@
 
       // ── ON SCENE ───────────────────────────────────────────────────────
       if(team.state==='on_scene'){
-        const comp=team.location;
+        const roomId=team.location;       // room ID (compartment)
+        const sec=roomSection(roomId)||roomId; // section key
         const eff=_teamEffectiveness(team);
 
-        // If compartment suddenly flooded while on_scene → evac roll (already handled
-        // by the hit/flood path above, but guard here in case state is stale)
-        if(d.flooded[comp]){
-          // Transition to blowing from outside — don't re-kill
+        // If section flooded while on_scene → evac roll
+        if(d.flooded[sec]){
           team.state='blowing';
           team.task='blow';
           team._locked=true;
-          COMMS.dc.blow.started(team.label, COMP_DEF[comp].label);
+          COMMS.dc.blow.started(team.label, ROOMS[roomId]?.label||sec);
           continue;
         }
 
-        // Drench pending — team is outside operating N2 controls; skip all task logic
+        // Drench pending — team is at N2 panel outside comp; skip all task logic
         if(team.task==='drench_pending') continue;
 
+        // ── N2 VENTING ──────────────────────────────────────────────────
+        if(team.task==='vent_n2'){
+          if(!team._ventT) team._ventT=VENT_N2_TIME;
+          team._ventT-=dt;
+          if(d._fireDrench?.[sec]) d._fireDrench[sec].level = Math.max(0, team._ventT / VENT_N2_TIME);
+          if(team._ventT<=0){
+            team._ventT=0; team.task=null; team._locked=false;
+            if(d._fireDrench) delete d._fireDrench[sec];
+            _returnCrew(sec,d,'fire');
+            COMMS.fire.ventN2Complete(SECTION_LABEL[sec]||sec);
+            const sys=_nextRepairTarget(sec,d);
+            if(sys){ team.task='repair'; team.repairTarget=sys; COMMS.dc.startRepair(team.label,SYS_LABEL[sys]); }
+            else { team.state='ready'; COMMS.dc.allSecure(team.label,SECTION_LABEL[sec]||sec); }
+            _checkClearEmergency(d);
+          }
+          continue;
+        }
+
         // ── FIRE FIGHTING ───────────────────────────────────────────────
-        // Actual suppression computed in _tickFire; team loop just handles
-        // status comms and task transitions.
-        if(team.task==='fire'||_sectionHasFire(comp,d)){
+        if(team.task==='fire'||_sectionHasFire(sec,d)){
           team.task='fire';
           team._locked=true;
-          // Periodic status
+          // Auto-migrate to worst burning room in the section
+          const curFire=d.fire[roomId]||0;
+          if(curFire<0.01){
+            const worstRoom=_bestArrivalRoom(sec,d);
+            if(worstRoom!==roomId&&(d.fire[worstRoom]||0)>0.01){
+              team.location=worstRoom;
+              COMMS.fire.dcMoved?.(team.label, ROOMS[worstRoom]?.label||sec);
+            }
+          }
           if(team.statusT<=0){
             team.statusT=20;
-            COMMS.fire.dcStatus(team.label,Math.round(_sectionFire(comp,d)*100),COMP_DEF[comp].label);
-          }
-          // Fire out — transition to flood or repair
-          if(!_sectionHasFire(comp,d)){
-            team._locked=false;
-            team.task=null;
-            if(!d._fireDrench?.[comp]) _returnCrew(comp,d,'fire');
-            if(d.floodRate[comp]>0||d.flooding[comp]>0.05){
-              team.task='flood';
-              COMMS.dc.floodingActive(team.label);
-            } else {
-              const sys=_nextRepairTarget(comp,d);
-              if(sys){ team.task='repair'; team.repairTarget=sys; COMMS.dc.startRepair(team.label,SYS_LABEL[sys]); }
-              else { team.state='ready'; COMMS.dc.allSecure(team.label,COMP_DEF[comp].label); }
-            }
+            COMMS.fire.dcStatus(team.label,Math.round(_sectionFire(sec,d)*100),ROOMS[team.location]?.label||sec);
           }
           continue;
         }
 
         // ── FLOOD FIGHTING ──────────────────────────────────────────────
-        const FLOOD_FIGHT_RATE=0.055; // units/sec reduction in floodRate
-        if(team.task==='flood'||d.floodRate[comp]>0){
+        const FLOOD_FIGHT_RATE=0.055;
+        if(team.task==='flood'||d.floodRate[sec]>0){
           team.task='flood';
           team._locked=true;
           const reduction=FLOOD_FIGHT_RATE*eff;
-          d.floodRate[comp]=Math.max(0,d.floodRate[comp]-reduction*dt);
+          d.floodRate[sec]=Math.max(0,d.floodRate[sec]-reduction*dt);
 
-          // Breach sealed — hand off draining to bilge pumps, move straight to repairs
-          if(d.floodRate[comp]===0){
+          if(d.floodRate[sec]===0){
             team._locked=false;
-            // If flooding is essentially clear, return crew now; else bilge will trigger it
-            if((d.flooding[comp]||0)<=0.05) _returnCrew(comp,d);
+            if((d.flooding[sec]||0)<=0.05) _returnCrew(sec,d);
             team.task=null;
-            const sys=_nextRepairTarget(comp,d);
+            const sys=_nextRepairTarget(sec,d);
             if(sys){
               team.task='repair'; team.repairTarget=sys; team.repairProgress=0;
-              COMMS.dc.breachSealed(team.label, COMP_DEF[comp].label, sys, SYS_LABEL[sys]);
+              COMMS.dc.breachSealed(team.label, SECTION_LABEL[sec]||sec, sys, SYS_LABEL[sys]);
             } else {
               team.state='ready';
-              COMMS.dc.breachSealed(team.label, COMP_DEF[comp].label, null, null);
+              COMMS.dc.breachSealed(team.label, SECTION_LABEL[sec]||sec, null, null);
             }
           } else {
-            // Still flooding — periodic status
             if(team.statusT<=0){
               team.statusT=25;
-              const pct=Math.round(d.flooding[comp]*100);
-              const netRate=d.floodRate[comp];
+              const pct=Math.round(d.flooding[sec]*100);
+              const netRate=d.floodRate[sec];
               COMMS.dc.floodStatus(team.label, pct, netRate);
             }
           }
           continue;
         }
 
-        // ── REPAIR — compartment-level shared job ───────────────────────
-        // Count teams on scene here (for speed bonus)
-        const teamsOnScene=Object.values(d.teams).filter(t=>t.state==='on_scene'&&t.location===comp).length;
-        // Speed: 1 team = 1.0x, 2 teams = 1.4x (both teams contribute, not double)
+        // ── REPAIR — section-level shared job ───────────────────────────
+        const teamsOnScene=Object.values(d.teams).filter(t=>t.state==='on_scene'&&roomSection(t.location)===sec).length;
         const repairSpeed=eff*(teamsOnScene>=2?1.4:1.0);
 
-        // Get or create a repair job for this compartment
-        let job=d.repairJobs[comp];
-        // Only reset job if it's missing or the current system reached nominal (done)
-        // NOT on 'destroyed' — that's a valid repair target now
+        let job=d.repairJobs[sec];
         if(!job||d.systems[job.sys]==='nominal'){
-          const sys=_nextRepairTarget(comp,d);
+          const sys=_nextRepairTarget(sec,d);
           if(sys){
             const jobIsNew=!job||job.sys!==sys;
-            d.repairJobs[comp]=job={sys,progress:0,totalTime:REPAIR_TIME[d.systems[sys]]||45};
+            d.repairJobs[sec]=job={sys,progress:0,totalTime:REPAIR_TIME[d.systems[sys]]||45};
             if(jobIsNew){
               COMMS.dc.startRepair(team.label, SYS_LABEL[sys]);
             }
           } else {
-            d.repairJobs[comp]=null;
+            d.repairJobs[sec]=null;
             team.task=null;
             team.state='ready';
-            COMMS.dc.allSecure(team.label, COMP_DEF[comp].label);
-            // Check if entire boat is now clear — if so, secure from emergency stations
-            if(window.G.game.casualtyState==='emergency'){
-              const anyFlood = COMPS.some(cp => (d.flooding[cp]||0) > 0.001);
-              const anyTeamActive = Object.values(d.teams).some(t => t.state!=='ready' && t.state!=='lost');
-              if(!anyFlood && !anyTeamActive){
-                window.G.setCasualtyState('normal');
-                d._emergMusterFired=false;
-                for(const t of Object.values(d.teams)){ t._autoMode=false; t._readyT=0; }
-                COMMS.crewState.casualtyControlled('flood');
-              }
-            }
+            COMMS.dc.allSecure(team.label, SECTION_LABEL[sec]||sec);
+            _checkClearEmergency(d);
             continue;
           }
         }
-        job=d.repairJobs[comp];
+        job=d.repairJobs[sec];
         if(job){
           team.task='repair';
-          team.repairTarget=job.sys;  // keep team display in sync
-          // Only the "lead" team (first alphabetically) advances progress — prevents double counting
-          const teamsList=Object.values(d.teams).filter(t=>t.state==='on_scene'&&t.location===comp);
+          team.repairTarget=job.sys;
+          const teamsList=Object.values(d.teams).filter(t=>t.state==='on_scene'&&roomSection(t.location)===sec);
           const isLead=teamsList[0]===team;
           if(isLead){
             job.progress+=repairSpeed*dt;
-            // Periodic status (one message from lead team only)
             if(team.statusT<=0){
               team.statusT=30;
               const pct=Math.round(job.progress/job.totalTime*100);
@@ -1007,51 +1217,51 @@
                 d.systems[sys]=STATES[cur-1];
                 const restored=STATES[cur-1];
                 COMMS.dc.repairComplete(team.label, SYS_LABEL[sys], restored, teamsOnScene>=2);
+                // Reactor-specific follow-up from maneuvering — tells crew whether restart
+                // is now possible (nominal) or further work is still needed (degraded/offline).
+                if(sys==='reactor') COMMS.reactor.repairReadyRestart(restored);
                 _alert(`${SYS_LABEL[sys]} REPAIRED`);
                 // High-energy repair risk
                 if(HIGH_ENERGY_SYS.has(sys)&&Math.random()<0.07){
-                  const compCrew=(d.crew[comp]||[]).filter(c=>c.status==='fit');
-                  if(compCrew.length>0){
-                    const victim=compCrew[Math.floor(Math.random()*compCrew.length)];
+                  const secCrew=(d.crew[sec]||[]).filter(c=>c.status==='fit');
+                  if(secCrew.length>0){
+                    const victim=secCrew[Math.floor(Math.random()*secCrew.length)];
                     victim.status=Math.random()<0.35?'killed':'wounded';
                     dcLog(`${team.label} — CASUALTY during ${SYS_LABEL[sys]} repair. ${victim.name} ${victim.status}`);
                   }
                 }
               }
-              d.repairJobs[comp]=null;
+              d.repairJobs[sec]=null;
             }
           }
         }
       }
 
-      // ── HP AIR BLOW (team outside flooded compartment) ───────────────────
+      // ── HP AIR BLOW (team outside flooded section) ──────────────────────
       if(team.state==='blowing'){
-        const comp=team.location;
-        if(!d.flooded[comp]){
-          // Compartment no longer flooded (e.g. patched by other means) — enter normally
+        const blowRoom=team.location;
+        const blowSec=roomSection(blowRoom)||blowRoom;
+        if(!d.flooded[blowSec]){
           team.state='on_scene'; team.task=null;
-          COMMS.dc.blow.accessible(team.label, COMP_DEF[comp].label);
+          COMMS.dc.blow.accessible(team.label, SECTION_LABEL[blowSec]||blowSec);
           continue;
         }
-        // Drain rate: ~0.008/s (~125s full drain). Slow and loud.
         const BLOW_RATE=0.008;
-        d.flooding[comp]=Math.max(0,(d.flooding[comp]||0)-BLOW_RATE*dt);
-        // Periodic status
+        d.flooding[blowSec]=Math.max(0,(d.flooding[blowSec]||0)-BLOW_RATE*dt);
         if(team.statusT<=0){
           team.statusT=20;
-          const pct=Math.round(d.flooding[comp]*100);
-          COMMS.dc.blow.progress(team.label, COMP_DEF[comp].label, pct);
+          const pct=Math.round(d.flooding[blowSec]*100);
+          COMMS.dc.blow.progress(team.label, SECTION_LABEL[blowSec]||blowSec, pct);
         }
-        // Once flooding drops below 15%, team can crack the door and enter
-        if(d.flooding[comp]<=0.15){
-          d.flooded[comp]=false;
-          d.floodRate[comp]=0;
+        if(d.flooding[blowSec]<=0.15){
+          d.flooded[blowSec]=false;
+          d.floodRate[blowSec]=0;
           team.state='on_scene';
-          team.task='flood'; // finish clearing residual water
+          team.task='flood';
           team._locked=false;
-          COMMS.dc.blow.complete(team.label, COMP_DEF[comp].label);
-          _alert(`${COMP_DEF[comp].label} RE-ENTERED`);
-          _returnCrew(comp,d);
+          COMMS.dc.blow.complete(team.label, SECTION_LABEL[blowSec]||blowSec);
+          _alert(`${SECTION_LABEL[blowSec]||blowSec} RE-ENTERED`);
+          _returnCrew(blowSec,d);
         }
         continue;
       }
@@ -1211,10 +1421,12 @@
     d._seepComp[comp] = true; // mark as depth seep, not breach
 
     // Comms — watchkeeper reports structural weeping, no evac
-    const label = COMP_DEF[comp].label;
+    const label = SECTION_LABEL[comp];
     const station = COMP_STATION[comp]||'ENG';
     const tFlood = Math.round(1/seepRate);
     window.COMMS?.flood?.depthSeep(label, station, tFlood);
+    window.COMMS?.flood?.closeWTDs(label);
+    _emergencyCloseWTDs(d);
 
     // Queue next compartment
     cas.nextT = SEEP_DELAY_MIN + Math.random()*(SEEP_DELAY_MAX-SEEP_DELAY_MIN);
@@ -1237,11 +1449,27 @@
   // ── Return displaced crew when compartment clears ──────────────────────────
   function _returnCrew(comp,d,cause='flood'){
     if(d._evacuated) d._evacuated[comp]=false;
-    const returnees=(d.crew[comp]||[]).filter(cr=>cr.displaced&&cr.status!=='killed');
+    // Displaced crew from this section may have been physically moved to other sections.
+    // Search all sections for crew whose original comp was here (stationComp) and are displaced.
+    const returnees=[];
+    for(const sec of COMPS){
+      const evacuees=(d.crew[sec]||[]).filter(cr=>cr.displaced&&cr.status!=='killed'&&cr.stationComp===comp);
+      for(const cr of evacuees){
+        // Move them back to their home section
+        d.crew[sec]=d.crew[sec].filter(c=>c!==cr);
+        if(!d.crew[comp]) d.crew[comp]=[];
+        cr.comp=comp;
+        cr.displaced=false;
+        d.crew[comp].push(cr);
+        returnees.push(cr);
+      }
+    }
+    // Also clear displaced flag for any who weren't physically moved (flood path)
+    const inPlace=(d.crew[comp]||[]).filter(cr=>cr.displaced&&cr.status!=='killed');
+    for(const cr of inPlace){ cr.displaced=false; returnees.push(cr); }
     if(!returnees.length) return;
-    for(const cr of returnees) cr.displaced=false;
-    if(cause==='fire') COMMS.fire.crewReturn(COMP_DEF[comp].label, COMP_STATION[comp]||'ENG', returnees.length);
-    else               COMMS.flood.crewReturn(COMP_DEF[comp].label, COMP_STATION[comp]||'ENG', returnees.length);
+    if(cause==='fire') COMMS.fire.crewReturn(SECTION_LABEL[comp], COMP_STATION[comp]||'ENG', returnees.length);
+    else               COMMS.flood.crewReturn(SECTION_LABEL[comp], COMP_STATION[comp]||'ENG', returnees.length);
   }
 
   // ── Fire ignition ─────────────────────────────────────────────────────────
@@ -1257,7 +1485,7 @@
       roomId=target;
     } else if(SECTION_ROOMS[target]){
       const all=SECTION_ROOMS[target];
-      const manned=all.filter(r=>!ROOMS[r].unmanned);
+      const manned=all.filter(r=>(ROOMS[r].crew||0)>0);
       const pool=manned.length?manned:all;
       roomId=pool[Math.floor(Math.random()*pool.length)];
     } else { return; }
@@ -1267,11 +1495,11 @@
     if(d.flooded[section]) return;
     if((d.fire[roomId]||0)>=intensity) return;
     d.fire[roomId]=Math.max(d.fire[roomId]||0, intensity);
-    if(room.unmanned){
-      // Undetected — fire burns silently until detection countdown expires
+    if((room.crew||0)===0){
+      // Empty room — burns silently; sensor alarm fires at FIRE_DETECT_THRESHOLD
       d._fireDetected[roomId]=false;
-      d._fireDetectT[roomId]=room.detectionDelay;
     } else {
+      // Manned room — crew reports fire immediately (or after detectionDelay)
       d._fireDetected[roomId]=true;
       _triggerFireDetection(roomId, section, d);
     }
@@ -1281,27 +1509,47 @@
   // unmanned room = after detectionDelay countdown)
   function _triggerFireDetection(roomId, section, d){
     const room=ROOMS[roomId];
+    // Critical: mark detected NOW so this isn't called every tick for unmanned rooms
+    d._fireDetected[roomId]=true;
     if(!d._evacuated) d._evacuated={};
     d._evacuated[section]=true;
     if(!d._fireWatch) d._fireWatch={};
+    const isManned=(room.crew||0)>0;
     if(!d._fireWatch[section]){
       // First detected fire in this section — mobilise watchkeepers
-      const compCrew=(d.crew[section]||[]).filter(cr=>cr.status==='fit'&&!cr.displaced);
-      const watchCount=Math.min(3, Math.max(1, Math.floor(compCrew.length*0.15)));
-      for(let i=watchCount;i<compCrew.length;i++) compCrew[i].displaced=true;
+      // Watchkeeper count = sum of crew in all rooms of this section (capped at 6)
+      const sectionCrewCount=(SECTION_ROOMS[section]||[]).reduce((sum,rid)=>sum+(ROOMS[rid].crew||0),0);
+      const watchCount=Math.min(6,sectionCrewCount);
+      // Non-watchkeeper crew begin evacuating — physically moved after FIRE_EVAC_TIME seconds.
+      const fitCrew=(d.crew[section]||[]).filter(cr=>cr.status==='fit'&&!cr.displaced);
+      const evacuees=fitCrew.slice(watchCount);
+      if(evacuees.length>0){
+        if(!d._fireEvac) d._fireEvac={};
+        d._fireEvac[section]={ t:FIRE_EVAC_TIME, ids:evacuees.map(cr=>cr.id) };
+      }
       d._fireWatch[section]={ count:watchCount, t:0, lastCasCheck:0, _outOfControlFired:false };
       _alert(`FIRE — ${room.label}`);
-      COMMS.fire.ignited(room.label, COMP_STATION[section]||'ENG');
-      if(watchCount>0) COMMS.fire.watchkeeperResponse(COMP_DEF[section].label, watchCount);
+      if(!isManned){
+        // Alarm already sent at 40% — this call is the investigator's confirmation
+        COMMS.fire.fireInvestigated(room.label, COMP_STATION[section]||'ENG');
+      } else {
+        COMMS.fire.ignited(room.label, COMP_STATION[section]||'ENG');
+        if(watchCount>0) COMMS.fire.watchkeeperResponse(SECTION_LABEL[section], watchCount);
+      }
       window.G.setCasualtyState('emergency');
     } else {
       // Section already on alert — just announce the new room
       _alert(`FIRE — ${room.label}`);
-      COMMS.fire.ignited(room.label, COMP_STATION[section]||'ENG');
+      if(!isManned){
+        COMMS.fire.fireInvestigated(room.label, COMP_STATION[section]||'ENG');
+      } else {
+        COMMS.fire.ignited(room.label, COMP_STATION[section]||'ENG');
+      }
     }
     if(section==='reactor_comp'&&!d._reactorFireScram){
       d._reactorFireScram=true;
       if(d.systems.reactor==='nominal'||d.systems.reactor==='degraded') d.systems.reactor='offline';
+      if(!player.scram&&typeof window.G.triggerScram==='function') window.G.triggerScram('damage');
       COMMS.reactor.scram('fire');
     }
   }
@@ -1311,43 +1559,54 @@
     d.fire[roomId]=0;
     delete d._fireDetected[roomId];
     delete d._fireDetectT[roomId];
+    if(d._fireAlarmFired) delete d._fireAlarmFired[roomId];
     const section=ROOMS[roomId].section;
     // If other rooms in this section still burn, no section-level cleanup yet
     if((SECTION_ROOMS[section]||[]).some(rid=>rid!==roomId&&(d.fire[rid]||0)>0.01)) return;
     // Section fully clear
     if(d._fireWatch) d._fireWatch[section]=null;
+    // Cancel pending evacuation — crew don't need to leave, fire is out
+    if(d._fireEvac?.[section]) delete d._fireEvac[section];
     if(d._fireDrenchPending?.[section]){
       delete d._fireDrenchPending[section];
-      const drenchTeam=Object.values(d.teams).find(t=>t.task==='drench_pending'&&t.location===section);
-      if(drenchTeam){ drenchTeam.state='ready'; drenchTeam.task=null; drenchTeam.location=null; }
+      const drenchTeam=Object.values(d.teams).find(t=>t.task==='drench_pending'&&roomSection(t.location)===section);
+      if(drenchTeam){ drenchTeam.state='ready'; drenchTeam.task=null; drenchTeam.location=drenchTeam.home; }
     }
     if(!d._fireDrench?.[section]) _returnCrew(section,d,'fire');
+    // Release any DC team that was fighting this fire — they held task='fire'
+    // until now so suppression math worked correctly on the same tick.
+    for(const team of Object.values(d.teams)){
+      if(team.task==='fire'&&roomSection(team.location)===section){
+        team._locked=false;
+        team.task=null;
+        if(d.floodRate[section]>0||d.flooding[section]>0.05){
+          team.task='flood';
+          COMMS.dc.floodingActive(team.label);
+        } else {
+          const sys=_nextRepairTarget(section,d);
+          if(sys){ team.task='repair'; team.repairTarget=sys; COMMS.dc.startRepair(team.label,SYS_LABEL[sys]); }
+          else { team.state='ready'; COMMS.dc.allSecure(team.label,SECTION_LABEL[section]||section); }
+        }
+      }
+    }
     if(section==='reactor_comp'&&d._reactorFireScram){
       d._reactorFireScram=false;
-      if(!player.scram&&typeof window.G.triggerScram==='function'){
-        window.G.triggerScram('damage');
-        COMMS.reactor.fireScramLifted();
-      }
+      // Only say "commencing fast recovery" if the reactor system itself wasn't damaged.
+      // If damaged, the scram tick in sim.js will fire scramHoldRepair() instead.
+      if(d.systems?.reactor==='nominal') COMMS.reactor.fireScramLifted();
     }
-    COMMS.fire.extinguished(COMP_DEF[section].label, by);
-    _alert(`FIRE OUT — ${COMP_DEF[section].label}`);
-    if(window.G.game.casualtyState==='emergency'){
-      const anyFire=ROOM_IDS.some(rid=>(d.fire[rid]||0)>0.01);
-      const anyFlood=COMPS.some(s=>(d.flooding[s]||0)>0.001);
-      const anyTeamActive=Object.values(d.teams).some(t=>t.state!=='ready'&&t.state!=='lost');
-      if(!anyFire&&!anyFlood&&!anyTeamActive){
-        window.G.setCasualtyState('normal');
-        d._emergMusterFired=false;
-        for(const t of Object.values(d.teams)){ t._autoMode=false; t._readyT=0; }
-        COMMS.crewState.casualtyControlled('fire');
-      }
-    }
+    COMMS.fire.extinguished(SECTION_LABEL[section], by);
+    _alert(`FIRE OUT — ${SECTION_LABEL[section]}`);
+    _checkClearEmergency(d);
   }
 
   // ── Nitrogen drench (automated last resort) ───────────────────────────────
   function _nitrogenDrench(comp, d, dcTeam){
     if(!d._fireDrench) d._fireDrench={};
-    d._fireDrench[comp]=true;
+    // Capture fire levels at drench moment — used for smooth linear suppression
+    const startFire={};
+    for(const rid of SECTION_ROOMS[comp]||[]) startFire[rid]=d.fire[rid]||0;
+    d._fireDrench[comp]={level:0, startFire, venting:false};
 
     // Watchkeepers inside take casualties
     const watch=d._fireWatch?.[comp];
@@ -1361,18 +1620,33 @@
       }
     }
     // DC team inside — casualties and forced recall
-    if(dcTeam&&dcTeam.state==='on_scene'&&dcTeam.location===comp){
+    if(dcTeam&&dcTeam.state==='on_scene'&&roomSection(dcTeam.location)===comp){
       _woundDcTeamMember(dcTeam, d); _woundDcTeamMember(dcTeam, d);
-      dcTeam.state='ready'; dcTeam.task=null;
-      COMMS.dc.teamEvacuated(dcTeam.label, COMP_DEF[comp].label);
+      dcTeam.state='ready'; dcTeam.task=null; dcTeam._locked=false;
+      COMMS.dc.teamEvacuated(dcTeam.label, SECTION_LABEL[comp]||comp);
     }
 
-    for(const rid of SECTION_ROOMS[comp]||[]) d.fire[rid]=0;
     if(d._fireWatch) d._fireWatch[comp]=null;
-    // Section stays evacuated — uninhabitable until aired out (not modelled)
 
-    COMMS.fire.nitrogenDrench(COMP_DEF[comp].label, cas);
-    _alert(`N2 DRENCH — ${COMP_DEF[comp].label}`);
+    COMMS.fire.nitrogenDrench(SECTION_LABEL[comp]||comp, cas);
+    _alert(`N2 DRENCH — ${SECTION_LABEL[comp]||comp}`);
+
+    // Auto-dispatch a free team to vent the N2 — compartment must be cleared before
+    // it's habitable again and before emergency stations can stand down.
+    const ventTeam=Object.values(d.teams).find(t=>t.state==='ready'&&!t._locked&&_canReachComp(t,comp,d));
+    if(ventTeam){
+      ventTeam._ventIntent=comp;
+      ventTeam.state='mustering';
+      ventTeam.destination=comp;
+      ventTeam.musterT=15;
+      ventTeam.task=null;
+      ventTeam.repairTarget=null;
+      ventTeam.repairProgress=0;
+      COMMS.dc.mustering(ventTeam.label, SECTION_LABEL[comp]);
+    } else {
+      // No team available right now — player must manually send one via VENT button
+      COMMS.fire.ventN2Required(SECTION_LABEL[comp]);
+    }
 
     if(comp==='reactor_comp'){
       if(d._reactorFireScram) d._reactorFireScram=false;
@@ -1380,6 +1654,46 @@
         window.G.triggerScram('damage');
         COMMS.reactor.scram('damage');
       }
+    }
+  }
+
+  // ── N2 drench fill tick ───────────────────────────────────────────────────
+  // Ramps drench level 0→1 over DRENCH_FILL_TIME, suppressing fire progressively.
+  // Vent phase (level 1→0) is driven by the vent_n2 task in _tickTeams.
+  function _tickDrench(dt, d){
+    if(!d._fireDrench) return;
+    for(const [comp, drench] of Object.entries(d._fireDrench)){
+      if(!drench||typeof drench!=='object') continue;
+      if(drench.venting){
+        // Vent phase: N2 being cleared — fire is already out, keep it at 0.
+        for(const rid of SECTION_ROOMS[comp]||[]) d.fire[rid]=0;
+        continue;
+      }
+      if(drench.level >= 1) continue; // fill complete — waiting for vent team
+      drench.level = Math.min(1, drench.level + dt / DRENCH_FILL_TIME);
+      // Linearly suppress fire from startFire → 0 as level 0 → 1.
+      for(const rid of SECTION_ROOMS[comp]||[]){
+        d.fire[rid] = Math.max(0, (drench.startFire[rid]||0) * (1 - drench.level));
+      }
+    }
+  }
+
+  // ── Shared casualty-state clear check ────────────────────────────────────
+  // Called after any event that could end the emergency (fire out, vent complete, etc.)
+  function _checkClearEmergency(d){
+    if(window.G?.game?.casualtyState!=='emergency') return;
+    const anyFire=ROOM_IDS.some(rid=>(d.fire[rid]||0)>0.01);
+    const anyFlood=COMPS.some(s=>(d.flooding[s]||0)>0.001);
+    const anyTeamActive=Object.values(d.teams).some(t=>t.state!=='ready'&&t.state!=='lost');
+    // Drenched compartments require venting before the emergency is truly controlled
+    const anyDrenched=COMPS.some(s=>(d._fireDrench?.[s]?.level??0)>0);
+    if(!anyFire&&!anyFlood&&!anyTeamActive&&!anyDrenched){
+      window.G.setCasualtyState('normal');
+      d._emergMusterFired=false;
+      for(const t of Object.values(d.teams)){ t._autoMode=false; t._readyT=0; }
+      const hadFlood=COMPS.some(s=>(d.flooded[s]||d.strikes[s]>0));
+      COMMS.crewState.casualtyControlled(hadFlood?'flood':'fire');
+      _emergencyOpenWTDs(d);
     }
   }
 
@@ -1392,12 +1706,17 @@
   }
 
   // ── Fire tick ─────────────────────────────────────────────────────────────
-  const FIRE_BASE_GROW   = 0.008;   // growth/s at fireLevel=0 (raised: 1 watchkeeper can only hold fires below ~8%)
-  const FIRE_SCALE_GROW  = 0.025;   // additional growth/s at fireLevel=1
+  const FIRE_BASE_GROW   = 0.008;   // growth/s at fireLevel=0
+  const FIRE_SCALE_GROW  = 0.022;   // additional growth/s at fireLevel=1 (max grow ≈ 0.030/s)
   const WATCH_SUPPRESS   = 0.010;   // suppression/s per watchkeeper
-  const DC_FIRE_SUPPRESS = 0.030;   // suppression/s for DC team (breathing apparatus)
-  const DRENCH_THRESH    = 0.90;    // fire level that triggers drench consideration
-  const DRENCH_LOSE_TIME = 10;      // seconds DC team must be losing to trigger drench
+  const DC_FIRE_SUPPRESS = 0.045;   // suppression/s for DC team (BA, hoses, portable extinguishers)
+  const FIRE_EVAC_TIME   = 15;      // seconds for non-watchkeeper crew to physically transit out of burning section
+  const FIRE_DETECT_THRESHOLD  = 0.40;  // unmanned room: sensor alarm fires at this level
+  const FIRE_INVESTIGATE_DELAY = 12;   // seconds from alarm to confirmed detection (investigation time)
+  const DRENCH_THRESH    = 0.95;    // fire level that triggers drench consideration
+  const DRENCH_LOSE_TIME = 15;      // seconds DC team must be losing before drench triggered
+  const DRENCH_FILL_TIME = 12;      // seconds for N2 to flood compartment and suppress fire
+  const VENT_N2_TIME     = 30;      // seconds to vent N2 and render compartment habitable again
 
   // ── Medical system ────────────────────────────────────────────────────────
   function _findCrewById(id, d){
@@ -1434,7 +1753,7 @@
     staff.state='transit';
     staff.destination=dest;
     staff.transitEta=eta;
-    if(dest!=='control_room') COMMS.medical.enRoute(staff.label, COMP_DEF[dest].label);
+    if(dest!=='control_room') COMMS.medical.enRoute(staff.label, SECTION_LABEL[dest]);
   }
 
   function _tickMedical(dt, d){
@@ -1447,7 +1766,7 @@
           m.bleedT=Math.max(0, m.bleedT-dt);
           if(m.bleedT<=0){
             m.status='killed'; m.bleedT=null;
-            COMMS.medical.bleedOut(m.name, COMP_DEF[comp].label);
+            COMMS.medical.bleedOut(m.name, SECTION_LABEL[comp]);
           }
         }
       }
@@ -1484,7 +1803,7 @@
         staff.transitEta=Math.max(0, staff.transitEta-dt);
         if(staff.transitEta<=0){
           staff.location=staff.destination; staff.destination=null; staff.state='on_scene';
-          COMMS.medical.onScene(staff.label, COMP_DEF[staff.location].label);
+          COMMS.medical.onScene(staff.label, SECTION_LABEL[staff.location]||staff.location);
         }
         continue;
       }
@@ -1530,34 +1849,82 @@
   }
 
   function _tickFire(dt, d){
+    if(d._tickingFire) return;
+    d._tickingFire=true;
+    try { _tickFireInner(dt, d); } finally { d._tickingFire=false; }
+  }
+
+  function _tickFireInner(dt, d){
     for(const section of COMPS){
       const roomIds=SECTION_ROOMS[section]||[];
+      // ── Evacuation transit timer ───────────────────────────────────────────
+      if(d._fireEvac?.[section]){
+        d._fireEvac[section].t-=dt;
+        if(d._fireEvac[section].t<=0){
+          const {ids}=d._fireEvac[section];
+          delete d._fireEvac[section];
+          // Recheck safe destination at time of actual movement
+          const dest=(EVAC_TO[section]||[]).find(s=>!d.flooded[s]&&!d._fireDrench?.[s]&&!_sectionNoEvac(s)&&(d.crew[s]||[]).length<SECTION_CAP);
+          for(const id of ids){
+            const cr=(d.crew[section]||[]).find(c=>c.id===id);
+            if(!cr||cr.status==='killed') continue;
+            cr.displaced=true;
+            if(dest){
+              d.crew[section]=d.crew[section].filter(c=>c!==cr);
+              if(!d.crew[dest]) d.crew[dest]=[];
+              cr.comp=dest;
+              d.crew[dest].push(cr);
+            }
+          }
+        }
+      }
+
       const watch=d._fireWatch?.[section];
       const dcTeam=Object.values(d.teams).find(t=>
-        t.state==='on_scene'&&t.location===section&&t.task==='fire');
-      const watchCount=watch?.count||0;
-      const dcSuppress=dcTeam?DC_FIRE_SUPPRESS*_teamEffectiveness(dcTeam):0;
-      const watchSuppress=watchCount*WATCH_SUPPRESS;
-      const totalSuppress=watchSuppress+dcSuppress;
+        t.state==='on_scene'&&roomSection(t.location)===section&&t.task==='fire');
 
       let F=0; // section max detected fire level (for section-level logic)
       let anyRoomFire=false;
 
       // ── Per-room fire growth ───────────────────────────────────────────
+      // Suppression is per-room: each room's watchkeepers fight their own fire,
+      // and the DC team only suppresses the room they are physically in.
       for(const roomId of roomIds){
         const fire=d.fire[roomId]||0;
         if(fire<=0) continue;
         anyRoomFire=true;
         const growRate=FIRE_BASE_GROW+fire*FIRE_SCALE_GROW;
-        // Undetected fire in unmanned room — burns silently, no suppression
+        // Undetected fire — burns without suppression
         if(!d._fireDetected[roomId]){
-          d._fireDetectT[roomId]=(d._fireDetectT[roomId]??ROOMS[roomId].detectionDelay)-dt;
           const newFire=clamp(fire+growRate*dt,0,1.0);
           d.fire[roomId]=newFire;
-          if(d._fireDetectT[roomId]<=0) _triggerFireDetection(roomId,section,d);
+          if((ROOMS[roomId].crew||0)===0){
+            // Empty room: sensor alarm at 40%, then investigation delay before full detection
+            if(newFire>=FIRE_DETECT_THRESHOLD){
+              if(!d._fireAlarmFired?.[roomId]){
+                if(!d._fireAlarmFired) d._fireAlarmFired={};
+                d._fireAlarmFired[roomId]=true;
+                d._fireDetectT[roomId]=FIRE_INVESTIGATE_DELAY;
+                COMMS.fire.fireAlarm(ROOMS[roomId].label, COMP_STATION[section]||'ENG');
+              }
+              if(d._fireDetectT[roomId]!=null){
+                d._fireDetectT[roomId]-=dt;
+                if(d._fireDetectT[roomId]<=0) _triggerFireDetection(roomId,section,d);
+              }
+            }
+          } else {
+            // Manned room with detection delay — someone eventually notices
+            d._fireDetectT[roomId]=(d._fireDetectT[roomId]??ROOMS[roomId].detectionDelay)-dt;
+            if(d._fireDetectT[roomId]<=0) _triggerFireDetection(roomId,section,d);
+          }
           continue; // doesn't contribute to F until detected
         }
-        // Detected — suppression applies
+        // Detected — per-room suppression
+        const roomCrew=ROOMS[roomId].crew||0;
+        const watchSuppress=watch ? Math.min(roomCrew, watch.count) * WATCH_SUPPRESS : 0;
+        const dcHere=(dcTeam&&dcTeam.location===roomId);
+        const dcSuppress=dcHere ? DC_FIRE_SUPPRESS*_teamEffectiveness(dcTeam) : 0;
+        const totalSuppress=watchSuppress+dcSuppress;
         const jitter=(Math.random()-0.5)*0.004;
         const newFire=clamp(fire+(growRate-totalSuppress+jitter)*dt,0,1.0);
         d.fire[roomId]=newFire;
@@ -1565,11 +1932,25 @@
         if(newFire<=0) _extinguishFire(roomId,d,dcTeam?'dc':'watch');
       }
 
+      // ── Intra-section fire spread — compartment to adjacent compartment ──
+      // Fire above 30% can jump to an adjacent compartment within the same section.
+      // Spread chance increases with fire intensity. Only spreads within ROOM_ADJ.
+      for(const roomId of roomIds){
+        const fire=d.fire[roomId]||0;
+        if(fire<0.30) continue;
+        for(const adjId of (ROOM_ADJ[roomId]||[])){
+          if((d.fire[adjId]||0)>0.01) continue; // already burning
+          const spreadChance=(fire-0.30)*0.004*dt;
+          if(Math.random()<spreadChance) igniteFire(adjId, 0.03);
+        }
+      }
+
       if(!anyRoomFire&&!watch) continue;
 
       // ── Section-level logic (uses F = max detected fire) ──────────────
 
       // Watchkeeper casualties
+      const watchCount=watch?.count||0;
       if(watch&&watchCount>0){
         watch.t+=dt;
         watch.lastCasCheck=(watch.lastCasCheck||0)+dt;
@@ -1582,20 +1963,29 @@
               const victim=fighters[Math.floor(Math.random()*fighters.length)];
               victim.status=Math.random()<0.40?'killed':'wounded';
               watch.count=Math.max(0,watch.count-1);
-              COMMS.fire.watchkeeperCasualty(victim.name,COMP_DEF[section].label,victim.status);
-              _alert(`FIRE CASUALTY — ${COMP_DEF[section].label}`);
+              COMMS.fire.watchkeeperCasualty(victim.name,SECTION_LABEL[section],victim.status);
+              _alert(`FIRE CASUALTY — ${SECTION_LABEL[section]}`);
             }
-            if(watch.count===0) COMMS.fire.watchkeeperOvercome(COMP_DEF[section].label);
+            if(watch.count===0) COMMS.fire.watchkeeperOvercome(SECTION_LABEL[section]);
           }
         }
       }
 
-      // DC team relieves watchkeepers on arrival
+      // DC team relieves watchkeepers on arrival — move them out physically
       if(dcTeam&&watchCount>0){
         const fighters=(d.crew[section]||[]).filter(cr=>cr.status==='fit'&&!cr.displaced);
-        for(const cr of fighters) cr.displaced=true;
+        const safeEvacDest=(EVAC_TO[section]||[]).find(s=>!d.flooded[s]&&!d._fireDrench?.[s]&&!_sectionNoEvac(s)&&(d.crew[s]||[]).length<SECTION_CAP);
+        for(const cr of fighters){
+          cr.displaced=true;
+          if(safeEvacDest){
+            d.crew[section]=d.crew[section].filter(c=>c!==cr);
+            if(!d.crew[safeEvacDest]) d.crew[safeEvacDest]=[];
+            cr.comp=safeEvacDest;
+            d.crew[safeEvacDest].push(cr);
+          }
+        }
         d._fireWatch[section]={ count:0,t:0,lastCasCheck:0,_outOfControlFired:watch?._outOfControlFired||false };
-        COMMS.fire.dcRelief(COMP_DEF[section].label);
+        COMMS.fire.dcRelief(SECTION_LABEL[section]);
       }
 
       // System heat damage
@@ -1606,7 +1996,7 @@
           if(damageable.length>0){
             const sys=damageable[Math.floor(Math.random()*damageable.length)];
             const newState=damageSystem(sys,1);
-            COMMS.fire.heatDamage(SYS_LABEL[sys],newState,COMP_DEF[section].label);
+            COMMS.fire.heatDamage(SYS_LABEL[sys],newState,SECTION_LABEL[section]);
             _alert(`HEAT DAMAGE — ${SYS_LABEL[sys]}`);
           }
         }
@@ -1615,7 +2005,7 @@
       // Out of control
       if(watch&&!watch._outOfControlFired&&F>0.70){
         watch._outOfControlFired=true;
-        COMMS.fire.outOfControl(COMP_DEF[section].label);
+        COMMS.fire.outOfControl(SECTION_LABEL[section]);
       }
 
       // Emergency stations on first serious fire
@@ -1632,36 +2022,46 @@
           d._fireDrenchPending[section].t-=dt;
           if(d._fireDrenchPending[section].t<=0){
             const drenchTeam=Object.values(d.teams).find(t=>
-              t.task==='drench_pending'&&t.location===section);
-            if(drenchTeam){ drenchTeam.state='ready'; drenchTeam.task=null; drenchTeam.location=null; }
+              t.task==='drench_pending'&&roomSection(t.location)===section);
+            if(drenchTeam){ drenchTeam.state='ready'; drenchTeam.task=null; drenchTeam._locked=false; drenchTeam.location=drenchTeam.home; }
             delete d._fireDrenchPending[section];
             _nitrogenDrench(section,d,null);
           }
         } else if(dcTeam){
           if(!dcTeam._fireLosing) dcTeam._fireLosing=0;
-          const growRate=FIRE_BASE_GROW+F*FIRE_SCALE_GROW;
-          if(F>DRENCH_THRESH&&growRate>totalSuppress) dcTeam._fireLosing+=dt;
+          // Check if DC team is losing in their current room
+          const dcRoomFire=d.fire[dcTeam.location]||0;
+          const dcGrow=FIRE_BASE_GROW+dcRoomFire*FIRE_SCALE_GROW;
+          const dcSup=DC_FIRE_SUPPRESS*_teamEffectiveness(dcTeam);
+          if(F>DRENCH_THRESH&&dcGrow>dcSup) dcTeam._fireLosing+=dt;
           else dcTeam._fireLosing=0;
           if(dcTeam._fireLosing>=DRENCH_LOSE_TIME){
             if(!d._fireDrenchPending) d._fireDrenchPending={};
             d._fireDrenchPending[section]={t:20};
             dcTeam.task='drench_pending';
             dcTeam._fireLosing=0;
-            COMMS.fire.drenchInitiated(COMP_DEF[section].label);
+            COMMS.fire.drenchInitiated(SECTION_LABEL[section]);
           }
         }
       }
 
-      // Cascade to adjacent section
+      // Cascade to adjacent section — only through open watertight doors
       if(F>0.85){
         const cascadeChance=(F-0.85)/0.15*0.012*dt;
         if(Math.random()<cascadeChance){
           const adj=EVAC_TO[section]||[];
-          const targetSection=adj.find(s=>_sectionFire(s,d)<0.05&&!d.flooded[s]&&!d._fireDrench?.[s]);
+          const targetSection=adj.find(s=>{
+            if(_sectionFire(s,d)>=0.05||d.flooded[s]||d._fireDrench?.[s]) return false;
+            // Only cascade through an open WTD
+            const si=COMPS.indexOf(section), ti=COMPS.indexOf(s);
+            const lo=Math.min(si,ti), hi=Math.max(si,ti);
+            const wtdKey=COMPS[lo]+'|'+COMPS[hi];
+            return (d.wtd?.[wtdKey]||'open')==='open';
+          });
           if(targetSection){
             const targetRooms=SECTION_ROOMS[targetSection]||[];
             const targetRoom=targetRooms[Math.floor(Math.random()*targetRooms.length)];
-            COMMS.fire.cascade(COMP_DEF[section].label,COMP_DEF[targetSection].label);
+            COMMS.fire.cascade(SECTION_LABEL[section],SECTION_LABEL[targetSection]);
             if(targetRoom) igniteFire(targetRoom,0.05);
           }
         }
@@ -1687,80 +2087,129 @@
     for(const comp of COMPS){
       if(d.flooded[comp]) continue;
       const rate=d.floodRate[comp]||0;
+
+      // Advance flooding from active breach
       if(rate>0){
         d.flooding[comp]=Math.min(1,(d.flooding[comp]||0)+rate*_pressureMult*dt);
-        // Crew evacuation trigger — only on breach floods, not depth seeps
-        const isSeep = (d._seepComp||{})[comp];
-        if(!isSeep && d.flooding[comp]>=0.65&&!(d._evacuated||{})[comp]){
-          if(!d._evacuated) d._evacuated={};
-          d._evacuated[comp]=true;
-          const neighbors=EVAC_TO[comp]||[];
-          const compCrew=(d.crew[comp]||[]).filter(cr=>cr.status==='fit'||cr.status==='wounded');
-          let evacuated=0,trapped=0;
-          for(const cr of compCrew){
-            // 80% chance per crew to make it out if a neighbour isn't also flooded
-            const openNeighbour=neighbors.find(n=>!d.flooded[n]);
-            if(openNeighbour&&Math.random()<0.80){
-              cr.displaced=true;  // alive but out of compartment
-              evacuated++;
+      } else if((d.flooding[comp]||0)>0){
+        // Bilge pumps drain residual water — suppress if an open WTD is actively feeding in
+        const hasActiveSpread=WTD_PAIRS.some(([a,b])=>{
+          const other=(a===comp)?b:(b===comp)?a:null;
+          if(!other) return false;
+          const key=a+'|'+b;
+          return (d.wtd[key]||'open')==='open' &&
+                 (d.flooded[other]?1:(d.flooding[other]||0)) > (d.flooding[comp]||0)+0.05;
+        });
+        if(!hasActiveSpread){
+          d.flooding[comp]=Math.max(0,(d.flooding[comp]||0)-0.012*dt);
+          if(d.flooding[comp]<=0){
+            _returnCrew(comp,d);
+            // Reset deck damage tracking so a future flood applies fresh system damage
+            if(d._floodDeckDmg?.[comp]) d._floodDeckDmg[comp]={};
+          }
+        }
+      }
+
+      // Threshold checks — apply regardless of flood source (breach or WTD spread)
+      const fl=d.flooding[comp]||0;
+      const isSeep=(d._seepComp||{})[comp];
+
+      // Deck-level system damage — water rises D3→D2→D1 (bottom to top).
+      // Each crossing damages systems on that deck one step.
+      // 'destroyed' can only be reached if the system was already degraded/offline,
+      // since damageSystem always moves exactly one step at a time.
+      if(!d._floodDeckDmg) d._floodDeckDmg={};
+      if(!d._floodDeckDmg[comp]) d._floodDeckDmg[comp]={};
+      const _ddmg=d._floodDeckDmg[comp];
+      if(fl>=0.33&&!_ddmg[2]){                      // D3 (bottom) submerged
+        _ddmg[2]=true;
+        for(const sys of COMP_DEF[comp].systems){
+          if((SYS_DECK[sys]??1)===2){ const st=damageSystem(sys); COMMS.sys.damaged(SYS_LABEL[sys],st,0.5); }
+        }
+      }
+      if(fl>=0.67&&!_ddmg[1]){                      // D2 (middle) submerged
+        _ddmg[1]=true;
+        for(const sys of COMP_DEF[comp].systems){
+          if((SYS_DECK[sys]??1)===1){ const st=damageSystem(sys); COMMS.sys.damaged(SYS_LABEL[sys],st,0.5); }
+        }
+      }
+
+      // 65% — crew evacuation
+      if(!isSeep && fl>=0.65 && !(d._evacuated||{})[comp]){
+        if(!d._evacuated) d._evacuated={};
+        d._evacuated[comp]=true;
+        const neighbors=EVAC_TO[comp]||[];
+        const compCrew=(d.crew[comp]||[]).filter(cr=>cr.status==='fit'||cr.status==='wounded');
+        let evacuated=0,trapped=0;
+        for(const cr of compCrew){
+          // 80% chance per crew to make it out if a neighbour isn't also flooded
+          const openNeighbour=neighbors.find(n=>!d.flooded[n]&&!_sectionNoEvac(n)&&(d.crew[n]||[]).length<SECTION_CAP);
+          if(openNeighbour&&Math.random()<0.80){
+            cr.displaced=true;
+            evacuated++;
+          } else {
+            cr.status='killed';
+            trapped++;
+          }
+        }
+        if(evacuated>0||trapped>0){
+          _alert('CREW EVACUATING '+SECTION_LABEL[comp].toUpperCase());
+          COMMS.flood.evacuating(SECTION_LABEL[comp], COMP_STATION[comp]||'ENG', evacuated, trapped);
+        }
+      }
+
+      // 100% — compartment fully flooded
+      if(fl>=1.0&&!d.flooded[comp]){
+        d.flooded[comp]=true;
+        d.floodRate[comp]=0;
+        // D1 (top deck) and one final submerge step for all systems.
+        // damageSystem always moves exactly one step, so 'destroyed' only happens
+        // if the system was already at 'offline' (i.e. previously degraded by combat or earlier flooding).
+        if(!d._floodDeckDmg) d._floodDeckDmg={};
+        if(!d._floodDeckDmg[comp]) d._floodDeckDmg[comp]={};
+        const _ddFull=d._floodDeckDmg[comp];
+        for(const sys of COMP_DEF[comp].systems){
+          // D1 systems: first damage event (deck just reached)
+          if((SYS_DECK[sys]??1)===0 && !_ddFull[0]){ damageSystem(sys); }
+          // All systems: one final step for full submersion
+          damageSystem(sys);
+        }
+        _ddFull[0]=true;
+        const lost=_floodComp(comp);
+        if(!d._evacuated) d._evacuated={};
+        d._evacuated[comp]=true;
+        for(const cr of (d.crew[comp]||[])){
+          if(cr.status!=='killed') cr.displaced=true;
+        }
+        for(const team of Object.values(d.teams)){
+          if(team.state==='on_scene'&&roomSection(team.location)===comp){
+            if(Math.random()<0.75){
+              team.state='ready'; team.task=null;
+              _woundDcTeamMember(team, d);
+              dcLog(`${team.label} — EVACUATED ${SECTION_LABEL[comp]||comp}. Casualties taken`);
             } else {
-              cr.status='killed';
-              trapped++;
+              team.state='lost';
+              COMMS.dc.teamLost(team.label, SECTION_LABEL[comp]||comp);
             }
           }
-          if(evacuated>0||trapped>0){
-            _alert('CREW EVACUATING '+COMP_DEF[comp].label.toUpperCase());
-            COMMS.flood.evacuating(COMP_DEF[comp].label, COMP_STATION[comp]||'ENG', evacuated, trapped);
-          }
         }
-        // Compartment fully flooded?
-        if(d.flooding[comp]>=1.0){
-          d.flooded[comp]=true;
-          d.floodRate[comp]=0;
-          // Systems waterlogged but not destroyed — repairable after blow-down
-          for(const sys of COMP_DEF[comp].systems){
-            if(d.systems[sys]!=='destroyed') d.systems[sys]='offline';
-          }
-          const lost=_floodComp(comp);
-          // DC teams: on_scene → evac roll; transit → keep going, will blow on arrival
-          // Mark all surviving compartment crew as displaced
-          if(!d._evacuated) d._evacuated={};
-          d._evacuated[comp]=true;
-          for(const cr of (d.crew[comp]||[])){
-            if(cr.status!=='killed') cr.displaced=true;
-          }
-          for(const team of Object.values(d.teams)){
-            if(team.state==='on_scene'&&team.location===comp){
-              if(Math.random()<0.75){
-                team.state='ready'; team.task=null;
-                _woundDcTeamMember(team, d);
-                dcLog(`${team.label} — EVACUATED ${COMP_DEF[comp].label}. Casualties taken`);
-              } else {
-                team.state='lost';
-                COMMS.dc.teamLost(team.label, COMP_DEF[comp].label);
-              }
-            }
-            // Transit teams continue to destination and will start HP blow
-          }
-          _alert(`${COMP_DEF[comp].label} FLOODED`);
-          COMMS.flood.uncontrolled(COMP_DEF[comp].label, COMP_STATION[comp]||'ENG', lost);
-          if(comp==='reactor_comp'&&!player.scram&&typeof window.G.triggerScram==='function'){
-            window.G.triggerScram('damage');
-            COMMS.flood.reactorFlooded();
-          }
-          d.strikes[comp]=2;
-          _checkSinking();
+        _alert(`${SECTION_LABEL[comp]} FLOODED`);
+        COMMS.flood.uncontrolled(SECTION_LABEL[comp], COMP_STATION[comp]||'ENG', lost);
+        if(comp==='reactor_comp'&&!player.scram&&typeof window.G.triggerScram==='function'){
+          window.G.triggerScram('damage');
+          COMMS.flood.reactorFlooded();
         }
-      } else if((d.flooding[comp]||0)>0&&rate===0){
-        // Drain very slowly when rate=0 (bilge pumps)
-        d.flooding[comp]=Math.max(0,(d.flooding[comp]||0)-0.012*dt);
-        if(d.flooding[comp]<=0) _returnCrew(comp,d);
+        d.strikes[comp]=2;
+        _checkSinking();
       }
     }
 
     // DC teams then fire (teams set task='fire' on arrival, fire tick reads it)
+    _tickWTDAutoClose(dt,d);
+    _tickWTDAutoOpen(dt,d);
     _tickTeams(dt,d);
     _tickFire(dt,d);
+    _tickDrench(dt,d);
     _tickMedical(dt,d);
 
     // Alert tick
@@ -1937,15 +2386,48 @@
     return Math.min(1, drawn / cost);
   }
 
+  // ── Manually fire N2 drench immediately (during pending countdown) ───────
+  function manualDrench(teamId){
+    const d=player.damage; if(!d) return;
+    const team=d.teams[teamId]; if(!team||team.task!=='drench_pending') return;
+    const comp=team.location; if(!comp) return;
+    if(d._fireDrenchPending?.[comp]) delete d._fireDrenchPending[comp];
+    // Move team out to home before N2 fires
+    team.state='ready'; team.task=null; team._locked=false; team.location=team.home;
+    _nitrogenDrench(comp,d,null);
+  }
+
+  // ── Start N2 venting in a drenched compartment ────────────────────────────
+  function ventN2(teamId, comp){
+    const d=player.damage; if(!d) return;
+    if(!d._fireDrench?.[comp]) return; // nothing to vent
+    const team=d.teams[teamId]; if(!team||team.state==='lost') return;
+    if(team._locked) return;
+    // If already on_scene at this comp, start immediately
+    if(team.state==='on_scene'&&roomSection(team.location)===comp){
+      team.task='vent_n2';
+      team._ventT=VENT_N2_TIME;
+      if(d._fireDrench[comp]) d._fireDrench[comp].venting=true;
+      COMMS.fire.ventN2Started(SECTION_LABEL[comp]||comp, team.label);
+      return;
+    }
+    // Otherwise muster toward the drenched comp — mark intent so arrival handler starts vent
+    team._ventIntent=comp;
+    assignTeam(teamId, comp);
+  }
+
   window.DMG={
     initDamage,hit,tick,applyHullStress,applyDepthCascade,resetDepthCascade,_escapeHalt,
     sealFlooding,igniteFire,getEffects,maxDCTeams,crewEfficiency,
     totalFit,totalWounded,totalKilled,totalCrew,
     assignTeam,recallTeam,teamAtComp,
+    manualDrench,ventN2,
     initiateEscape,canTCE,
     getTrimState,drawHPA,
     toggleWTD,
-    COMP_DEF,COMPS,STATES,SYS_LABEL,ROOMS,ROOM_IDS,SECTION_ROOMS,WTD_PAIRS,WTD_RC_KEYS,
+    relocateCrewForWatch:(watch)=>_relocateCrewForWatch(player.damage,watch),
+    COMP_DEF,COMPS,STATES,SYS_LABEL,ROOMS,ROOM_IDS,SECTION_ROOMS,ROOM_ADJ,WTD_PAIRS,WTD_RC_KEYS,
+    SECTION_LABEL,SECTION_SHORT,roomSection,
     COMP_SYSTEMS:Object.fromEntries(Object.entries(COMP_DEF).map(([k,v])=>[k,v.systems])),
     COMPARTMENTS:COMPS,
     CREW_MANIFEST,
