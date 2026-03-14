@@ -206,6 +206,9 @@
       } else if (cause === 'fire') {
         log('MANV', 'Conn, Manoeuvring — fire in reactor compartment. SCRAM reactor. Rods in, switching to EPM', P.CRIT);
         qlog('ENG', 'Conn, Eng — reactor manually tripped. EPM in service. Holding restart pending casualty resolution', 2.0, P.CRIT);
+      } else if (cause === 'coolant') {
+        log('MANV', 'Conn, Manoeuvring — primary coolant failure. Automatic SCRAM. Rods in, switching to EPM', P.CRIT);
+        qlog('ENG', 'Conn, Eng — primary coolant loop integrity lost. Reactor tripped on low flow', 1.5, P.CRIT);
       } else {
         log('MANV', 'Conn, Manoeuvring — reactor SCRAM. Rods in. EPM', P.CRIT);
       }
@@ -246,6 +249,46 @@
       if (lines[step]) log(lines[step][0], lines[step][1], lines[step][2]||P.NORMAL);
     },
     online() { msg('REACTOR ONLINE', 1.5); },
+    // ── Reactor / propulsion casualties ──────────────────────────────────
+    coolantLeak() {
+      log('MANV', 'Conn, Manoeuvring — primary coolant pressure dropping. We have a leak in the primary loop', P.CRIT);
+      qlog('ENG', 'Conn, Eng — estimating automatic SCRAM in forty-five seconds. Recommend reducing speed to give DC a chance to isolate', 2.0, P.CRIT);
+      msg('COOLANT LEAK', 2.0);
+    },
+    coolantLeakProgress() {
+      log('ENG', 'Conn, Eng — DC working the leak. Coolant pressure still falling', P.MED);
+    },
+    coolantLeakIsolated() {
+      log('MANV', 'Conn, Manoeuvring — primary coolant leak isolated. Pressure stabilising', P.MED);
+      qlog('ENG', 'Conn, Eng — good work by DC. Reactor maintaining power. Resuming normal operations', 1.5, P.MED);
+      msg('LEAK ISOLATED', 1.5);
+    },
+    coolantLeakFailed() {
+      log('ENG', 'Conn, Eng — cannot isolate the leak. SCRAM is imminent', P.CRIT);
+    },
+    steamLeak() {
+      log('MANV', 'Conn, Manoeuvring — main steam isolation! Answering on the diesel', P.CRIT);
+      qlog('ENG', 'Conn, Eng — steam leak in the main loop. DC closing up. Diesel generator on the line, making seven knots', 2.0, P.CRIT);
+      msg('MAIN STEAM ISOLATION', 2.0);
+    },
+    steamRestored() {
+      log('MANV', 'Conn, Manoeuvring — main steam restored. Full propulsion available', P.MED);
+      qlog('ENG', 'Conn, Eng — steam leak repaired. Turbines answering ahead', 1.5, P.MED);
+      msg('STEAM RESTORED', 1.5);
+    },
+    turbineTrip() {
+      log('MANV', 'Conn, Manoeuvring — turbine trip! Max turns for twelve knots', P.CRIT);
+      msg('TURBINE TRIP', 1.5);
+    },
+    turbineRecovered() {
+      log('MANV', 'Conn, Manoeuvring — turbines back on the line. Full power available', P.MED);
+      msg('TURBINES ONLINE', 1.0);
+    },
+    reactorRunaway() {
+      log('MANV', 'Conn, Manoeuvring — positive scram! Uncontrolled rod withdrawal, automatic trip. Rods in, switching to EPM', P.CRIT);
+      qlog('ENG', 'Conn, Eng — reactor tripped on positive period. Loud transient on that one. Commencing fast recovery', 2.0, P.CRIT);
+      msg('REACTOR SCRAM', 2.0);
+    },
   };
 
   // ════════════════════════════════════════════════════════════════════════
@@ -495,6 +538,10 @@
       msg(`${action.toUpperCase()}: CONN EVACUATED`, 1.2);
       log('CO', `${label} unavailable — control room evacuated`, P.MED);
     },
+    ballastDamageWarning(state) {
+      const severity = state==='destroyed' ? 'destroyed' : state==='offline' ? 'offline' : 'degraded';
+      qlog('ENG', `Conn, Eng — ballast system ${severity}, depth recovery will be impaired`, 3.0);
+    },
     comeToPD() {
       msg('COME TO PD', 1.0);
       log('CONN', 'Helm, Conn — come to periscope depth');
@@ -663,6 +710,7 @@
   // ════════════════════════════════════════════════════════════════════════
   const ui = {
     periscopeTooDeep()      { msg('PERISCOPE: TOO DEEP', 1.0); },
+    periscopeDamaged()      { msg('PERISCOPE: DAMAGED — UNAVAILABLE', 1.0); },
     scopeReport(shown)      { msg(shown > 0 ? `SCOPE: ${shown} ship(s)` : 'SCOPE: no ships', 1.2); },
     sonarOffline()          { msg('SONAR OFFLINE — SCRAM', 0.8); },
     ping()                  { msg('PING!', 0.8); },
@@ -838,6 +886,11 @@
     blowTanksClear(depthM) {
       log('ENG', `Conn, Eng — main ballast clear. Securing blow. Boat is positively buoyant at ${depthM}m. Rising.`, P.MED);
       msg('BALLAST CLEAR — RISING', 2.0);
+    },
+    blowOverwhelmed(depthM) {
+      log('ENG', `Conn, Eng — main ballast clear but flooding mass too great. Boat is negatively buoyant at ${depthM}m. Still sinking.`, P.CRIT);
+      qlog('CONN', `All stations, Conn — blown tanks cannot overcome flooding. DC priority: reduce flood load or prepare to abandon.`, 2.0, P.CRIT);
+      msg('BLOW INSUFFICIENT — SINKING', 3.0);
     },
     blowExhausted(depthM) {
       log('ENG',  `Conn, Eng — HP air equalised with ambient. Securing emergency blow. Depth ${depthM}m. No further blow available without surface recharge.`, P.CRIT);

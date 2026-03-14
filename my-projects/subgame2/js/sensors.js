@@ -376,11 +376,13 @@
       const detect = signal - selfMask;
       if(detect <= 0) continue;
 
-      const p = clamp(0.06 + detect*0.60 + (e.type==='boat'?0.12:0.06), 0, 0.80);
+      const fatigueT=game.watchFatigue||0;
+      const fatiguePenT=1-fatigueT*0.40;
+      const p = clamp((0.06 + detect*0.60 + (e.type==='boat'?0.12:0.06))*fatiguePenT, 0, 0.80);
       if(Math.random() < p){
         const layerMult = (layer<1) ? 1.4 : 1.0;
         const baseU = (60 + d*0.08) * noiseUMul;
-        const noiseU = baseU * layerMult * (1 + player.noise*0.4);
+        const noiseU = baseU * layerMult * (1 + player.noise*0.4) * (1+fatigueT*0.60);
         const u_brg = clamp(noiseU/Math.max(d,100), 0.01, 0.18);
         const noisyBrg = trueBrg + rand(-1,1)*u_brg;
         const mirrorBrg = mirrorBearing(noisyBrg, heading);
@@ -400,7 +402,6 @@
         const brgDegT=((noisyBrg*180/Math.PI)+360)%360;
         const sigTierT=detect>0.35?2:detect>0.15?1:0;
         addSonarLog(e,'TOWED',brgDegT,sigTierT,inCZt&&d>baseRange);
-        if(inCZt&&d>baseRange) COMMS.sensors.contactLabel?.('CZ — towed array');
       }
     }
   }
@@ -499,12 +500,15 @@
       const selfMask=player.noise*0.55;
       const detect=(signal-selfMask)*deafness;
       if(detect<=0) continue;
-      const p=clamp(0.05+detect*0.55+(e.type==='boat'?0.10:0.05), 0, 0.75);
+      // Watch fatigue — tired operators miss contacts and bearings drift
+      const fatigue=game.watchFatigue||0;
+      const fatiguePenalty=1-fatigue*0.40;  // up to 40% detection loss at full fatigue
+      const p=clamp((0.05+detect*0.55+(e.type==='boat'?0.10:0.05))*fatiguePenalty, 0, 0.75);
       if(Math.random()<p){
         const trueBearing=Math.atan2(dy,dx);
         const layerMult=(layer<1)?1.50:1.0;
         const baseU=80+d*0.10;
-        const noiseU=baseU*layerMult*(dmgFx.bearingNoiseMult??1.0)*(1+player.noise*0.8)*(1+(1-deafness)*0.6);
+        const noiseU=baseU*layerMult*(dmgFx.bearingNoiseMult??1.0)*(1+player.noise*0.8)*(1+(1-deafness)*0.6)*(1+fatigue*0.60);
         const u_brg=clamp(noiseU/Math.max(d,100),0.02,0.30);
         const noisyBearing=trueBearing+rand(-1,1)*u_brg;
         contacts.push({fromX:player.wx,fromY:player.wy,bearing:noisyBearing,u_brg,life:2.5,kind:e.type});
@@ -514,7 +518,6 @@
         const brgDeg=((noisyBearing*180/Math.PI)+360)%360;
         const sigTier=detect>0.35?2:detect>0.15?1:0;
         addSonarLog(e,'HULL',brgDeg,sigTier,inCZ&&d>baseRange);
-        if(inCZ&&d>baseRange) COMMS.sensors.contactLabel?.('Convergence zone contact');
       }
     }
   }

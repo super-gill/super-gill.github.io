@@ -12,45 +12,66 @@
   const COMPS = ['fore_ends','control_room','aux_section','reactor_comp','engine_room','aft_ends'];
 
   const COMP_DEF = {
-    fore_ends:    { label:'TORPEDO ROOM',  systems:['tubes','sonar_hull','planes_fwd_hyd'],    crewCount:23, tower:'fwd',  unmanned:false },
-    control_room: { label:'CONTROL ROOM',  systems:['periscope','ballast','tdc_comp','hyd_main'], crewCount:20, tower:'fwd',  unmanned:false },
-    aux_section:  { label:'MESS DECKS',    systems:[],                                          crewCount:7,  tower:null,   unmanned:false },
-    reactor_comp: { label:'REACTOR COMP',  systems:['reactor'],                                 crewCount:3,  tower:null,   unmanned:false },
-    engine_room:  { label:'MANEUVERING',   systems:['propulsion'],                              crewCount:20, tower:'aft',  unmanned:false },
-    aft_ends:     { label:'ENGINEERING',   systems:['towed_array','steering','planes_aft_hyd'], crewCount:15, tower:'aft',  unmanned:false },
+    fore_ends:    { label:'TORPEDO ROOM',  crewCount:23, tower:'fwd',  unmanned:false },
+    control_room: { label:'CONTROL ROOM',  crewCount:20, tower:'fwd',  unmanned:false },
+    aux_section:  { label:'MESS DECKS',    crewCount:7,  tower:null,   unmanned:false },
+    reactor_comp: { label:'REACTOR COMP',  crewCount:3,  tower:null,   unmanned:false },
+    engine_room:  { label:'MANEUVERING',   crewCount:20, tower:'aft',  unmanned:false },
+    aft_ends:     { label:'ENGINEERING',   crewCount:15, tower:'aft',  unmanned:false },
   };
 
-  const SYS_LABEL = {
-    sonar_hull:'SONAR ARRAY', tubes:'TORPEDO TUBES',
-    periscope:'PERISCOPE', ballast:'BALLAST CTRL', tdc_comp:'TDC COMPUTER',
-    reactor:'REACTOR', propulsion:'PROPULSION', steering:'STEERING',
-    towed_array:'TOWED ARRAY',
-    planes_fwd_hyd:'FWD PLANES HYD', planes_aft_hyd:'AFT PLANES HYD',
-    hyd_main:'MAIN HYD PLANT',
+  // ── System definitions — each system tied to a specific room ────────────
+  // ctrl: optional control-node dependency (effective state = worst of self + ctrl)
+  const SYS_DEF = {
+    // ── WT Section 1 — Fore Ends ─────────────────────────────────────────
+    tubes:          { label:'TORPEDO TUBES',     room:'fore_ends_d2',     ctrl:'fire_ctrl' },
+    sonar_hull:     { label:'SONAR ARRAY',       room:'fore_ends_d2'     },
+    planes_fwd_hyd: { label:'FWD PLANES HYD',    room:'fore_ends_d1',     ctrl:'helm' },
+    weapon_stow:    { label:'WEAPON STOWAGE',    room:'fore_ends_d2'     },
+    fwd_trim:       { label:'FWD TRIM TANK',     room:'fore_ends_d2'     },
+    fwd_escape:     { label:'FWD ESCAPE TRUNK',  room:'fore_ends_d0'     },
+    tma:            { label:'TMA',               room:'fore_ends_d1b'    },
+    tdc_comp:       { label:'TDC COMPUTER',      room:'fore_ends_d1b',    ctrl:'fire_ctrl' },
+    // ── WT Section 2 — Control Room ──────────────────────────────────────
+    periscope:      { label:'PERISCOPE',         room:'control_room_d0'  },
+    ballast:        { label:'BALLAST CTRL',      room:'control_room_d1'  },
+    hyd_main:       { label:'MAIN HYD PLANT',    room:'control_room_d2'  },
+    helm:           { label:'HELM',              room:'control_room_d1'  },
+    fire_ctrl:      { label:'FIRE CONTROL',      room:'control_room_d1'  },
+    nav_sys:        { label:'NAVIGATION',        room:'control_room_d0'  },
+    comms_mast:     { label:'COMMS MAST',        room:'control_room_d0'  },
+    // ── WT Section 3 — Aux Section ───────────────────────────────────────
+    co2_scrubbers:  { label:'CO2 SCRUBBERS',     room:'aux_section_d1'   },
+    o2_gen:         { label:'O2 GENERATOR',      room:'aux_section_d2'   },
+    aux_power:      { label:'AUX POWER PANEL',   room:'aux_section_d0'   },
+    // ── WT Section 4 — Reactor Comp ──────────────────────────────────────
+    reactor:        { label:'REACTOR',           room:'reactor_comp_d1'  },
+    primary_coolant:{ label:'PRIMARY COOLANT',   room:'reactor_comp_d2'  },
+    pressuriser:    { label:'PRESSURISER',       room:'reactor_comp_d1'  },
+    rad_monitor:    { label:'RAD MONITORING',    room:'reactor_comp_d0'  },
+    // ── WT Section 5 — Engine Room ───────────────────────────────────────
+    propulsion:     { label:'PROPULSION',        room:'engine_room_d0b'  },
+    main_turbines:  { label:'MAIN TURBINES',     room:'engine_room_d2'   },
+    elec_dist:      { label:'ELEC DISTRIBUTION', room:'engine_room_d1'   },
+    emerg_diesel:   { label:'EMERGENCY DIESEL',  room:'engine_room_d2'   },
+    // ── WT Section 6 — Aft Ends ──────────────────────────────────────────
+    towed_array:    { label:'TOWED ARRAY',       room:'aft_ends_d2'      },
+    steering:       { label:'STEERING',          room:'aft_ends_d2'      },
+    planes_aft_hyd: { label:'AFT PLANES HYD',    room:'aft_ends_d1'      },
+    shaft_seals:    { label:'SHAFT SEALS',       room:'aft_ends_d1b'     },
+    aft_trim:       { label:'AFT TRIM TANK',     room:'aft_ends_d2'      },
+    aft_escape:     { label:'AFT ESCAPE TRUNK',  room:'aft_ends_d2b'     },
   };
+
+  // Derived lookups from SYS_DEF
+  const SYS_LABEL = Object.fromEntries(Object.entries(SYS_DEF).map(([k,v])=>[k,v.label]));
+  const ALL_SYS = Object.keys(SYS_DEF);
 
   // Systems with high injury risk during repair
-  const HIGH_ENERGY_SYS = new Set(['reactor','propulsion']);
+  const HIGH_ENERGY_SYS = new Set(['reactor','propulsion','primary_coolant','main_turbines']);
 
   const STATES = ['nominal','degraded','offline','destroyed'];
   const REPAIR_TIME = { degraded:20, offline:45, destroyed:120 };
-
-  // Which visual deck each system sits on: D1=0 (top), D2=1 (mid), D3=2 (bottom).
-  // Flooding fills from D3 upward, so deck-2 systems are damaged first.
-  const SYS_DECK = {
-    tubes:          2,   // torpedo tubes — D3
-    sonar_hull:     2,   // hull array    — D3
-    planes_fwd_hyd: 1,   // fwd planes hyd — D2
-    periscope:      0,   // periscope     — D1
-    ballast:        1,   // ballast ctrl  — D2
-    tdc_comp:       0,   // TDC computer  — D1
-    hyd_main:       1,   // main hyd plant — D2
-    reactor:        1,   // reactor plant — D2
-    propulsion:     1,   // propulsion    — D2
-    towed_array:    2,   // towed array   — D3
-    steering:       1,   // steering      — D2
-    planes_aft_hyd: 1,   // aft planes hyd — D2
-  };
 
   // ── Travel time table (seconds) ──────────────────────────────────────────
   // aux_section is unmanned machinery space between control_room and reactor_comp.
@@ -159,6 +180,20 @@
   for(const [id,r] of Object.entries(ROOMS)){
     if(!SECTION_ROOMS[r.section]) SECTION_ROOMS[r.section]=[];
     SECTION_ROOMS[r.section].push(id);
+  }
+
+  // ── Derived system lookups (from SYS_DEF + ROOMS) ─────────────────────
+  // Systems per section (replaces COMP_DEF[comp].systems)
+  const SECTION_SYSTEMS = {};
+  // Systems per room
+  const ROOM_SYSTEMS = {};
+  for(const [sys, def] of Object.entries(SYS_DEF)){
+    const sec = ROOMS[def.room]?.section;
+    if(!sec) continue;
+    if(!SECTION_SYSTEMS[sec]) SECTION_SYSTEMS[sec] = [];
+    SECTION_SYSTEMS[sec].push(sys);
+    if(!ROOM_SYSTEMS[def.room]) ROOM_SYSTEMS[def.room] = [];
+    ROOM_SYSTEMS[def.room].push(sys);
   }
 
   // ── Room adjacency (fire spread / DC traversal within a section) ────────
@@ -361,13 +396,7 @@
     player.damage={
       strikes:  {fore_ends:0,control_room:0,aux_section:0,reactor_comp:0,engine_room:0,aft_ends:0},
       flooded:  {fore_ends:false,control_room:false,aux_section:false,reactor_comp:false,engine_room:false,aft_ends:false},
-      systems:{
-        sonar_hull:'nominal',tubes:'nominal',periscope:'nominal',
-        ballast:'nominal',tdc_comp:'nominal',reactor:'nominal',
-        propulsion:'nominal',steering:'nominal',towed_array:'nominal',
-        planes_fwd_hyd:'nominal',planes_aft_hyd:'nominal',
-        hyd_main:'nominal',
-      },
+      systems:Object.fromEntries(ALL_SYS.map(s=>[s,'nominal'])),
       // Progressive flooding: rate (units/s) and current level (0-1)
       floodRate:{fore_ends:0,control_room:0,aux_section:0,reactor_comp:0,engine_room:0,aft_ends:0},
       flooding: {fore_ends:0,control_room:0,aux_section:0,reactor_comp:0,engine_room:0,aft_ends:0},
@@ -787,7 +816,7 @@
     for(const comp of COMPS){
       if(covered.has(comp)) continue;
       if(!_canReachComp(team,comp,d)) continue;
-      if(d.floodRate[comp]>0||(d.flooding[comp]||0)>0.05) return comp;
+      if(d.floodRate[comp]>0) return comp;
     }
     return null;
   }
@@ -894,8 +923,12 @@
       // Pressure multiplier in tick drives this to ~36s at 300m — still survivable but urgent
       d.floodRate[comp]=Math.max(d.floodRate[comp], severity*0.008);
 
-      const sysList=[...def.systems].sort(()=>rand(-1,1));
-      const numHit=severity>0.7?sysList.length:1;
+      // Only damage systems near the breach — torpedo hits the hull bottom,
+      // so lower-deck systems are most vulnerable. Filter by deck proximity.
+      const allSys=[...(SECTION_SYSTEMS[comp]||[])].sort(()=>rand(-1,1));
+      const maxDeck=severity>0.85?0:severity>0.5?1:2; // 0=all decks, 2=bottom only
+      const sysList=allSys.filter(s=>(ROOMS[SYS_DEF[s].room]?.deck??1)>=maxDeck);
+      const numHit=severity>0.7?Math.min(3,sysList.length):1;
       let reactorHit=false;
       for(let i=0;i<Math.min(numHit,sysList.length);i++){
         const steps=severity>0.85?2:1;
@@ -935,6 +968,51 @@
       COMMS.flood.closeWTDs(SECTION_LABEL[comp]);
       _emergencyCloseWTDs(d);
     }
+
+    // ── Propulsion casualties from shock / system damage ────────────────
+    const cas=C.player.casualties||{};
+
+    // Turbine trip — shock from any hit can trip the turbines
+    if(!player._turbineTrip && !player.scram && !player._steamLeak){
+      const tripCfg=cas.turbineTrip||{};
+      if(Math.random() < (tripCfg.shockChance||0.15)){
+        player._turbineTrip={ timer:rand(tripCfg.recoveryTime?.[0]||20, tripCfg.recoveryTime?.[1]||30) };
+        COMMS.reactor.turbineTrip();
+      }
+    }
+
+    // Steam leak — when main_turbines or pressuriser already degraded+ and takes another hit
+    if(!player._steamLeak && !player.scram){
+      const steamCfg=cas.steamLeak||{};
+      const turbState=d.systems.main_turbines||'nominal';
+      const pressState=d.systems.pressuriser||'nominal';
+      const turbVuln=STATES.indexOf(turbState)>=1; // degraded+
+      const pressVuln=STATES.indexOf(pressState)>=1;
+      if((turbVuln||pressVuln) && Math.random()<(steamCfg.shockChance||0.12)){
+        player._steamLeak={ timer:rand(steamCfg.repairTime?.[0]||30, steamCfg.repairTime?.[1]||60) };
+        player._turbineTrip=null; // steam leak supersedes turbine trip
+        COMMS.reactor.steamLeak();
+      }
+    }
+
+    // Reactor runaway — severe hit to reactor or primary_coolant
+    if(!player.scram && severity>0.6){
+      const raCfg=cas.reactorRunaway||{};
+      const hitReactor=comp==='reactor_comp'; // reactor comp hit = reactor systems at risk
+      if(hitReactor && Math.random()<(raCfg.hitChance||0.08)){
+        // Loud acoustic transient
+        if(typeof window._broadcastTransient==='function'){
+          window._broadcastTransient(player.wx, player.wy, raCfg.transientRange||3000, raCfg.transientSus||0.6, null);
+        }
+        COMMS.reactor.reactorRunaway();
+        window.G.triggerScram('runaway');
+        // Clear other propulsion casualties — SCRAM overrides
+        player._turbineTrip=null;
+        player._steamLeak=null;
+        player._coolantLeak=null;
+      }
+    }
+
     player.hp=Math.max(1,100-Object.values(d.strikes).reduce((a,b)=>a+b,0)*15);
   }
 
@@ -972,7 +1050,7 @@
     d.floodRate[comp]=0;
     d.flooding[comp]=0;
     if(d._floodDeckDmg?.[comp]) d._floodDeckDmg[comp]={};
-    for(const sys of COMP_DEF[comp].systems){
+    for(const sys of (SECTION_SYSTEMS[comp]||[])){
       if(d.systems[sys]==='nominal') damageSystem(sys);
     }
     COMMS.flood.sealed(SECTION_LABEL[comp]||comp);
@@ -985,12 +1063,44 @@
     const d=player.damage;
     const next=Math.min(stateIndex(sys)+steps,STATES.length-1);
     d.systems[sys]=STATES[next];
+    // Primary coolant loss → automatic SCRAM
+    if(sys==='primary_coolant'&&next>=2&&!player.scram&&typeof window.G.triggerScram==='function'){
+      window.G.triggerScram('coolant');
+      COMMS.reactor.scram('coolant');
+    }
     return STATES[next];
+  }
+  // Systems that are passive hardware — don't need crew to operate.
+  // Escape trunks, trim tanks, passive arrays, etc.
+  const PASSIVE_SYS = new Set(['fwd_escape','aft_escape','fwd_trim','aft_trim','shaft_seals','rad_monitor']);
+
+  // Effective state accounting for:
+  //  1. Control-node dependency (helm→fwd planes, fire_ctrl→tubes/tdc)
+  //  2. Unmanned section — no fit crew = active systems offline
+  function effectiveState(sys,d){
+    d=d||player.damage;
+    const own=d.systems[sys]||'nominal';
+    const def=SYS_DEF[sys];
+    if(!def) return own;
+    let worst=STATES.indexOf(own);
+    // Control node dependency
+    if(def.ctrl){
+      worst=Math.max(worst, STATES.indexOf(d.systems[def.ctrl]||'nominal'));
+    }
+    // Unmanned section — no fit crew means active systems can't be operated
+    if(!PASSIVE_SYS.has(sys) && d.crew){
+      const sec=ROOMS[def.room]?.section;
+      if(sec){
+        const fitCrew=(d.crew[sec]||[]).filter(cr=>cr.status==='fit'&&!cr.displaced);
+        if(fitCrew.length===0) worst=Math.max(worst, STATES.indexOf('offline'));
+      }
+    }
+    return STATES[worst];
   }
 
   // ── Next damaged system to repair in a compartment (auto-priority) ────────
   function _nextRepairTarget(comp,d){
-    const sysList=COMP_DEF[comp].systems;
+    const sysList=SECTION_SYSTEMS[comp]||[];
     // Priority: worst state first, skip nominal only (destroyed is repairable post-blow)
     const repairable=sysList
       .filter(s=>d.systems[s]!=='nominal')
@@ -1063,7 +1173,7 @@
               team._locked=true;
               team._fireLosing=0;
               COMMS.fire.dcArrival(team.label, ROOMS[arrRoom]?.label||arrSec);
-            } else if(d.floodRate[arrSec]>0||d.flooding[arrSec]>0.05){
+            } else if(d.floodRate[arrSec]>0){
               team._ventIntent=null;
               COMMS.dc.onScene(team.label, ROOMS[arrRoom]?.label||arrSec);
               team.task='flood';
@@ -1149,6 +1259,21 @@
         if(team.task==='flood'||d.floodRate[sec]>0){
           team.task='flood';
           team._locked=true;
+
+          // If floodRate already 0 (e.g. after blow re-entry), skip straight to post-seal
+          if(d.floodRate[sec]<=0){
+            team._locked=false;
+            if((d.flooding[sec]||0)<=0.05) _returnCrew(sec,d);
+            team.task=null;
+            const sys=_nextRepairTarget(sec,d);
+            if(sys){
+              team.task='repair'; team.repairTarget=sys; team.repairProgress=0;
+            } else {
+              team.state='ready';
+            }
+            continue;
+          }
+
           const reduction=FLOOD_FIGHT_RATE*eff;
           d.floodRate[sec]=Math.max(0,d.floodRate[sec]-reduction*dt);
 
@@ -1276,7 +1401,13 @@
   function canTCE(){
     const d=player.damage; if(!d) return false;
     if(_depthM()>200) return false;
-    return d.towers.fwd!=='destroyed'||d.towers.aft!=='destroyed';
+    return _towerAvail('fwd',d)||_towerAvail('aft',d);
+  }
+  // Tower available if structurally intact AND escape trunk not destroyed
+  function _towerAvail(tower,d){
+    if(d.towers[tower]==='destroyed') return false;
+    const trunkSys=tower==='fwd'?'fwd_escape':'aft_escape';
+    return (d.systems[trunkSys]||'nominal')!=='destroyed';
   }
   function _survChance(type){
     const depth=_depthM();
@@ -1330,8 +1461,8 @@
     if(type==='tce'){
       d.escapeQueue=[];
       const towers=[];
-      if(d.towers.fwd!=='destroyed') towers.push('fwd');
-      if(d.towers.aft!=='destroyed') towers.push('aft');
+      if(_towerAvail('fwd',d)) towers.push('fwd');
+      if(_towerAvail('aft',d)) towers.push('aft');
       for(const comp of COMPS){
         for(const c of (d.crew[comp]||[])){
           if(c.status==='killed') continue;
@@ -1988,13 +2119,15 @@
         COMMS.fire.dcRelief(SECTION_LABEL[section]);
       }
 
-      // System heat damage
-      if(F>0.30){
-        const heatChance=(F-0.30)*0.002*dt;
+      // System heat damage — per-room: only systems in burning rooms take heat
+      for(const roomId of roomIds){
+        const roomFire=d.fire[roomId]||0;
+        if(roomFire<=0.30) continue;
+        const heatChance=(roomFire-0.30)*0.002*dt;
         if(Math.random()<heatChance){
-          const damageable=COMP_DEF[section].systems.filter(s=>d.systems[s]!=='destroyed');
-          if(damageable.length>0){
-            const sys=damageable[Math.floor(Math.random()*damageable.length)];
+          const roomSys=(ROOM_SYSTEMS[roomId]||[]).filter(s=>d.systems[s]!=='destroyed');
+          if(roomSys.length>0){
+            const sys=roomSys[Math.floor(Math.random()*roomSys.length)];
             const newState=damageSystem(sys,1);
             COMMS.fire.heatDamage(SYS_LABEL[sys],newState,SECTION_LABEL[section]);
             _alert(`HEAT DAMAGE — ${SYS_LABEL[sys]}`);
@@ -2123,14 +2256,14 @@
       const _ddmg=d._floodDeckDmg[comp];
       if(fl>=0.33&&!_ddmg[2]){                      // D3 (bottom) submerged
         _ddmg[2]=true;
-        for(const sys of COMP_DEF[comp].systems){
-          if((SYS_DECK[sys]??1)===2){ const st=damageSystem(sys); COMMS.sys.damaged(SYS_LABEL[sys],st,0.5); }
+        for(const sys of (SECTION_SYSTEMS[comp]||[])){
+          if((ROOMS[SYS_DEF[sys].room]?.deck??1)===2){ const st=damageSystem(sys); COMMS.sys.damaged(SYS_LABEL[sys],st,0.5); }
         }
       }
       if(fl>=0.67&&!_ddmg[1]){                      // D2 (middle) submerged
         _ddmg[1]=true;
-        for(const sys of COMP_DEF[comp].systems){
-          if((SYS_DECK[sys]??1)===1){ const st=damageSystem(sys); COMMS.sys.damaged(SYS_LABEL[sys],st,0.5); }
+        for(const sys of (SECTION_SYSTEMS[comp]||[])){
+          if((ROOMS[SYS_DEF[sys].room]?.deck??1)===1){ const st=damageSystem(sys); COMMS.sys.damaged(SYS_LABEL[sys],st,0.5); }
         }
       }
 
@@ -2146,6 +2279,11 @@
           const openNeighbour=neighbors.find(n=>!d.flooded[n]&&!_sectionNoEvac(n)&&(d.crew[n]||[]).length<SECTION_CAP);
           if(openNeighbour&&Math.random()<0.80){
             cr.displaced=true;
+            cr.stationComp=cr.stationComp||comp; // remember home for return
+            d.crew[comp]=d.crew[comp].filter(c=>c!==cr);
+            if(!d.crew[openNeighbour]) d.crew[openNeighbour]=[];
+            cr.comp=openNeighbour;
+            d.crew[openNeighbour].push(cr);
             evacuated++;
           } else {
             cr.status='killed';
@@ -2168,9 +2306,9 @@
         if(!d._floodDeckDmg) d._floodDeckDmg={};
         if(!d._floodDeckDmg[comp]) d._floodDeckDmg[comp]={};
         const _ddFull=d._floodDeckDmg[comp];
-        for(const sys of COMP_DEF[comp].systems){
+        for(const sys of (SECTION_SYSTEMS[comp]||[])){
           // D1 systems: first damage event (deck just reached)
-          if((SYS_DECK[sys]??1)===0 && !_ddFull[0]){ damageSystem(sys); }
+          if((ROOMS[SYS_DEF[sys].room]?.deck??1)===0 && !_ddFull[0]){ damageSystem(sys); }
           // All systems: one final step for full submersion
           damageSystem(sys);
         }
@@ -2274,31 +2412,64 @@
     if(sys.propulsion==='destroyed') speedCap=2;
     else if(sys.propulsion==='offline') speedCap=5;
     else if(sys.propulsion==='degraded') speedCap=15;
-    if(sys.reactor==='offline'||sys.reactor==='destroyed') speedCap=Math.min(speedCap,7);
+    if(sys.reactor==='offline'||sys.reactor==='destroyed'){
+      // Emergency diesel provides limited propulsion when reactor down
+      if(sys.emerg_diesel==='offline'||sys.emerg_diesel==='destroyed') speedCap=Math.min(speedCap,2);
+      else speedCap=Math.min(speedCap,7);
+    }
+    // Pressuriser limits reactor power output
+    if(sys.pressuriser==='destroyed') speedCap=Math.min(speedCap,8);
+    else if(sys.pressuriser==='offline') speedCap=Math.min(speedCap,12);
+    // Main turbines degrade speed ceiling
+    if(sys.main_turbines==='destroyed') speedCap=Math.min(speedCap,5);
+    else if(sys.main_turbines==='offline') speedCap=Math.min(speedCap,10);
     let sonarRangeMult=1.0;
     if(sys.sonar_hull==='offline'||sys.sonar_hull==='destroyed') sonarRangeMult=0.0;
     else if(sys.sonar_hull==='degraded') sonarRangeMult=0.55;
     let bearingNoiseMult=1.0;
     if(sys.sonar_hull==='degraded') bearingNoiseMult=2.5;
     else if(sys.sonar_hull==='offline'||sys.sonar_hull==='destroyed') bearingNoiseMult=5.0;
+    // Tubes/TDC use effectiveState (fire_ctrl dependency)
+    const eTubes=effectiveState('tubes',d);
     let reloadMult=1.0;
-    if(sys.tubes==='degraded') reloadMult=1.5;
-    else if(sys.tubes==='offline') reloadMult=3.0;
-    else if(sys.tubes==='destroyed') reloadMult=999;
+    if(eTubes==='degraded') reloadMult=1.5;
+    else if(eTubes==='offline') reloadMult=3.0;
+    else if(eTubes==='destroyed') reloadMult=999;
     reloadMult*=(1+(1-crewEfficiency('weapons'))*0.6);
     let depthRateMult=1.0;
     if(sys.ballast==='degraded') depthRateMult=0.55;
     else if(sys.ballast==='offline'||sys.ballast==='destroyed') depthRateMult=0.18;
+    // Trim tanks — loss degrades fine depth control
+    const trimDmg=Math.max(STATES.indexOf(sys.fwd_trim||'nominal'),STATES.indexOf(sys.aft_trim||'nominal'));
+    if(trimDmg>=3) depthRateMult*=0.65;       // destroyed — sluggish trim
+    else if(trimDmg>=2) depthRateMult*=0.80;   // offline — reduced trim authority
+    // Electrical distribution — offline degrades sonar, slows reloads
+    if(sys.elec_dist==='offline'||sys.elec_dist==='destroyed'){
+      sonarRangeMult*=0.40;
+      bearingNoiseMult*=2.0;
+      reloadMult*=2.0;
+      depthRateMult*=0.60;
+    } else if(sys.elec_dist==='degraded'){
+      sonarRangeMult*=0.75;
+      reloadMult*=1.3;
+    }
     // HP air blow: loud compressors — significant continuous noise penalty
     const blowingTeams=Object.values(d.teams||{}).filter(t=>t.state==='blowing').length;
     const blowNoise=blowingTeams*0.40;
     const noisePenalty=Math.min(0.65, totalFlood*0.10 + blowNoise);
+    const eTdc=effectiveState('tdc_comp',d);
+    const eTma=effectiveState('tma',d);
     let tdcErrDeg=0;
-    if(sys.tdc_comp==='degraded') tdcErrDeg=4;
-    else if(sys.tdc_comp==='offline'||sys.tdc_comp==='destroyed') tdcErrDeg=10;
+    if(eTdc==='degraded') tdcErrDeg+=4;
+    else if(eTdc==='offline'||eTdc==='destroyed') tdcErrDeg+=10;
+    // TMA feeds the TDC — damaged TMA adds bearing uncertainty
+    if(eTma==='degraded') tdcErrDeg+=3;
+    else if(eTma==='offline'||eTma==='destroyed') tdcErrDeg+=8;
     let tubesAvail=C.player.torpTubes||4;
-    if(sys.tubes==='destroyed') tubesAvail=Math.max(0,tubesAvail-2);
-    else if(sys.tubes==='offline') tubesAvail=Math.max(1,tubesAvail-1);
+    if(eTubes==='destroyed') tubesAvail=0;
+    else if(eTubes==='offline') tubesAvail=0;
+    // Weapon stowage — no reloads when damaged
+    if(sys.weapon_stow==='offline'||sys.weapon_stow==='destroyed') reloadMult=999;
     const towedOk=sys.towed_array==='nominal'||sys.towed_array==='degraded';
     const periscopeOk=sys.periscope==='nominal'||sys.periscope==='degraded';
     // Steering — rudder authority
@@ -2316,9 +2487,9 @@
     // When conn is lost, depth changes require manual valve ops — much slower
     if(connRoomLost) depthRateMult = Math.min(depthRateMult, 0.20);
     // Plane hydraulics — determines operating mode for each set of planes
-    // fwd: hydraulic plant in fore_ends; control from control_room (helm position)
-    // aft: hydraulic plant in engine_room; fallback control at Manoeuvring
-    const fwdHyd  = sys.planes_fwd_hyd || 'nominal';
+    // fwd: hydraulic plant in fore_ends; helm control from control_room
+    // aft: hydraulic plant in aft_ends; fallback control at Manoeuvring
+    const fwdHyd  = effectiveState('planes_fwd_hyd',d);
     const aftHyd  = sys.planes_aft_hyd || 'nominal';
     // Fwd planes frozen when conn room lost (helm station unavailable)
     // or when periscope destroyed + 3+ strikes (catastrophic conn damage)
@@ -2334,10 +2505,26 @@
     const aftCtrlTransferred = (d.strikes?.control_room||0) > 0;
     const fireLevel=Object.fromEntries(COMPS.map(c=>[c,_sectionFire(c,d)]));
     const anyFire=ROOM_IDS.some(rid=>(d.fire?.[rid]||0)>0.01);
-    return {speedCap,sonarRangeMult,bearingNoiseMult,reloadMult,depthRateMult,noisePenalty,tdcErrDeg,tubesAvail,towedOk,periscopeOk,maxDepth,totalFlood,fwdPlaneMode,aftPlaneMode,aftCtrlTransferred,connRoomLost,crashDiveAvail:!connRoomLost,silentRunAvail:!connRoomLost,steeringMult,steeringOk,fireLevel,anyFire};
+    // ── Propulsion casualties ──────────────────────────────────────────
+    const casCfg=C.player.casualties||{};
+    if(player._steamLeak) speedCap=Math.min(speedCap, casCfg.steamLeak?.speedCap||7);
+    if(player._turbineTrip) speedCap=Math.min(speedCap, casCfg.turbineTrip?.speedCap||12);
+    // ── Flooding drag — water mass limits speed and slows acceleration ──
+    if(totalFlood>0.05){
+      const floodSpeedPenalty=totalFlood*6;   // ~6kt lost per full flooded section
+      speedCap=Math.min(speedCap, Math.max(5, (C.player.flankKts||28)-floodSpeedPenalty));
+    }
+    const floodTauMult=1+totalFlood*0.5;      // 50% slower acceleration per flooded section
+    // Wire guidance degradation from fire control damage
+    const eFireCtrl=effectiveState('fire_ctrl',d);
+    let wireNoiseMult=1.0, wireUpdateRate=1.0, wireCutAll=false;
+    if(eFireCtrl==='degraded')       { wireNoiseMult=3.0; wireUpdateRate=0.5; }
+    else if(eFireCtrl==='offline')   { wireNoiseMult=8.0; wireUpdateRate=0.2; }
+    else if(eFireCtrl==='destroyed') { wireCutAll=true; }
+    return {speedCap,sonarRangeMult,bearingNoiseMult,reloadMult,depthRateMult,noisePenalty,tdcErrDeg,tubesAvail,towedOk,periscopeOk,maxDepth,totalFlood,floodTauMult,fwdPlaneMode,aftPlaneMode,aftCtrlTransferred,connRoomLost,crashDiveAvail:!connRoomLost,silentRunAvail:!connRoomLost,steeringMult,steeringOk,fireLevel,anyFire,wireNoiseMult,wireUpdateRate,wireCutAll};
   }
   function _defaults(){
-    return {speedCap:Infinity,sonarRangeMult:1.0,bearingNoiseMult:1.0,reloadMult:1.0,depthRateMult:1.0,noisePenalty:0,tdcErrDeg:0,tubesAvail:C.player.torpTubes||4,towedOk:true,periscopeOk:true,maxDepth:C.world?.maxDepth||500,totalFlood:0,fwdPlaneMode:'hydraulic',aftPlaneMode:'hydraulic',aftCtrlTransferred:false,connRoomLost:false,crashDiveAvail:true,silentRunAvail:true,steeringMult:1.0,steeringOk:true};
+    return {speedCap:Infinity,sonarRangeMult:1.0,bearingNoiseMult:1.0,reloadMult:1.0,depthRateMult:1.0,noisePenalty:0,tdcErrDeg:0,tubesAvail:C.player.torpTubes||4,towedOk:true,periscopeOk:true,maxDepth:C.world?.maxDepth||500,totalFlood:0,floodTauMult:1.0,fwdPlaneMode:'hydraulic',aftPlaneMode:'hydraulic',aftCtrlTransferred:false,connRoomLost:false,crashDiveAvail:true,silentRunAvail:true,steeringMult:1.0,steeringOk:true,wireNoiseMult:1.0,wireUpdateRate:1.0,wireCutAll:false};
   }
 
   function _alert(text){ player.damage.alerts.push({text,t:5.0}); }
@@ -2426,9 +2613,8 @@
     getTrimState,drawHPA,
     toggleWTD,
     relocateCrewForWatch:(watch)=>_relocateCrewForWatch(player.damage,watch),
-    COMP_DEF,COMPS,STATES,SYS_LABEL,ROOMS,ROOM_IDS,SECTION_ROOMS,ROOM_ADJ,WTD_PAIRS,WTD_RC_KEYS,
-    SECTION_LABEL,SECTION_SHORT,roomSection,
-    COMP_SYSTEMS:Object.fromEntries(Object.entries(COMP_DEF).map(([k,v])=>[k,v.systems])),
+    COMP_DEF,COMPS,STATES,SYS_LABEL,SYS_DEF,ROOMS,ROOM_IDS,SECTION_ROOMS,ROOM_ADJ,SECTION_SYSTEMS,ROOM_SYSTEMS,WTD_PAIRS,WTD_RC_KEYS,
+    SECTION_LABEL,SECTION_SHORT,roomSection,effectiveState,
     COMPARTMENTS:COMPS,
     CREW_MANIFEST,
   };

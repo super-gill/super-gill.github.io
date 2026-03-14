@@ -53,34 +53,37 @@
       if(dist < bestDist){ bestDist=dist; best=t; }
     }
 
-    // Decoy seduction — can compete even post-lock if decoy is louder than target.
-    // A silent target running quiet can be out-competed by a noisemaker.
-    // A sprinting noisy target overwhelms the decoy — can't break lock that way.
+    // Decoy seduction — single roll per decoy-torpedo encounter.
+    // Each decoy gets ONE chance to seduce each torpedo when it first enters
+    // range/FOV. Going quiet before deploying improves odds significantly.
+    // After seduction ends, a reacquisition delay gives the target time to escape.
     if(!torp.seducedBy){
+      if(!torp._testedDecoys) torp._testedDecoys=[];
       const seduceRange=cfg.seduceRange??300;
       const seduceFOV  =cfg.seduceFOV??2.8;
       for(const d of decoys){
         if(d.kind!=='noisemaker' || d.life<=0) continue;
         if(torp.friendly && d.friendly) continue;
         if(!torp.friendly && !d.friendly) continue;
+        if(torp._testedDecoys.includes(d.id)) continue; // already rolled
         const dx=wrapDx(torp.x, d.x);
         const dy=d.y-torp.y;
         if(Math.hypot(dx,dy)>seduceRange) continue;
         const angTo=Math.atan2(dy,dx);
         if(Math.abs(angleNorm(angTo-torpAng)) > seduceFOV/2) continue;
 
-        // If already locked on a real target, decoy must out-compete acoustically.
-        // Decoy signature vs target noise (player.noise or enemy equivalent).
+        // First encounter with this decoy — single roll.
+        torp._testedDecoys.push(d.id);
+
+        // If locked on a real target, decoy must out-compete acoustically.
         if(best){
           const targetNoise = torp.friendly
             ? (best.noise??0.3)        // enemy sub noise
             : (G().player.noise??0.2); // player noise
           const decoySig = d.signature??1.0;
-          // Decoy wins if it's louder than the target's self-noise.
-          // Formula: 1 - (noise * 3 / decoySig) — maps noise onto decoy scale.
-          // Silent (noise~0.07) → 84% chance. Sprinting (noise~0.40) → 14%.
-          // Encourages players to go quiet BEFORE deploying countermeasures.
-          const seduceChance = clamp(1.0 - (targetNoise * 3.0) / decoySig, 0, 1);
+          // Quiet (noise~0.07) → 90%. Normal (~0.25) → 64%. Sprint (~0.40) → 43%.
+          // 15% floor: even a noisy deployment has some chance.
+          const seduceChance = clamp(1.0 - (targetNoise * 2.0) / decoySig, 0.15, 1);
           if(Math.random() > seduceChance) continue; // decoy fails to compete
         }
 
@@ -120,10 +123,21 @@
       torp.seduceT=(torp.seduceT||0)-dt;
       if(torp.seduceT<=0 || torp.seducedBy.life<=0){
         torp.seducedBy=null; torp.target=null;
+        // Post-seduction confusion — seeker needs time to reacquire
+        torp._reacquireCd=cfg.reacquireDelay??3.0;
       }
     }
 
-    if(armed && !torp.seducedBy){
+    // Reacquisition cooldown after seduction ends
+    if(torp._reacquireCd>0) torp._reacquireCd-=dt;
+
+    // Ping dazzle — active sonar pulse temporarily blinds seeker
+    if(torp._dazzleT>0){
+      torp._dazzleT-=dt;
+      if(torp._dazzleT<=0) torp._wasDazzled=false; // reset for next dazzle
+    }
+
+    if(armed && !torp.seducedBy && (torp._reacquireCd||0)<=0 && (torp._dazzleT||0)<=0){
       const found=seekerScan(torp);
       if(found){
         if(found !== torp.target && torp.friendly){
@@ -218,7 +232,7 @@
           if(dz>vertFuse) continue;
           const dx=wrapDx(torp.x,e.x), dy=e.y-torp.y;
           if(Math.hypot(dx,dy)<(e.hitR||e.r||18)+torp.r){
-            G().damageEnemy(e,torp.dmg); torp.life=0; break;
+            G().damageEnemy(e,torp.dmg); torp._hit=true; torp.life=0; break;
           }
         }
       } else {
@@ -226,7 +240,7 @@
         if(dz<vertFuse){
           const dx=wrapDx(torp.x,player.wx), dy=player.wy-torp.y;
           if(Math.hypot(dx,dy)<(C().player.hitR??30)+torp.r){
-            G().damagePlayer(24, torp.x, torp.y); torp.life=0;
+            G().damagePlayer(24, torp.x, torp.y); torp._hit=true; torp.life=0;
           }
         }
       }

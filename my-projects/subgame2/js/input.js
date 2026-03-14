@@ -24,6 +24,10 @@
     // Home — re-centre camera on player
     if(e.key==="Home"){ const cam=window.G?.cam; const p=window.G?.player; if(cam&&p){cam.free=false;cam.x=p.wx;cam.y=p.wy;} }
     if(k==='j'&&window.G?.game){ window.G.game.logTab = window.G.game.logTab==='dc'?'log':'dc'; }
+    // UI scale: +/= to increase, - to decrease, 0 to reset
+    if((k==='='||k==='+')&&window.UI){ window.UI.setScale(window.UI.getScale()+window.UI.SCALE_STEP); }
+    if(k==='-'&&window.UI){ window.UI.setScale(window.UI.getScale()-window.UI.SCALE_STEP); }
+    if(k==='0'&&window.UI){ window.UI.setScale(1.0); }
     if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) e.preventDefault();
   });
   addEventListener("keyup",(e)=>{
@@ -43,31 +47,48 @@
     input.mouseY=(e.clientY-r.top)*getDPR();
   }
 
+  function getU(){ return window.UI?.U || ((px)=>Math.round(px*getDPR())); }
+
   // Is the click inside the command panel strip at the bottom?
   function inPanel(my){
     const canvas=getCanvas(); if(!canvas) return false;
-    const DPR=getDPR();
-    const panelH=window.CONFIG.layout.panelH*DPR;
-    return my >= canvas.height - panelH;
+    const U=getU();
+    return my >= canvas.height - U(window.CONFIG.layout.panelH);
   }
 
   // Is the click inside the depth strip on the right?
   function inDepthStrip(mx){
     const canvas=getCanvas(); if(!canvas) return false;
-    const DPR=getDPR();
-    return mx >= canvas.width - 56*DPR;
+    const U=getU();
+    return mx >= canvas.width - U(window.CONFIG.layout.depthStripW);
+  }
+
+  // Is the click inside the nav compass widget (top-right area)?
+  function inCompass(mx, my){
+    const canvas=getCanvas(); if(!canvas) return false;
+    const U=getU();
+    const stripW=U(window.CONFIG.layout.depthStripW);
+    const radius=U(65);
+    const cx=canvas.width-stripW-radius-U(50);
+    const cy=U(72)+radius+U(10);
+    // Check the full compass region including buttons and readouts
+    const left=cx-radius-U(8)-U(38);           // port buttons left edge
+    const right=cx+radius+U(8)+U(38);           // starboard buttons right edge
+    const top=cy-radius-U(30)-U(20);            // depth up button top
+    const bottom=cy+radius+U(8)+U(52)+U(4)+U(20); // depth down button bottom
+    return mx>=left && mx<=right && my>=top && my<=bottom;
   }
 
   // Log panel sits above the bottom panel, bottom-left corner
   // Must absorb clicks so they don't fall through to chart waypoints
   function inLogPanel(mx, my){
     const canvas=getCanvas(); if(!canvas) return false;
-    const DPR=getDPR();
-    const panelH=window.CONFIG.layout.panelH*DPR;
-    const boardW=560*DPR;
+    const U=getU();
+    const panelH=U(window.CONFIG.layout.panelH);
+    const boardW=U(560);
     // tabH=20, rowH=19, maxRows=28, padY=6*2, +4 → boardH=568
-    const boardH=568*DPR;
-    const by=canvas.height - panelH - boardH - 2*DPR;
+    const boardH=U(568);
+    const by=canvas.height - panelH - boardH - U(2);
     return mx >= 0 && mx <= boardW && my >= by && my <= canvas.height - panelH;
   }
 
@@ -96,7 +117,7 @@
         return;
       }
       // Panel and depth strip absorb clicks — don't route to chart
-      if(inPanel(input.mouseY)||inDepthStrip(input.mouseX)||inLogPanel(input.mouseX,input.mouseY)){
+      if(inPanel(input.mouseY)||inDepthStrip(input.mouseX)||inLogPanel(input.mouseX,input.mouseY)||inCompass(input.mouseX,input.mouseY)){
         window.PANEL?.handleClick(input.mouseX, input.mouseY);
         return;
       }

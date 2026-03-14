@@ -69,6 +69,27 @@
     },1000);
   }
 
+  function courseStep(degDelta){
+    const p=window.G?.player;
+    if(!p) return;
+    const route=window.ROUTE;
+    // If no ordered heading yet, initialise from current heading
+    if(p.orderedHeading==null){
+      const hdg=p.heading||0;
+      p.orderedHeading=((Math.atan2(Math.cos(hdg),-Math.sin(hdg))*180/Math.PI)+360)%360;
+    }
+    p.orderedHeading=((p.orderedHeading+degDelta)%360+360)%360;
+    p._orderedCourseReached=false;
+    // Clear route — manual course order overrides waypoints
+    if(route) route.length=0;
+    // Debounce COMMS — cancel pending, fire 1s after last press
+    clearTimeout(p._courseLogTimer);
+    p._courseLogTimer=setTimeout(()=>{
+      const ordStr=Math.round(p.orderedHeading).toString().padStart(3,'0');
+      window.COMMS?.nav?.courseChange(ordStr);
+    },1000);
+  }
+
   function comeToPD(){
     const p=window.G?.player;
     if(!p) return;
@@ -121,13 +142,30 @@
     const COMMS=window.COMMS;
     const ground=window.G?.world?.ground??1900;
     if(!p||!C) return;
+    if(p.scram) return;
     const dmgFx=window.DMG?.getEffects()||{};
     if(dmgFx.crashDiveAvail===false){ COMMS.nav.connRoomUnavail('crash dive'); return; }
     if(p.crashDiveCd>0) return;
+    if(p.crashDiveT>0) return;
+    // SCRAM risk — combo with recent emergency turn
+    const emergRecent=(p.emergTurnCd||0) > (C.player.emergencyTurn?.cd||30)*0.7;
+    if(emergRecent && p.speed>20 && Math.random()<0.45){
+      if(typeof window.G.triggerScram==='function') window.G.triggerScram('combo');
+      COMMS.reactor.scram('turn');
+      return;
+    }
+    // Towed array stress
+    const ta=p.towedArray;
+    if(ta){
+      if(ta.state==='operational'){ ta.state='damaged'; COMMS.nav.towedArrayStress('crash dive','damaged'); }
+      else if(ta.state==='damaged'){ ta.state='destroyed'; COMMS.nav.towedArrayStress('crash dive','destroyed'); }
+    }
     p.crashDiveT=C.player.crashDive.dur;
     p.crashDiveCd=C.player.crashDive.cd;
     p.noiseTransient=Math.min(1,(p.noiseTransient||0)+C.player.crashDive.noiseSpike);
-    p.depthOrder=Math.min(ground-60,(p.depthOrder??p.depth)+420);
+    p.depthOrder=Math.min(ground-60,(p.depthOrder??p.depth)+600);
+    p._crashTauOverride=C.player.crashDive.tauOverride??0.4;
+    p._crashDepthCalled=new Set();
     // Ahead full — maximum speed drives plane authority
     const flankIdx = SPEED_STATES.findIndex(s=>s.label==='AHEAD FLANK');
     const fullIdx  = SPEED_STATES.findIndex(s=>s.label==='AHEAD FULL');
@@ -142,6 +180,11 @@
     p.planes.aft.angle = -15;
     p.planes.fwd.angle = -8;
     COMMS.nav.crashDive();
+    // Warn if ballast damage will impair depth control/recovery
+    const ballastState=p.damage?.systems?.ballast||'nominal';
+    if(ballastState==='degraded'||ballastState==='offline'||ballastState==='destroyed'){
+      COMMS.nav.ballastDamageWarning?.(ballastState);
+    }
     _partAllWires('dive');
   }
 
@@ -240,7 +283,10 @@
     if(typeof window._reserveTube!=='function'){ COMMS.weapons.fireControlOffline(); return; }
     const tubeIdx=window._reserveTube();
     if(tubeIdx<0){
-      const why=player.torpStock<=0?'No weapons remaining':'All tubes reloading';
+      const dmgFx=window.DMG?.getEffects()||{};
+      const why=player.torpStock<=0?'No weapons remaining'
+        :(dmgFx.tubesAvail||0)===0?'Torpedo room offline'
+        :'All tubes reloading';
       COMMS.weapons.error(why); return;
     }
     const ddx=Math.cos(wp.bearing), ddy=Math.sin(wp.bearing);
@@ -374,7 +420,7 @@
     setTelegraphIdx: (idx)=>{ _telegraphIdx=idx; },
     getTelegraph,
     clearBtns, registerBtn, handleClick,
-    setTelegraph, depthStep, comeToPD,
+    setTelegraph, depthStep, courseStep, comeToPD,
     toggleSilent, emergencyTurn, emergencyCrashDive, emergencyBlowBallast, toggleHPARecharge, allStop, snapToAllStop, toggleTowedArray, wepsShoot, callActionStations,
     btn2,
     initiateEscape(type){ window.DMG?.initiateEscape(type); },

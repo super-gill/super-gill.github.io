@@ -57,18 +57,44 @@
   ];
 
   const SYS_LIST=[
+    // Fore Ends
     {id:'tubes',          label:'Tubes',       comp:'fore_ends'},
-    {id:'sonar_hull',     label:'Sonar',        comp:'fore_ends'},
-    {id:'planes_fwd_hyd', label:'Fwd Planes',   comp:'fore_ends'},
-    {id:'periscope',      label:'Scope',        comp:'control_room'},
-    {id:'ballast',        label:'Ballast',      comp:'control_room'},
-    {id:'tdc_comp',       label:'TDC',          comp:'control_room'},
-    {id:'hyd_main',       label:'Hyd Main',     comp:'control_room'},
-    {id:'reactor',        label:'Reactor',      comp:'reactor_comp'},
-    {id:'propulsion',     label:'Prop',         comp:'engine_room'},
-    {id:'steering',       label:'Steering',     comp:'aft_ends'},
-    {id:'planes_aft_hyd', label:'Aft Planes',   comp:'aft_ends'},
-    {id:'towed_array',    label:'Towed Array',  comp:'aft_ends'},
+    {id:'sonar_hull',     label:'Sonar',       comp:'fore_ends'},
+    {id:'planes_fwd_hyd', label:'Fwd Planes',  comp:'fore_ends'},
+    {id:'weapon_stow',    label:'Wpn Stow',    comp:'fore_ends'},
+    {id:'fwd_trim',       label:'Fwd Trim',    comp:'fore_ends'},
+    {id:'fwd_escape',     label:'Fwd Esc',     comp:'fore_ends'},
+    {id:'tma',            label:'TMA',         comp:'fore_ends'},
+    {id:'tdc_comp',       label:'TDC',         comp:'fore_ends'},
+    // Control Room
+    {id:'periscope',      label:'Scope',       comp:'control_room'},
+    {id:'ballast',        label:'Ballast',     comp:'control_room'},
+    {id:'hyd_main',       label:'Hyd Main',    comp:'control_room'},
+    {id:'helm',           label:'Helm',        comp:'control_room'},
+    {id:'fire_ctrl',      label:'Fire Ctrl',   comp:'control_room'},
+    {id:'nav_sys',        label:'Nav',         comp:'control_room'},
+    {id:'comms_mast',     label:'Comms',       comp:'control_room'},
+    // Aux Section
+    {id:'co2_scrubbers',  label:'CO2 Scrub',   comp:'aux_section'},
+    {id:'o2_gen',         label:'O2 Gen',      comp:'aux_section'},
+    {id:'aux_power',      label:'Aux Power',   comp:'aux_section'},
+    // Reactor Comp
+    {id:'reactor',        label:'Reactor',     comp:'reactor_comp'},
+    {id:'primary_coolant',label:'Pri Cool',    comp:'reactor_comp'},
+    {id:'pressuriser',    label:'Press',       comp:'reactor_comp'},
+    {id:'rad_monitor',    label:'Rad Mon',     comp:'reactor_comp'},
+    // Engine Room
+    {id:'propulsion',     label:'Prop',        comp:'engine_room'},
+    {id:'main_turbines',  label:'Turbines',    comp:'engine_room'},
+    {id:'elec_dist',      label:'Elec Dist',   comp:'engine_room'},
+    {id:'emerg_diesel',   label:'Diesel',      comp:'engine_room'},
+    // Aft Ends
+    {id:'towed_array',    label:'Towed Arr',   comp:'aft_ends'},
+    {id:'steering',       label:'Steering',    comp:'aft_ends'},
+    {id:'planes_aft_hyd', label:'Aft Planes',  comp:'aft_ends'},
+    {id:'shaft_seals',    label:'Shaft Seal',  comp:'aft_ends'},
+    {id:'aft_trim',       label:'Aft Trim',    comp:'aft_ends'},
+    {id:'aft_escape',     label:'Aft Esc',     comp:'aft_ends'},
   ];
 
   // ── HTML ──────────────────────────────────────────────────────────────────
@@ -206,7 +232,8 @@
     for(const c of COMPS){
       const fl=d.flooding?.[c.key]??0;
       const fr=d.floodRate?.[c.key]??0;
-      const fi=Math.max(...[0,1,2].map(di=>d.fire?.[`${c.key}_d${di}`]||0));
+      const sRooms=window.DMG?.SECTION_ROOMS?.[c.key]||[`${c.key}_d0`,`${c.key}_d1`,`${c.key}_d2`];
+      const fi=Math.max(...sRooms.map(rid=>d.fire?.[rid]||0));
       const flooded=d.flooded?.[c.key];
       if(fl>0.005||fr>0||fi>0.01||flooded){
         const parts=[];

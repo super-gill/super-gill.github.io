@@ -1,14 +1,17 @@
 // render-utils.js — shared drawing primitives and coordinate transform
-// Exposes window.R: { doodleLine, doodleCircle, doodleText, w2s, wScale, PANEL_H, STRIP_W }
-// Must load before render.js and any other render-*.js modules.
+// Exposes window.R: { doodleLine, doodleCircle, doodleText, w2s, wScale, PANEL_H, STRIP_W, U, uiFont }
+// Must load after ui-scale.js and before render.js and any other render-*.js modules.
 (() => {
   'use strict';
   const C=window.CONFIG;
   const {TAU}=window.M;
   const {ctx,canvas,DPR,world,cam}=window.G;
+  const {U,uiFont}=window.UI;
 
-  const PANEL_H = C.layout.panelH * DPR;
-  const STRIP_W  = C.layout.depthStripW * DPR;
+  // PANEL_H and STRIP_W are now getters so they react to uiScale changes
+  // They return canvas-pixel values (design px * DPR * uiScale)
+  function getPanelH() { return U(C.layout.panelH); }
+  function getStripW() { return U(C.layout.depthStripW); }
 
   // ── Drawing primitives ────────────────────────────────────────────────────────
   function doodleLine(x1,y1,x2,y2,w=2){
@@ -31,8 +34,10 @@
   // Accounts for depth strip (right) and command panel (bottom) dead zones.
   function w2s(wx,wy){
     const Z=cam.zoom*DPR;
-    const cx=(canvas.width - STRIP_W)/2;
-    const cy=(canvas.height - PANEL_H)/2;
+    const stripW=getStripW();
+    const panelH=getPanelH();
+    const cx=(canvas.width - stripW)/2;
+    const cy=(canvas.height - panelH)/2;
     let dx=wx-cam.x;
     let dy=wy-cam.y;
     if(dx>world.w/2) dx-=world.w;
@@ -43,5 +48,9 @@
   }
   function wScale(wu){ return wu*cam.zoom*DPR; }
 
-  window.R={doodleLine,doodleCircle,doodleText,w2s,wScale,PANEL_H,STRIP_W};
+  // Export — PANEL_H and STRIP_W as getters for backward compatibility
+  const R = {doodleLine,doodleCircle,doodleText,w2s,wScale,U,uiFont};
+  Object.defineProperty(R, 'PANEL_H', { get: getPanelH, enumerable: true });
+  Object.defineProperty(R, 'STRIP_W', { get: getStripW, enumerable: true });
+  window.R = R;
 })();

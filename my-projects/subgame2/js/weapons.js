@@ -23,9 +23,11 @@
     }
   }
 
+  let _decoyId=0;
   function deployDecoy(x,y,friendly=true,kind="noisemaker",opts={}){
     opts=opts||{};
     const d={
+      id:++_decoyId,
       kind,x,y,
       depth: opts.depth ?? 0,
       vx:(opts.vx??rand(-3,3)),
@@ -100,6 +102,25 @@
   function wireUpdate(b, dt){
     if(!b.wire||!b.wire.live) return;
     const {world:w, player, sonarContacts}=window.G;
+    const DMG=window.DMG;
+
+    // Fire control damage — wire degradation or immediate severance
+    if(DMG){
+      const fx=DMG.getEffects();
+      if(fx.wireCutAll){
+        b.wire.live=false;
+        COMMS.weapons.wireParted(null,'fire_ctrl');
+        window.G._onWireCut?.(b);
+        return;
+      }
+      // Throttle bearing updates when fire_ctrl degraded
+      if(fx.wireUpdateRate<1.0){
+        b.wire._updateAcc=(b.wire._updateAcc||0)+dt;
+        const interval=1.0/(fx.wireUpdateRate*10); // 0.5 rate → skip every other 100ms
+        if(b.wire._updateAcc<interval) return;
+        b.wire._updateAcc=0;
+      }
+    }
 
     // Range check — cut wire if torpedo is too far from sub
     let dx=b.x-player.wx; if(dx>w.w/2)dx-=w.w; if(dx<-w.w/2)dx+=w.w;
@@ -129,6 +150,10 @@
     //   Phase 2 is a one-way latch — once set, never reverts to phase 1.
     //   This eliminates the turn-around bug where the torpedo gets commanded back
     //   toward a point it has already passed.
+    // Manual override — when autoTDC is off, use player's cmdBrg instead of sonar lock
+    if(b.wire.autoTDC===false && b.wire.cmdBrg!=null){
+      b.targetBrg = b.wire.cmdBrg;
+    } else {
     const ref=b.wire.lockedTarget;
     if(ref){
       const sc=sonarContacts?.get(ref);
@@ -169,6 +194,12 @@
           rawTargetBrg = Math.atan2(tdy, tdx);
         }
 
+        // Fire control damage adds bearing noise to wire updates
+        if(DMG){
+          const wnm=DMG.getEffects().wireNoiseMult;
+          if(wnm>1.0) rawTargetBrg+=rand(-0.02,0.02)*wnm;
+        }
+
         // Smooth bearing so noisy sonar ticks don't jink the torpedo.
         // Use a 2s time constant — fast enough to respond, slow enough to filter noise.
         if(b.targetBrg == null){
@@ -183,6 +214,7 @@
       // No designated target — fly launch bearing
       b.targetBrg = b.wire.cmdBrg;
     }
+    } // end else (autoTDC not manually overridden)
 
     // Sensor sweep — feed contacts back to player via wireContacts
     const wireRange=C.torpedo.seekRange*1.4;

@@ -156,7 +156,7 @@
     // Detection prob — deafness reduces it when enemy is sprinting; sensitivity scales hearing
     const p=clamp((signal-C.enemy.hearPBase)*C.enemy.hearPScale*deafness*(e.sensitivity||1.0), 0, 0.80);
     if(Math.random()<p){
-      const susGain=clamp(0.08+signal*0.35, 0.08, 0.28);
+      const susGain=clamp(0.05+signal*0.22, 0.05, 0.18);
       e.suspicion=Math.min(1, e.suspicion+susGain);
       enemyRegisterBearing(e);
     }
@@ -249,7 +249,7 @@
     const depth=rand(200,600);
     const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
       playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
-      fireCd:rand(4.0,8.0),cmCd:rand(2.2,5.5),
+      fireCd:rand(4.0,8.0),cmCd:rand(2.2,5.5),cmStock:6,
       navT:rand(C.enemy.subNavT[0],C.enemy.subNavT[1]),
       patrolHeading, heading:patrolHeading,
       // Pingers have much shorter ping cooldown; hunters never ping (set very high)
@@ -276,20 +276,26 @@
     });
   }
 
-  // Wolfpack datum share — when one enemy gets a good fix, nearby enemies get it too
+  // Wolfpack datum share — when one enemy gets a fix, nearby enemies get a rough area datum.
+  // This gives them a search area to sprint toward, NOT a firing solution.
+  // They must develop their own TMA before they can shoot.
   function wolfpackShareDatum(src, datumX, datumY, quality){
     const range=C.enemy.wolfpackDatumRange||4500;
-    const T=performance.now()/1000;
     for(const e of enemies){
       if(e===src||e.dead) continue;
       const dx=wrapDx(e.x,src.x), dy=src.y-e.y;
       const d=Math.hypot(dx,dy);
       if(d>range) continue;
-      // Share degrades with distance
-      const sig=clamp(1-d/range,0.2,1.0)*quality;
-      e.suspicion=Math.min(1, e.suspicion+0.25*sig);
-      if(!e.contact || sig > (e.contact.strength||0)){
-        e.contact={x:datumX,y:datumY,u:clamp(200*(1-sig)+80,80,600),t:now(),strength:sig};
+      // Share heavily degraded by distance — enough to sprint toward, not to shoot at
+      const sig=clamp(1-d/range,0.1,0.6)*quality;
+      // Suspicion boost capped below fireMinSus — forces own sonar contact before firing
+      e.suspicion=Math.min(e.suspicion+0.12*sig, Math.max(e.suspicion, 0.45));
+      // Large positional uncertainty — search area, not fire control solution
+      const blur=clamp(500*(1-sig)+250, 300, 900);
+      const sharedX=datumX+rand(-blur,blur);
+      const sharedY=datumY+rand(-blur,blur);
+      if(!e.contact || sig > (e.contact.strength||0)*0.8){
+        e.contact={x:sharedX,y:sharedY,u:blur,t:now(),strength:clamp(sig,0.05,0.35)};
       }
     }
   }

@@ -101,6 +101,10 @@
     player.scramT=75; // full restart window
     player.scramCause=cause||'unknown';
     player.scramEPM=false;
+    // SCRAM supersedes all propulsion casualties
+    player._coolantLeak=null;
+    player._steamLeak=null;
+    player._turbineTrip=null;
   }
   window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,queueLog,wrecks,triggerScram,setTacticalState,setCasualtyState};
 })();
