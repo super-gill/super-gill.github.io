@@ -90,19 +90,26 @@
     const barX=stripX+U(38);         // markers left of labels
 
     // Enemy subs — S# designation from sonarContacts
+    // Depth is estimated, not known — only shown at DEGRADED TMA or better.
+    // Uses the same noisy estimate as the TDC panel (stored on sc._estDepth).
     for(const [e,sc] of sonarContacts){
       if((e.detectedT||0)<=0 && (sc.activeT||0)<=0) continue;
-      const d2=e.depth??200;
+      // Gate depth display behind TMA quality — passive sonar doesn't give depth
+      const tmaQ=sc.tmaQuality||0;
+      if(tmaQ<0.35) continue; // BEARING ONLY — no depth info
+      const d2=sc._estDepth;
+      if(d2==null) continue;
       if(d2<winTop-60||d2>winBot+60) continue;
       const ty=dToY(d2);
       const stale=(sc.activeT||0)<=0;
-      ctx.strokeStyle=stale?'rgba(17,24,39,0.25)':'rgba(17,24,39,0.70)';
-      ctx.fillStyle=stale?'rgba(17,24,39,0.22)':'rgba(17,24,39,0.70)';
+      const uncertain=tmaQ<0.70; // DEGRADED — show as less confident
+      ctx.strokeStyle=stale?'rgba(17,24,39,0.25)':uncertain?'rgba(17,24,39,0.40)':'rgba(17,24,39,0.70)';
+      ctx.fillStyle=stale?'rgba(17,24,39,0.22)':uncertain?'rgba(17,24,39,0.35)':'rgba(17,24,39,0.70)';
       ctx.lineWidth=1.5;
       // Horizontal tick across strip
       ctx.beginPath(); ctx.moveTo(stripX,ty); ctx.lineTo(barX+U(4),ty); ctx.stroke();
-      // Sub symbol ●
-      doodleText('●',barX,ty+3,U(9),'right');
+      // Sub symbol — ● solid at SOLID, ○ hollow at DEGRADED to show uncertainty
+      doodleText(uncertain?'○':'●',barX,ty+3,U(9),'right');
       // ID label
       doodleText(sc.id||'?',labelX,ty+4,U(8),'right');
     }

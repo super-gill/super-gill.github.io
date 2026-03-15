@@ -371,8 +371,14 @@
       msg('WEAPON HAS ACQUISITION', 4.0);
     },
     targetDestroyed(contactType) {
-      log('SONAR', `Conn, Sonar — breaking-up noises. ${contactType === 'boat' ? 'Surface contact' : 'Submerged contact'} destroyed`, P.MED);
-      msg('TARGET DESTROYED', 2.5);
+      if(contactType === 'civilian'){
+        log('SONAR', `Conn, Sonar — breaking-up noises. Merchant vessel destroyed`, P.CRIT);
+        msg('CIVILIAN VESSEL DESTROYED', 3.5);
+        qlog('CONN', 'Conn — that was a civilian vessel. This will be reported.', 2.0, P.CRIT);
+      } else {
+        log('SONAR', `Conn, Sonar — breaking-up noises. ${contactType === 'boat' ? 'Surface contact' : 'Submerged contact'} destroyed`, P.MED);
+        msg('TARGET DESTROYED', 2.5);
+      }
     },
     counterShot(n, degStr) {
       log('SONAR', `Conn, Sonar — ${n} torpedo${n > 1 ? 's' : ''} in the water, bears ${degStr}, reciprocal`, P.CRIT);
@@ -668,6 +674,9 @@
         boss_fight:[['CONN', 'Conn — flash traffic from SUBLANT. New hostile submarine class confirmed at sea. Designate: Zeta.', P.CRIT],
                     ['CONN', 'Conn — intelligence reports Zeta-class is extremely quiet, highly capable. Expect a hard fight.', P.MED],
                     ['WEPS', 'Conn, Weps — weapons free. This one won\'t go down easy — make every shot count.', P.MED]],
+        asw_taskforce:[['SONAR', 'Conn, Sonar — multiple surface contacts, active sonar transmissions. Classify ASW taskforce.', P.MED],
+                       ['CONN', 'Conn — surface group is prosecuting our datum. Rig for ultra-quiet, take her deep.', P.MED],
+                       ['WEPS', 'Conn, Weps — weapons free on all surface contacts. Use the layer — they\'ll be pinging hard.', P.MED]],
       };
       if (lines[scenario]) lines[scenario].forEach(([s, m, p]) => log(s, m, p||P.NORMAL));
     },
@@ -691,6 +700,15 @@
     },
     enemyTorpedo(brgStr) {
       log('SONAR', `Conn, Sonar — torpedo in the water, bears ${brgStr}`, P.CRIT);
+    },
+    buoySplash(brgStr) {
+      log('SONAR', `Conn, Sonar — splash transient, bears ${brgStr}. Sonobuoy in the water`);
+    },
+    heloContact(brgStr) {
+      log('SONAR', `Conn, Sonar — rotary wing contact, bears ${brgStr}. Classify helicopter, ASW`);
+    },
+    dipSonar(brgStr) {
+      log('SONAR', `Conn, Sonar — dipping sonar active, bears ${brgStr}`, P.MED);
     },
   };
 

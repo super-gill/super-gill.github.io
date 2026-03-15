@@ -2,7 +2,7 @@
   'use strict';
   const C=window.CONFIG;
   const {TAU,clamp,lerp,now,jitter,deg2rad}=window.M;
-  const {ctx,canvas,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,sonarContacts,player,game,setMsg,wrecks}=window.G;
+  const {ctx,canvas,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,sonarContacts,player,game,setMsg,wrecks,buoys}=window.G;
   const AI=window.AI;
   const {doodleLine,doodleCircle,doodleText,w2s,wScale,PANEL_H,STRIP_W,U}=window.R;
   const {drawLand,drawRoute,drawPlayerTopDown,drawEnemySubTopDown,drawEnemyBoatTopDown,drawTorpedoTopDown}=window.RWORLD;
@@ -615,6 +615,61 @@
         doodleText(`KIA T-${mm}:${ss}`,sz*1.5+U(2),U(2),U(8),'left');
         ctx.restore();
       }
+    }
+
+    // ── Sonobuoy markers ─────────────────────────────────────────────────────
+    if(buoys){
+      for(const b of buoys){
+        const [bx,by]=w2s(b.x,b.y);
+        if(bx<-20||bx>plotW+20) continue;
+        const sz=wScale(5);
+        // Pulsing ring when actively pinging
+        if(b.pingPulse>0){
+          const pulseR=sz+wScale(18)*(1-b.pingPulse);
+          ctx.strokeStyle=`rgba(60,160,255,${b.pingPulse*0.5})`;
+          ctx.lineWidth=1.2;
+          ctx.beginPath(); ctx.arc(bx,by,pulseR,0,TAU); ctx.stroke();
+        }
+        // Buoy body — small diamond
+        ctx.fillStyle=b.pingPulse>0?'rgba(60,160,255,0.7)':'rgba(60,130,200,0.45)';
+        ctx.beginPath();
+        ctx.moveTo(bx,by-sz); ctx.lineTo(bx+sz*0.6,by);
+        ctx.lineTo(bx,by+sz); ctx.lineTo(bx-sz*0.6,by);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+
+    // ── ASW Helicopter markers ───────────────────────────────────────────────
+    for(const e of enemies){
+      if(!e._helo || e._helo.state==='deck' || e.dead) continue;
+      const h=e._helo;
+      const [hx,hy]=w2s(h.x,h.y);
+      if(hx<-20||hx>plotW+20) continue;
+      const sz=wScale(7);
+      // Dipping sonar pulse when hovering and pinging
+      if(h.state==='hover' && h.pingPulse>0){
+        const pulseR=sz+wScale(25)*(1-h.pingPulse);
+        ctx.strokeStyle=`rgba(255,180,40,${h.pingPulse*0.5})`;
+        ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.arc(hx,hy,pulseR,0,TAU); ctx.stroke();
+      }
+      // Helicopter body — small circle with rotor lines
+      const col=h.state==='hover'?'rgba(255,180,40,0.75)':'rgba(200,160,60,0.50)';
+      ctx.fillStyle=col; ctx.strokeStyle=col;
+      ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.arc(hx,hy,sz*0.55,0,TAU); ctx.fill();
+      // Rotor cross
+      const rr=sz*1.2;
+      const spin=(now()*4)%(Math.PI*2);
+      ctx.beginPath();
+      ctx.moveTo(hx+Math.cos(spin)*rr, hy+Math.sin(spin)*rr);
+      ctx.lineTo(hx-Math.cos(spin)*rr, hy-Math.sin(spin)*rr);
+      ctx.moveTo(hx+Math.cos(spin+Math.PI/2)*rr, hy+Math.sin(spin+Math.PI/2)*rr);
+      ctx.lineTo(hx-Math.cos(spin+Math.PI/2)*rr, hy-Math.sin(spin+Math.PI/2)*rr);
+      ctx.stroke();
+      // Label
+      ctx.fillStyle=col;
+      doodleText(h.state==='hover'?'DIP':'HELO',hx+sz*1.8,hy+U(2),U(7),'left');
     }
 
     // ── TDC intercept bearing line ──────────────────────────────────────────

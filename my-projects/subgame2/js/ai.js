@@ -103,7 +103,8 @@
   }
 
   function enemyUpdateContactFromPing(e,px,py,dist){
-    const layer=layerPenalty(py,e.depth||400);
+    const sonarDepth=e.vdsDepth||e.depth||400;
+    const layer=layerPenalty(py,sonarDepth);
     const u=(160+dist*0.10)*(layer<1?1.55:1.0);
     e.contact={
       x:(px+rand(-u,u)+world.w)%world.w,
@@ -148,7 +149,8 @@
     const baseRange=(e.type==='boat')?C.enemy.hearBoatRange:C.enemy.hearSubRange;
     if(d>baseRange) return;
 
-    const layer=layerPenalty(player.depth,e.depth||400);
+    const sonarDepth=e.vdsDepth||e.depth||400;
+    const layer=layerPenalty(player.depth,sonarDepth);
     let signal=player.noise*layer*(1-d/baseRange);
     if(e.type==='boat' && (player.periscopeT||0)>0) signal*=(C.player.periscope?.detectBoost||1.55);
     if(signal<C.enemy.hearSignalMin) return;
@@ -219,13 +221,15 @@
       enemies.push({...common,type,x:ex,y:ey,depth:0,hitY:0,
         vx:Math.cos(toPlayer)*spd,vy:Math.sin(toPlayer)*spd,
         r:34,hp:80,sensitivity:rand(0.70,1.05),_noiseFloor:nf,noise:nf,
-        flareCd:rand(2.2,4.5),cwis:{pKillPerSec:rand(0.55,0.9),range:rand(520,760)}});
+        flareCd:rand(2.2,4.5),cwis:{pKillPerSec:rand(0.55,0.9),range:rand(520,760)},
+        subClass:'IOTA'});
     } else {
       const depth=rand(200,1100);
       const nf=rand(0.22,0.30);
       enemies.push({...common,type,x:ex,y:ey,depth,
         vx:Math.cos(toPlayer)*spd,vy:Math.sin(toPlayer)*spd,
-        r:30,hp:90,sensitivity:rand(0.55,0.90),_noiseFloor:nf,noise:nf});
+        r:30,hp:90,sensitivity:rand(0.55,0.90),_noiseFloor:nf,noise:nf,
+        subClass:'BETA'});
     }
     const e=enemies[enemies.length-1]; e.navX=e.x; e.navY=e.y;
   }
@@ -351,6 +355,258 @@
     });
   }
 
+  // ── Gamma-class SSK — old diesel-electric ──────────────────────────────────
+  // Extremely quiet on battery but slow and shallow. Ambush predator.
+  function spawnGamma(bearing, dist, offsetDist=0){
+    const perpAng=bearing+Math.PI/2;
+    const ex=(player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist+world.w)%world.w;
+    const ey=(player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist+world.h)%world.h;
+    const patrolHeading=bearing+Math.PI+rand(-0.5,0.5);
+    const spd=rand(3,5); // battery creep
+    const depth=rand(80,250); // shallow — old pressure hull
+    const nf=rand(0.04,0.06); // dead quiet on battery
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
+      fireCd:rand(5.0,10.0),cmCd:rand(3.0,6.0),cmStock:4,
+      navT:rand(150,350),
+      patrolHeading, heading:patrolHeading,
+      pingCd:9999,pingPulse:0, // diesel boats stay silent
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0, tmaManeuverDir:1, tmaPhase:'drift',
+      role:'hunter',
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:24, hitR:72, hp:60,
+      sensitivity:rand(0.45,0.65), // old sonar suite
+      _noiseFloor:nf, noise:nf,
+      torpTubes:Array(4).fill(0),
+      torpStock:8,
+      subClass:'GAMMA',
+    });
+  }
+
+  // ── Eta-class SSK — modern diesel-electric / AIP ──────────────────────────
+  // Whisper-quiet with modern sensors. Still slow but very hard to find.
+  function spawnEta(bearing, dist, offsetDist=0){
+    const perpAng=bearing+Math.PI/2;
+    const ex=(player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist+world.w)%world.w;
+    const ey=(player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist+world.h)%world.h;
+    const patrolHeading=bearing+Math.PI+rand(-0.5,0.5);
+    const spd=rand(3,5);
+    const depth=rand(100,300);
+    const nf=rand(0.03,0.06); // AIP — quietest thing in the water
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
+      fireCd:rand(4.0,8.0),cmCd:rand(2.5,5.0),cmStock:6,
+      navT:rand(120,280),
+      patrolHeading, heading:patrolHeading,
+      pingCd:9999,pingPulse:0,
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0, tmaManeuverDir:1, tmaPhase:'drift',
+      role:'hunter',
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:26, hitR:78, hp:70,
+      sensitivity:rand(0.70,0.90), // modern sonar
+      _noiseFloor:nf, noise:nf,
+      torpTubes:Array(4).fill(0),
+      torpStock:10,
+      subClass:'ETA',
+    });
+  }
+
+  // ── Epsilon-class SSBN — newer ballistic missile submarine ────────────────
+  // Smaller and quieter than Delta, but same evasion-focused doctrine.
+  function spawnEpsilon(bearing, dist){
+    const ex=(player.wx+Math.cos(bearing)*dist+world.w)%world.w;
+    const ey=(player.wy+Math.sin(bearing)*dist+world.h)%world.h;
+    const patrolHeading=bearing+Math.PI+rand(-0.4,0.4);
+    const spd=rand(3,5);
+    const depth=rand(250,450);
+    const nf=rand(0.12,0.18); // quieter than Delta
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
+      fireCd:rand(8.0,14.0),cmCd:rand(2.0,4.0),cmStock:8,
+      navT:rand(200,400),
+      patrolHeading, heading:patrolHeading,
+      pingCd:9999,pingPulse:0,
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0, tmaManeuverDir:1, tmaPhase:'drift',
+      role:'ssbn',
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:42, hitR:120, hp:140,
+      sensitivity:rand(0.70,0.90),
+      _noiseFloor:nf, noise:nf,
+      torpTubes:Array(2).fill(0),
+      torpStock:4,
+      subClass:'EPSILON',
+    });
+  }
+
+  // ── Theta-class SSGN — guided missile submarine ───────────────────────────
+  // Large, relatively noisy, but well-armed. Carries cruise missiles (not modeled)
+  // and a decent torpedo loadout for self-defence and opportunistic attacks.
+  function spawnTheta(bearing, dist, offsetDist=0){
+    const perpAng=bearing+Math.PI/2;
+    const ex=(player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist+world.w)%world.w;
+    const ey=(player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist+world.h)%world.h;
+    const patrolHeading=bearing+Math.PI+rand(-0.4,0.4);
+    const spd=rand(5,8);
+    const depth=rand(200,500);
+    const nf=rand(0.20,0.28); // big reactor, lots of equipment
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
+      fireCd:rand(4.0,8.0),cmCd:rand(2.0,4.0),cmStock:8,
+      navT:rand(100,220),
+      patrolHeading, heading:patrolHeading,
+      pingCd:rand(C.enemy.subPingCd[0],C.enemy.subPingCd[1]),pingPulse:0,
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0, tmaManeuverDir:1, tmaPhase:'drift',
+      role:'hunter', // will fight if cornered
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:44, hitR:130, hp:140,
+      sensitivity:rand(0.60,0.80),
+      _noiseFloor:nf, noise:nf,
+      torpTubes:Array(4).fill(0),
+      torpStock:8,
+      subClass:'THETA',
+    });
+  }
+
+  // ── Surface warship spawns ────────────────────────────────────────────────
+  // All surface warships use type:'boat', depth:0, and have CWIS/flare systems.
+  // They use the existing boat AI for detection, depth charges, and torpedo fire.
+  function _spawnWarship(bearing, dist, stats, offsetDist=0){
+    const perpAng=bearing+Math.PI/2;
+    const ex=(player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist+world.w)%world.w;
+    const ey=(player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist+world.h)%world.h;
+    const patrolHeading=bearing+Math.PI+rand(-0.6,0.6);
+    const spd=stats.patrolSpd||rand(10,14);
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,
+      suspicion:rand(0.0,0.08),contact:null,
+      playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
+      fireCd:rand(3.0,6.0),cmCd:rand(2.0,4.5),
+      navT:rand(60,180),navX:0,navY:0,
+      heading:patrolHeading,
+      pingCd:stats.pingCd??rand(8,16),pingPulse:0,
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+    };
+    const ent={...common,type:'boat',x:ex,y:ey,depth:0,hitY:0,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:stats.r, hp:stats.hp,
+      sensitivity:stats.sensitivity,
+      _noiseFloor:stats.nf, noise:stats.nf,
+      flareCd:rand(2.0,4.5),
+      cwis:stats.cwis||{pKillPerSec:rand(0.55,0.85),range:rand(520,720)},
+      subClass:stats.subClass,
+      role:stats.role||null,
+    };
+    if(stats.vdsDepth) ent.vdsDepth=stats.vdsDepth;
+    if(stats.sonobuoys) ent._sonobuoyCfg=stats.sonobuoys;
+    if(stats.helo) ent._heloCfg=stats.helo;
+    enemies.push(ent);
+  }
+
+  function spawnIota(bearing, dist, offsetDist=0){
+    _spawnWarship(bearing, dist, {
+      r:30, hp:80,
+      sensitivity:rand(0.75,0.95),
+      nf:rand(0.60,0.75), // active sonar platform, machinery noise
+      patrolSpd:rand(10,16),
+      pingCd:rand(6,12), // primary ASW — pings frequently
+      cwis:{pKillPerSec:rand(0.50,0.80),range:rand(480,680)},
+      subClass:'IOTA',
+      role:'pinger', // frigates are active ASW hunters
+      vdsDepth:rand(300,380),  // towed VDS below thermocline
+      sonobuoys:{interval:[45,75], maxActive:4, buoyLife:120, buoyDepth:rand(280,350), pingCd:[8,14]},
+      helo:{dipDepth:rand(300,360), fuel:rand(100,140), refuel:rand(60,90), launchSus:0.15},
+    }, offsetDist);
+  }
+
+  function spawnKappa(bearing, dist, offsetDist=0){
+    _spawnWarship(bearing, dist, {
+      r:36, hp:100,
+      sensitivity:rand(0.80,1.0),
+      nf:rand(0.65,0.80), // big fast warship
+      patrolSpd:rand(14,20),
+      pingCd:rand(8,14),
+      cwis:{pKillPerSec:rand(0.65,0.95),range:rand(580,800)},
+      subClass:'KAPPA',
+      role:'pinger',
+      vdsDepth:rand(280,340),  // towed array below thermocline
+    }, offsetDist);
+  }
+
+  function spawnLambda(bearing, dist, offsetDist=0){
+    _spawnWarship(bearing, dist, {
+      r:24, hp:50,
+      sensitivity:rand(0.50,0.75),
+      nf:rand(0.55,0.70), // smaller, slightly quieter
+      patrolSpd:rand(8,14),
+      pingCd:rand(10,20), // less capable sonar suite
+      cwis:{pKillPerSec:rand(0.40,0.65),range:rand(400,600)},
+      subClass:'LAMBDA',
+      role:'pinger',
+    }, offsetDist);
+  }
+
+  function spawnMu(bearing, dist, offsetDist=0){
+    _spawnWarship(bearing, dist, {
+      r:42, hp:140,
+      sensitivity:rand(0.55,0.75),
+      nf:rand(0.70,0.85), // big ship, lots of machinery
+      patrolSpd:rand(12,18),
+      pingCd:rand(14,26), // not ASW focused
+      cwis:{pKillPerSec:rand(0.70,0.95),range:rand(600,850)},
+      subClass:'MU',
+      role:null, // not a dedicated ASW platform
+    }, offsetDist);
+  }
+
+  // ── Civilian ship spawns ──────────────────────────────────────────────────
+  // Neutrals — no weapons, no AI combat. Just noise and sonar clutter.
+  // They transit on straight courses and don't react to the player.
+  function spawnCivilian(civType){
+    const w=world.w, h=world.h;
+    // Spawn at a random world edge, heading across
+    const edge=Math.floor(Math.random()*4);
+    let ex,ey,heading;
+    if(edge===0){      ex=rand(0,w); ey=0;       heading=rand(Math.PI*0.15,Math.PI*0.85); }
+    else if(edge===1){ ex=w;         ey=rand(0,h); heading=rand(Math.PI*0.65,Math.PI*1.35); }
+    else if(edge===2){ ex=rand(0,w); ey=h;       heading=rand(-Math.PI*0.85,-Math.PI*0.15); }
+    else{              ex=0;         ey=rand(0,h); heading=rand(-Math.PI*0.35,Math.PI*0.35); }
+
+    const stats={
+      TANKER:  {r:50,hp:200,nf:rand(0.80,0.95),spd:rand(6,10)},
+      CARGO:   {r:40,hp:160,nf:rand(0.60,0.80),spd:rand(8,13)},
+      FISHING: {r:18,hp:40, nf:rand(0.40,0.60),spd:rand(3,6)},
+      FERRY:   {r:35,hp:120,nf:rand(0.55,0.75),spd:rand(12,18)},
+    }[civType]||{r:35,hp:100,nf:0.65,spd:10};
+
+    enemies.push({
+      type:'boat', civilian:true, civType,
+      x:ex, y:ey, depth:0, hitY:0,
+      vx:Math.cos(heading)*stats.spd, vy:Math.sin(heading)*stats.spd,
+      r:stats.r, hp:stats.hp,
+      heading, patrolHeading:heading,
+      _noiseFloor:stats.nf, noise:stats.nf,
+      navT:rand(120,400), // long straight legs
+      sensitivity:0, // civilians don't listen
+      seen:0, detectedT:0, lastX:0, lastY:0, lastT:0,
+      suspicion:0, contact:null,
+    });
+  }
+
   // Wolfpack datum share — when one enemy gets a fix, nearby enemies get a rough area datum.
   // This gives them a search area to sprint toward, NOT a firing solution.
   // They must develop their own TMA before they can shoot.
@@ -376,5 +632,7 @@
   }
 
   window.AI={wrapDx,wrapDy,layerPenalty,enemyHasFireSolution,enemyUpdateContactFromPing,
-             enemyMaybeHearPlayer,enemyDecay,updateEnemyNoise,solveEnemyTMA,enemyRegisterBearing,spawnEnemy,spawnSub,spawnSSBN,spawnZeta,wolfpackShareDatum};
+             enemyMaybeHearPlayer,enemyDecay,updateEnemyNoise,solveEnemyTMA,enemyRegisterBearing,
+             spawnEnemy,spawnSub,spawnSSBN,spawnZeta,spawnGamma,spawnEta,spawnEpsilon,spawnTheta,
+             spawnIota,spawnKappa,spawnLambda,spawnMu,spawnCivilian,wolfpackShareDatum};
 })();

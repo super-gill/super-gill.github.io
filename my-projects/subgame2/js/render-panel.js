@@ -127,6 +127,20 @@
         tag:'SINGLE TARGET',
       },
       {
+        id:'asw_taskforce',
+        title:'ASW TASKFORCE',
+        sub:'Hunted by surface ships',
+        lines:[
+          'An anti-submarine warfare group has',
+          'your datum. Destroyer, two frigates,',
+          'corvette — all pinging. Go deep, use',
+          'the layer, and pick them off.',
+        ],
+        colour:'rgba(20,60,100,0.90)',
+        accent:'rgba(60,160,255,0.85)',
+        tag:'EVASION/COMBAT',
+      },
+      {
         id:'free_run',
         title:'FREE RUN',
         sub:'Systems test — no enemies',
@@ -555,8 +569,12 @@
         for(const [_,sc] of sonarContacts){
           if(sc.id===e.id && sc.classification){ dispType=sc.classification; break; }
         }
+        const isCiv=dispType==='TANKER'||dispType==='CARGO'||dispType==='FISHING'||dispType==='FERRY'||dispType==='MERCHANT';
         ctx.fillStyle=dispType.includes('ZETA')?`rgba(220,40,40,${alpha*0.90})`
                      :dispType.includes('SSBN')?`rgba(180,60,200,${alpha*0.90})`
+                     :dispType.includes('SSGN')?`rgba(200,100,40,${alpha*0.90})`
+                     :dispType.includes('DESTROYER')||dispType.includes('FRIGATE')||dispType.includes('CRUISER')||dispType.includes('CORVETTE')?`rgba(40,120,200,${alpha*0.85})`
+                     :isCiv?`rgba(80,160,80,${alpha*0.60})`
                      :`rgba(100,120,140,${alpha*0.70})`;
         ctx.fillText(dispType, hx+colArray+colID+colBrg+colSig, ry);
 

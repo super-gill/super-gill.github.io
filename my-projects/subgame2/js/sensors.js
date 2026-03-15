@@ -171,20 +171,69 @@
           COMMS.sensors.tmaSolid(c.id);
         }
       }
-      // Classification — attempt when TMA reaches DEGRADED and not yet classified
-      if(!c.classification && c.tmaQuality>=0.35 && e){
-        if(e.type==='boat'){
-          c.classification='SURFACE';
-        } else if(e.subClass){
-          // Named class: "SSN BETA", "SSBN DELTA", "SSN ZETA", etc.
-          const baseType=(e.role==='ssbn')?'SSBN':'SSN';
-          c.classification=baseType+' '+e.subClass;
-        } else if(e.role==='ssbn'){
-          c.classification='SSBN';
-        } else {
-          c.classification='SSN';
+      // Classification — staged buildup simulating sonar operator analysis.
+      // Stage 0: nothing — bearing only
+      // Stage 1 (TMA>=0.20): broadband hull type — SUBMERGED / SURFACE / MERCHANT
+      // Stage 2 (TMA>=0.35 + 15-25s): general type from tonals — SSN, SSK, SSBN, FRIGATE, etc.
+      // Stage 3 (TMA>=0.50 + 20-40s): specific class from machinery analysis — SSN BETA, SSK GAMMA, etc.
+      if(e && !c._classStage) c._classStage=0;
+      if(e && c._classStage<3){
+        // Stage 1: broadband hull type
+        if(c._classStage===0 && c.tmaQuality>=0.20){
+          if(e.civilian){
+            c.classification='MERCHANT';
+          } else if(e.type==='boat'){
+            c.classification='SURFACE';
+          } else {
+            c.classification='SUBMERGED';
+          }
+          c._classStage=1;
+          c._classAccumT=0;
+          COMMS.sensors.classified(c.id, c.classification);
         }
-        COMMS.sensors.classified(c.id, c.classification);
+        // Stage 2: general type from narrowband tonals — requires time at DEGRADED+
+        if(c._classStage===1 && c.tmaQuality>=0.35){
+          c._classAccumT=(c._classAccumT||0)+(T-(c._lastClassTickT||T));
+          if(!c._classNeeded2) c._classNeeded2=e.civilian?5:e.type==='boat'?10:rand(15,25);
+          const needed=c._classNeeded2; // surface ships easier to classify
+          if(c._classAccumT>=needed){
+            if(e.civilian){
+              c.classification=e.civType||'MERCHANT';
+            } else if(e.type==='boat'){
+              const shipTypes={IOTA:'FRIGATE',KAPPA:'DESTROYER',LAMBDA:'CORVETTE',MU:'CRUISER'};
+              c.classification=shipTypes[e.subClass]||'WARSHIP';
+            } else {
+              const hullTypes={GAMMA:'SSK',ETA:'SSK',DELTA:'SSBN',EPSILON:'SSBN',THETA:'SSGN'};
+              c.classification=hullTypes[e.subClass]||(e.role==='ssbn'?'SSBN':'SSN');
+            }
+            c._classStage=2;
+            c._classAccumT=0;
+            COMMS.sensors.classified(c.id, c.classification);
+          }
+        } else if(c._classStage===1){
+          c._classAccumT=0; // reset if quality drops below threshold
+        }
+        // Stage 3: specific class from machinery signature — requires time at solid-ish quality
+        if(c._classStage===2 && c.tmaQuality>=0.50 && e.subClass){
+          c._classAccumT=(c._classAccumT||0)+(T-(c._lastClassTickT||T));
+          if(!c._classNeeded3) c._classNeeded3=e.civilian?0:rand(20,40);
+          const needed=c._classNeeded3;
+          if(c._classAccumT>=needed){
+            if(!e.civilian && e.type==='boat'){
+              const shipTypes={IOTA:'FRIGATE',KAPPA:'DESTROYER',LAMBDA:'CORVETTE',MU:'CRUISER'};
+              c.classification=(shipTypes[e.subClass]||'WARSHIP')+' '+e.subClass;
+            } else if(!e.civilian){
+              const hullTypes={GAMMA:'SSK',ETA:'SSK',DELTA:'SSBN',EPSILON:'SSBN',THETA:'SSGN'};
+              const baseType=hullTypes[e.subClass]||(e.role==='ssbn'?'SSBN':'SSN');
+              c.classification=baseType+' '+e.subClass;
+            }
+            c._classStage=3;
+            COMMS.sensors.classified(c.id, c.classification);
+          }
+        } else if(c._classStage===2 && c.tmaQuality<0.50){
+          c._classAccumT=0;
+        }
+        c._lastClassTickT=T;
       }
     } else {
       const id=assignId();
@@ -225,6 +274,7 @@
   // Contacts persist for living enemies — never deleted, quality decays when stale
   function tickContacts(dt){
     const T=game.missionT||0;
+    const TMA=C.tma;
     const STALE_GRACE=28;    // raised from 12 — 12s was too tight at 7kt tick interval
     const DECAY_RATE=0.012;  // slightly slower decay — SOLID should survive a layer dip
     for(const [e,c] of sonarContacts){
@@ -233,6 +283,24 @@
       const timeSinceObs=T-(c.lastObsT||0);
       if(timeSinceObs>STALE_GRACE && c.tmaQuality>0){
         c.tmaQuality=Math.max(0,c.tmaQuality-DECAY_RATE*dt);
+      }
+      // Estimated depth — noisy, gated by TMA quality. Updates every ~5s.
+      // Smoothed exponentially so the readout drifts rather than jumping.
+      c._depthTickT=(c._depthTickT||0)-dt;
+      if(c._depthTickT<=0){
+        c._depthTickT=rand(4.0,6.0);
+        const trueDepth=e.depth??200;
+        if(c.tmaQuality>=(TMA.qualityThresholdSolid||0.70)){
+          const noise=(Math.random()-0.5)*160;
+          const raw=Math.round((trueDepth+noise)/25)*25;
+          c._estDepth=c._estDepth!=null?Math.round(c._estDepth*0.7+raw*0.3):raw;
+        } else if(c.tmaQuality>=(TMA.qualityThresholdRange||0.35)){
+          const noise=(Math.random()-0.5)*400;
+          const raw=Math.round((trueDepth+noise)/50)*50;
+          c._estDepth=c._estDepth!=null?Math.round(c._estDepth*0.6+raw*0.4):raw;
+        } else {
+          c._estDepth=null;
+        }
       }
     }
   }

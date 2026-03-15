@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const C=window.CONFIG; const {rand,clamp,lerp,now,angleNorm}=window.M;
-  const {world,cam,canvas,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,player,game,setMsg,addLog}=window.G;
+  const {world,cam,canvas,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,buoys,player,game,setMsg,addLog}=window.G;
   const COMMS=window.COMMS; const I=window.I; const NAV=window.NAV; const {ktsToWU}=window.NAV; const SIG=window.SIG; const SENSE=window.SENSE; const W=window.W; const AI=window.AI; const DMG=window.DMG;
 
   function wrapX(x){return (x+world.w)%world.w;}
@@ -14,12 +14,20 @@
     e.hp-=amount;
     W.makeExplosion(e.x,e.y,amount>=90?1.6:1.0,e.type==="boat");
     if(e.hp<=0){
-      game.score+=(e.role==='ssbn'?500:e.role==='zeta'?400:e.type==="boat"?160:190);
+      if(e.civilian){
+        game.score-=100; // penalty for destroying civilian shipping
+      } else {
+        game.score+=(e.role==='ssbn'?500:e.role==='zeta'?400:e.type==="boat"?160:190);
+      }
       e.dead=true;
       // Permanent wreck marker
       window.G.wrecks.push({x:e.x, y:e.y, type:e.type, t:game.missionT||0});
       // Breaking-up noise is unmistakable — always logged regardless of detection state
-      COMMS.combat.targetDestroyed(e.type);
+      if(e.civilian){
+        COMMS.combat.targetDestroyed('civilian');
+      } else {
+        COMMS.combat.targetDestroyed(e.type);
+      }
       // Freeze the sonarContact — keeps TDC data but stops updating
       const sc=window.G.sonarContacts?.get(e);
       if(sc){ sc.dead=true; sc.activeT=0; }
@@ -81,6 +89,18 @@
       const brg=rand(0,Math.PI*2);
       AI.spawnZeta(brg, rand(3000,4500));
       COMMS.tactical.battleStations('boss_fight');
+    } else if(scenario==='asw_taskforce'){
+      // ASW taskforce — surface warships actively hunting the player
+      const grpBrg=rand(0,Math.PI*2);
+      const grpDist=rand(4000,5500);
+      // Kappa destroyer — flagship, centre
+      AI.spawnKappa(grpBrg, grpDist, 0);
+      // Two Iota frigates — primary ASW, flanking
+      AI.spawnIota(grpBrg, grpDist, -1200);
+      AI.spawnIota(grpBrg, grpDist, 1200);
+      // Lambda corvette — trail screen
+      AI.spawnLambda(grpBrg, grpDist+800, rand(-600,600));
+      COMMS.tactical.battleStations('asw_taskforce');
     } else if(scenario==='free_run'){
       // No enemies — open water for systems testing
       COMMS.nav.speedReport(0);
@@ -93,10 +113,11 @@
   function reset(){
     bullets.length=0;particles.length=0;enemies.length=0;decoys.length=0;contacts.length=0;cwisTracers.length=0;wireContacts.length=0;
     if(window.G.wrecks) window.G.wrecks.length=0;
+    if(window.G.buoys) window.G.buoys.length=0;
     window.G.resetTorpIds();
     if(window.ROUTE) window.ROUTE.length=0;
     game.score=0;game.over=false;game.msg="";game.msgT=0;game.missionT=0;game.msgLog=[];game.sonarLog=[];
-    game._ssbnVictory=false;game._bossVictory=false;
+    game._ssbnVictory=false;game._bossVictory=false;game._aswVictory=false;
     player.pendingFires=[];
     const spawn=window.MAPS?.getMap()?.playerSpawn||{wx:4000,wy:5000};
     player.wx=spawn.wx; player.wy=spawn.wy; player.x=spawn.wx;
@@ -491,22 +512,9 @@
         } else {
           tdc.rawBrg = null;
         }
-        // DEP: estimated, not measured. At SOLID quality add ±100m noise.
-        // At DEGRADED show a heavily rounded estimate. At BEARING ONLY hide it.
-        {
-          const trueDepth = ref.depth ?? 200;
-          if(tmaQ >= TMA.qualityThresholdSolid){
-            // SOLID: ±80m noise, rounded to nearest 25m
-            const noise = (Math.random()-0.5)*160;
-            tdc.depth = Math.round((trueDepth + noise) / 25) * 25;
-          } else if(tmaQ >= TMA.qualityThresholdRange){
-            // DEGRADED: ±200m noise, rounded to nearest 50m
-            const noise = (Math.random()-0.5)*400;
-            tdc.depth = Math.round((trueDepth + noise) / 50) * 50;
-          } else {
-            tdc.depth = null; // bearing-only — no depth info
-          }
-        }
+        // DEP: read from sonar contact's smoothed estimate (computed in sensors.js tickContacts).
+        // This avoids per-frame noise jitter — the estimate drifts slowly instead.
+        tdc.depth = sc?._estDepth ?? null;
         tdc.tmaQuality=tmaQ;
 
         // Populate range, course, speed estimates from TMA data where available.
@@ -845,8 +853,189 @@
       }
     }
 
+    // ── Civilian ship spawning — random traffic in all combat scenarios ────────
+    if(game.scenario!=='free_run'){
+      game._civSpawnT=(game._civSpawnT||0)-dt;
+      if(game._civSpawnT<=0){
+        game._civSpawnT=rand(40,90); // spawn every 40-90s
+        const civCount=enemies.filter(e=>e.civilian&&!e.dead).length;
+        if(civCount<4){ // cap at 4 civilians at a time
+          const types=['TANKER','CARGO','CARGO','FISHING','FISHING','FERRY'];
+          AI.spawnCivilian(types[Math.floor(Math.random()*types.length)]);
+        }
+      }
+      // Remove civilians that have left the world bounds (far from player)
+      for(let i=enemies.length-1;i>=0;i--){
+        const e=enemies[i];
+        if(!e.civilian) continue;
+        const dx=AI.wrapDx(player.wx,e.x), dy=e.y-player.wy;
+        if(Math.hypot(dx,dy)>world.w*0.45) enemies.splice(i,1);
+      }
+    }
+
+    // ── Sonobuoy tick — independent sensors dropped by ASW ships ──────────────
+    for(let i=buoys.length-1;i>=0;i--){
+      const b=buoys[i];
+      b.life-=dt;
+      if(b.life<=0 || (b.parent && b.parent.dead)){ buoys.splice(i,1); continue; }
+      // Active buoy pings
+      b.pingCd=(b.pingCd||0)-dt;
+      b.pingPulse=Math.max(0,(b.pingPulse||0)-dt);
+      if(b.pingCd<=0){
+        b.pingCd=rand(b.pingInterval[0],b.pingInterval[1]);
+        b.pingPulse=1.0;
+        // Check if player is within buoy detection range
+        const dxp=AI.wrapDx(player.wx,b.x), dyp=player.wy-b.y;
+        const dp=Math.hypot(dxp,dyp);
+        const buoyRange=1800;
+        // Buoy is below layer — no layer penalty against deep targets
+        const sonarDepth=b.depth||300;
+        const layer=AI.layerPenalty(player.depth,sonarDepth);
+        if(dp<buoyRange && layer>=0.85){
+          // Buoy gets a return — feed data to parent ship
+          const parent=b.parent;
+          if(parent && !parent.dead){
+            AI.enemyUpdateContactFromPing(parent,player.wx,player.wy,dp);
+            if(parent.pingPulse<=0) parent.pingPulse=0.6; // visual feedback
+          }
+        }
+      }
+    }
+
+    // ── Sonobuoy deployment — ASW ships drop buoys along their track ─────────
+    for(const e of enemies){
+      if(e.dead || e.civilian || !e._sonobuoyCfg) continue;
+      const cfg=e._sonobuoyCfg;
+      e._buoyDropT=(e._buoyDropT||rand(cfg.interval[0],cfg.interval[1]))-dt;
+      if(e._buoyDropT<=0){
+        e._buoyDropT=rand(cfg.interval[0],cfg.interval[1]);
+        const activeBuoys=buoys.filter(b=>b.parent===e).length;
+        if(activeBuoys<cfg.maxActive){
+          buoys.push({
+            x:e.x, y:e.y, depth:cfg.buoyDepth||300,
+            life:cfg.buoyLife||120,
+            pingCd:rand(cfg.pingCd[0],cfg.pingCd[1]),
+            pingInterval:cfg.pingCd,
+            pingPulse:0,
+            parent:e,
+          });
+          // Player hears the splash — bearing from player to buoy
+          const bdx=AI.wrapDx(player.wx,e.x), bdy=e.y-player.wy;
+          if(Math.hypot(bdx,bdy)<4000){
+            const bbrg=((Math.atan2(bdx,bdy)*180/Math.PI)+360)%360;
+            COMMS.tactical.buoySplash(Math.round(bbrg).toString().padStart(3,'0')+'°');
+          }
+        }
+      }
+    }
+
+    // ── ASW Helicopter tick — dipping sonar platform ─────────────────────────
+    for(const e of enemies){
+      if(e.dead || e.civilian || !e._heloCfg) continue;
+      if(!e._helo) e._helo={state:'deck', x:e.x, y:e.y, fuelT:e._heloCfg.fuel||120, refuelT:0, pingCd:rand(6,10), pingPulse:0};
+      const h=e._helo;
+      h.pingPulse=Math.max(0,(h.pingPulse||0)-dt);
+      const heloSpd=80; // ~80 wu/s — fast transit
+      const cfg=e._heloCfg;
+
+      if(h.state==='deck'){
+        h.x=e.x; h.y=e.y;
+        if(h.refuelT>0){ h.refuelT-=dt; }
+        else {
+          // Launch when parent has suspicion
+          if(e.suspicion>=(cfg.launchSus||0.15) && e.contact){
+            h.state='transit';
+            h.targetX=e.contact.x; h.targetY=e.contact.y;
+            h.fuelT=cfg.fuel||120;
+            // Player hears helicopter launch — bearing from player to ship
+            const hdx=AI.wrapDx(player.wx,e.x), hdy=e.y-player.wy;
+            if(Math.hypot(hdx,hdy)<5000){
+              const hbrg=((Math.atan2(hdx,hdy)*180/Math.PI)+360)%360;
+              COMMS.tactical.heloContact(Math.round(hbrg).toString().padStart(3,'0')+'°');
+            }
+          }
+        }
+      } else if(h.state==='transit'){
+        h.fuelT-=dt;
+        const dx=AI.wrapDx(h.x,h.targetX), dy=h.targetY-h.y;
+        const d=Math.hypot(dx,dy);
+        if(d<150){
+          h.state='hover';
+          // Player hears dipping sonar deploy — bearing from player to helo
+          const ddx=AI.wrapDx(player.wx,h.x), ddy=h.y-player.wy;
+          if(Math.hypot(ddx,ddy)<4000){
+            const dbrg=((Math.atan2(ddx,ddy)*180/Math.PI)+360)%360;
+            COMMS.tactical.dipSonar(Math.round(dbrg).toString().padStart(3,'0')+'°');
+          }
+        } else {
+          const ang=Math.atan2(dy,dx);
+          h.x=(h.x+Math.cos(ang)*heloSpd*dt+world.w)%world.w;
+          h.y=h.y+Math.sin(ang)*heloSpd*dt;
+        }
+        if(h.fuelT<=20) h.state='rth'; // bingo fuel
+      } else if(h.state==='hover'){
+        h.fuelT-=dt;
+        // Dipping sonar — ping from below the layer
+        h.pingCd-=dt;
+        if(h.pingCd<=0){
+          h.pingCd=rand(6,10);
+          h.pingPulse=1.0;
+          const dxp=AI.wrapDx(player.wx,h.x), dyp=player.wy-h.y;
+          const dp=Math.hypot(dxp,dyp);
+          const dipRange=2200;
+          const dipDepth=cfg.dipDepth||340;
+          const layer=AI.layerPenalty(player.depth,dipDepth);
+          if(dp<dipRange && layer>=0.85){
+            AI.enemyUpdateContactFromPing(e,player.wx,player.wy,dp);
+          }
+        }
+        // Re-target if parent has updated contact
+        if(e.contact){
+          const dxc=AI.wrapDx(h.x,e.contact.x), dyc=e.contact.y-h.y;
+          if(Math.hypot(dxc,dyc)>500){
+            h.targetX=e.contact.x; h.targetY=e.contact.y;
+            h.state='transit';
+          }
+        }
+        if(h.fuelT<=20) h.state='rth'; // bingo fuel
+      } else if(h.state==='rth'){
+        h.fuelT-=dt*0.5; // conserve fuel on return
+        const dx=AI.wrapDx(h.x,e.x), dy=e.y-h.y;
+        const d=Math.hypot(dx,dy);
+        if(d<100){
+          h.state='deck';
+          h.refuelT=cfg.refuel||75;
+        } else {
+          const ang=Math.atan2(dy,dx);
+          h.x=(h.x+Math.cos(ang)*heloSpd*dt+world.w)%world.w;
+          h.y=h.y+Math.sin(ang)*heloSpd*dt;
+        }
+        if(h.fuelT<=0){ h.state='deck'; h.refuelT=cfg.refuel||75; }
+      }
+      // If parent ship is sunk while helo is airborne, helo is lost
+      if(e.dead && h.state!=='deck'){ h.state='deck'; h.fuelT=0; }
+    }
+
     // enemies
     for(const e of enemies){
+      // ── Civilian ships — simple straight-line transit, no combat AI ──────────
+      if(e.civilian){
+        AI.updateEnemyNoise(e);
+        e.x=(e.x+e.vx*dt+world.w)%world.w;
+        e.y=(e.y+e.vy*dt+world.h)%world.h;
+        // Occasional gentle heading change (fishing boats more erratic)
+        e.navT=(e.navT||0)-dt;
+        if(e.navT<=0){
+          const maxTurn=e.civType==='FISHING'?Math.PI*0.4:Math.PI*0.08;
+          e.heading=(e.heading||0)+rand(-maxTurn,maxTurn);
+          const spd=Math.hypot(e.vx,e.vy);
+          e.vx=Math.cos(e.heading)*spd;
+          e.vy=Math.sin(e.heading)*spd;
+          e.navT=e.civType==='FISHING'?rand(30,90):rand(120,400);
+        }
+        continue; // skip all combat AI
+      }
+
       AI.enemyMaybeHearPlayer(e,dt);
       AI.enemyDecay(e,dt);
       AI.updateEnemyNoise(e);
@@ -1586,6 +1775,17 @@
         }
       }
 
+      // ASW taskforce — victory when all warships are sunk
+      if(game.scenario==='asw_taskforce' && !game.over && !game._aswVictory){
+        const shipsAlive=enemies.some(e=>e.type==='boat'&&!e.civilian&&!e.dead);
+        if(!shipsAlive){
+          game._aswVictory=true;
+          game.score+=400; // mission bonus
+          addLog('CONN','Conn — all surface contacts destroyed. ASW taskforce neutralised.');
+          addLog('CONN','Conn — well done. Clear the datum and set course for home.');
+        }
+      }
+
       // Boss fight — victory when the Zeta is destroyed
       if(game.scenario==='boss_fight' && !game.over && !game._bossVictory){
         const zetaAlive=enemies.some(e=>e.role==='zeta'&&!e.dead);
@@ -1597,8 +1797,9 @@
         }
       }
 
-      // Wave clear — all enemies dead
-      if(enemies.length===0){
+      // Wave clear — all combatant enemies dead (civilians don't count)
+      const combatantsLeft=enemies.some(e=>!e.civilian&&!e.dead);
+      if(!combatantsLeft){
         if(game.waveDelay<=0 && game.wave>0){
           game.waveDelay=C.enemy.waveDelay;
           COMMS.tactical.areaClear(game.wave);

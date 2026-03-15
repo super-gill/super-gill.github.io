@@ -13,7 +13,7 @@
   // cam.x/y = world position of screen centre
   const cam={x:0,y:0,zoom:C.camera.zoom};
 
-  const bullets=[],particles=[],enemies=[],decoys=[],contacts=[],cwisTracers=[],wireContacts=[],sonarContacts=new Map(),wrecks=[];
+  const bullets=[],particles=[],enemies=[],decoys=[],contacts=[],cwisTracers=[],wireContacts=[],sonarContacts=new Map(),wrecks=[],buoys=[];
   let _nextTorpId=1;
 
   const player={
@@ -106,5 +106,5 @@
     player._steamLeak=null;
     player._turbineTrip=null;
   }
-  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,queueLog,wrecks,triggerScram,setTacticalState,setCasualtyState};
+  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,queueLog,wrecks,buoys,triggerScram,setTacticalState,setCasualtyState};
 })();
