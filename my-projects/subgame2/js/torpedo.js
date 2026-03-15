@@ -105,6 +105,82 @@
     return best;
   }
 
+  // ── Search pattern — counter-CM hook + snake ────────────────────────────────
+  // Activated when torpedo has no target, no wire, and no seduction.
+  //
+  // Two entry paths:
+  //   Post-CM (seduction just ended): hook maneuver — break 45° away from CM
+  //     noise cloud, then 125° back to cross original track, then snake.
+  //   Wire-cut / passive loss: immediate snake along last steered heading.
+  //
+  // Phases: 'break' → 'hook' → 'snake'   (post-CM)
+  //         'snake'                        (wire-cut)
+  function searchPattern(torp, dt, cfg){
+    const PI=Math.PI;
+    const curAng=Math.atan2(torp.vy, torp.vx);
+    const snakeAmp=cfg.searchSnake||0.18; // radians half-amplitude
+    const snakePeriod=4.0;               // seconds per half-cycle
+
+    if(!torp._search){
+      // First tick without target — initialise search
+      const postCM=torp._postCM||false;
+      torp._postCM=false;
+      if(postCM){
+        // Hook maneuver: break away from CM noise, then hook back across original track
+        // Pick a random side to break toward
+        const side=(Math.random()<0.5)?1:-1;
+        torp._search={
+          phase:'break',
+          side,
+          baseAng:curAng,             // heading when CM lost
+          breakAng:curAng+side*(45*PI/180),  // 45° away
+          hookAng:curAng+side*(45*PI/180) - side*(125*PI/180), // 125° back = net 80° toward original track
+          phaseT:0,
+          breakDur:2.5,               // seconds to hold break turn
+          hookDur:3.5,                // seconds to hold hook turn
+          snakeT:0,
+          snakeDir:1,
+        };
+      } else {
+        // Wire-cut or passive loss — snake immediately along last heading
+        torp._search={
+          phase:'snake',
+          baseAng:curAng,
+          snakeT:0,
+          snakeDir:(Math.random()<0.5)?1:-1,
+        };
+      }
+    }
+
+    const S=torp._search;
+    S.phaseT=(S.phaseT||0)+dt;
+
+    if(S.phase==='break'){
+      // Turn 45° away from CM cloud
+      torp.targetBrg=S.breakAng;
+      if(S.phaseT>=S.breakDur){
+        S.phase='hook';
+        S.phaseT=0;
+      }
+    } else if(S.phase==='hook'){
+      // Turn 125° back to cross the original target track
+      torp.targetBrg=S.hookAng;
+      if(S.phaseT>=S.hookDur){
+        S.phase='snake';
+        S.baseAng=S.hookAng; // snake along the hooked heading
+        S.snakeT=0;
+        S.snakeDir=1;
+        S.phaseT=0;
+      }
+    } else {
+      // Snake — S-pattern weave along base heading
+      S.snakeT=(S.snakeT||0)+dt;
+      const cycle=S.snakeT/snakePeriod;
+      const offset=Math.sin(cycle*PI*2)*snakeAmp;
+      torp.targetBrg=S.baseAng+offset;
+    }
+  }
+
   // ── Main update ─────────────────────────────────────────────────────────────
   function update(torp, dt){
     const cfg=C().torpedo;
@@ -125,6 +201,9 @@
         torp.seducedBy=null; torp.target=null;
         // Post-seduction confusion — seeker needs time to reacquire
         torp._reacquireCd=cfg.reacquireDelay??3.0;
+        // Flag for search pattern — triggers hook maneuver instead of straight snake
+        torp._postCM=true;
+        torp._search=null; // reset any existing search state
       }
     }
 
@@ -155,7 +234,7 @@
     }
 
     // ── 3. targetBrg — the single steering command ───────────────────────────
-    // Priority: seducedBy > locked target > wire (already written) > hold
+    // Priority: seducedBy > locked target > wire (already written) > search pattern > hold
     if(torp.seducedBy){
       const dx=wrapDx(torp.x, torp.seducedBy.x);
       const dy=torp.seducedBy.y - torp.y;
@@ -175,9 +254,14 @@
       const ex=tx+tvx*tof, ey=ty+tvy*tof;
       torp.targetBrg=Math.atan2(ey-torp.y, wrapDx(torp.x,ex));
       // When homing, wire no longer writes targetBrg — seeker owns it
+      // Clear any active search state — we have a lock
+      torp._search=null;
+    } else if(armed && !(torp.wire?.live)){
+      // No target, no seduction, no wire — run search pattern
+      // This replaces the old "fly straight on last heading" behaviour.
+      searchPattern(torp, dt, cfg);
     }
     // If wire is live and no target/seduction: wire has already written targetBrg this tick.
-    // If no wire and no target: targetBrg holds its last value (fly straight).
 
     // ── 4. Steering — turn toward targetBrg ──────────────────────────────────
     if(armed && torp.targetBrg != null){

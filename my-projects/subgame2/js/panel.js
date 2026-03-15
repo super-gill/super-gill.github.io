@@ -43,6 +43,26 @@
     }
   }
 
+  function setSpeedKts(kts){
+    const p=window.G?.player; if(!p) return;
+    const C=window.CONFIG;
+    kts=Math.max(0, Math.min(kts, C.player.flankKts||28));
+    p.speedOrderKts=kts;
+    p.speedDir=kts>0?1:0;
+    // Find closest telegraph position for highlight
+    let bestIdx=5; // ALL STOP
+    let bestDiff=Infinity;
+    for(let i=0;i<SPEED_STATES.length;i++){
+      const s=SPEED_STATES[i];
+      if(s.dir>=0){
+        const diff=Math.abs(s.kts-kts);
+        if(diff<bestDiff){ bestDiff=diff; bestIdx=i; }
+      }
+    }
+    _telegraphIdx=bestIdx;
+    COMMS.panel.speedOrder(`${kts} KTS`, `Helm, Conn — make turns for ${kts} knots`, `Maneuvering aye, ${kts} knots`);
+  }
+
   function depthStep(delta){
     const p=window.G?.player;
     const ground=window.G?.world?.ground??1900;
@@ -420,7 +440,7 @@
     setTelegraphIdx: (idx)=>{ _telegraphIdx=idx; },
     getTelegraph,
     clearBtns, registerBtn, handleClick,
-    setTelegraph, depthStep, courseStep, comeToPD,
+    setTelegraph, setSpeedKts, depthStep, courseStep, comeToPD,
     toggleSilent, emergencyTurn, emergencyCrashDive, emergencyBlowBallast, toggleHPARecharge, allStop, snapToAllStop, toggleTowedArray, wepsShoot, callActionStations,
     btn2,
     initiateEscape(type){ window.DMG?.initiateEscape(type); },

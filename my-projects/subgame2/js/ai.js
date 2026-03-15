@@ -273,6 +273,81 @@
       _noiseFloor:nf, noise:nf,
       torpTubes:Array(C.enemy.subTubes).fill(0),
       torpStock:C.enemy.subTorpStock,
+      subClass:'BETA',
+    });
+  }
+
+  // ── SSBN spawn — Typhoon-class boomer ──────────────────────────────────────
+  function spawnSSBN(bearing, dist){
+    const ex=(player.wx+Math.cos(bearing)*dist+world.w)%world.w;
+    const ey=(player.wy+Math.sin(bearing)*dist+world.h)%world.h;
+    const patrolHeading=bearing+Math.PI+rand(-0.4,0.4); // generally moving away
+    const spd=rand(3,5); // slow patrol creep
+    const depth=rand(250,400); // deep bastion patrol
+    const nf=rand(0.16,0.22); // quiet at low speed but large hull
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
+      fireCd:rand(8.0,14.0),cmCd:rand(2.0,4.0),cmStock:10,
+      navT:rand(200,400),
+      patrolHeading, heading:patrolHeading,
+      pingCd:9999,pingPulse:0, // SSBNs never ping — silence is survival
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0, tmaManeuverDir:1, tmaPhase:'drift',
+      role:'ssbn',
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:48, hitR:140, hp:160,             // massive hull — harder to kill
+      sensitivity:rand(0.65,0.85),        // decent sonar but passive-only doctrine
+      _noiseFloor:nf, noise:nf,
+      torpTubes:Array(2).fill(0),         // self-defence tubes only
+      torpStock:4,                        // minimal loadout — missiles are the payload
+      subClass:'DELTA',
+    });
+  }
+
+  // ── Zeta-class SSN — boss-tier enemy ──────────────────────────────────────
+  // Extremely capable: quiet, sensitive sonar, heavy torpedo loadout, tough hull.
+  // Hunts aggressively using all available systems — passive sonar, tactical active
+  // pinging when stuck, and bearing-only probe shots to flush the target.
+  function spawnZeta(bearing, dist){
+    const ex=(player.wx+Math.cos(bearing)*dist+world.w)%world.w;
+    const ey=(player.wy+Math.sin(bearing)*dist+world.h)%world.h;
+    // Zeta heads TOWARD the player — actively hunting from the start
+    const patrolHeading=bearing+Math.PI+rand(-0.3,0.3);
+    const spd=rand(6,8); // aggressive patrol — closing on datum
+    const depth=rand(250,500);
+    const nf=rand(0.06,0.10); // whisper-quiet — near Western levels
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
+      fireCd:rand(4.0,7.0),cmCd:rand(1.8,3.5),cmStock:10,
+      navT:rand(40,80),                 // shorter patrol legs — restless hunter
+      patrolHeading, heading:patrolHeading,
+      pingCd:rand(C.enemy.subPingCd[0],C.enemy.subPingCd[1]),pingPulse:0,
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0, tmaManeuverDir:1, tmaPhase:'drift',
+      role:'zeta',
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+      // Tactical ping — uses existing ping system, fires when TMA stuck
+      tacticalPing:true,
+      tacticalPingTmaThresh:0.25,       // ping when TMA below this
+      tacticalPingSusThresh:0.12,       // need at least some suspicion
+      tacticalPingStuckTime:20,         // wait 20s for passive to work first
+      tacticalPingCd:[35,55],           // 35-55s between tactical pings
+      // Bearing-only fire — probe shot down a bearing when TMA won't converge
+      bearingOnlyEnabled:true,
+      bearingOnlySusThresh:0.30,        // needs decent suspicion
+      bearingOnlyCdTime:50,             // 50s cooldown — considered shots
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:32, hitR:95, hp:130,             // tough hull — takes punishment
+      sensitivity:rand(0.90,1.0),        // top-tier sonar suite
+      _noiseFloor:nf, noise:nf,
+      torpTubes:Array(4).fill(0),        // 4 tubes
+      torpStock:10,                      // deep magazine
+      subClass:'ZETA',
     });
   }
 
@@ -301,5 +376,5 @@
   }
 
   window.AI={wrapDx,wrapDy,layerPenalty,enemyHasFireSolution,enemyUpdateContactFromPing,
-             enemyMaybeHearPlayer,enemyDecay,updateEnemyNoise,solveEnemyTMA,enemyRegisterBearing,spawnEnemy,spawnSub,wolfpackShareDatum};
+             enemyMaybeHearPlayer,enemyDecay,updateEnemyNoise,solveEnemyTMA,enemyRegisterBearing,spawnEnemy,spawnSub,spawnSSBN,spawnZeta,wolfpackShareDatum};
 })();

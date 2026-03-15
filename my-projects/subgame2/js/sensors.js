@@ -171,6 +171,21 @@
           COMMS.sensors.tmaSolid(c.id);
         }
       }
+      // Classification — attempt when TMA reaches DEGRADED and not yet classified
+      if(!c.classification && c.tmaQuality>=0.35 && e){
+        if(e.type==='boat'){
+          c.classification='SURFACE';
+        } else if(e.subClass){
+          // Named class: "SSN BETA", "SSBN DELTA", "SSN ZETA", etc.
+          const baseType=(e.role==='ssbn')?'SSBN':'SSN';
+          c.classification=baseType+' '+e.subClass;
+        } else if(e.role==='ssbn'){
+          c.classification='SSBN';
+        } else {
+          c.classification='SSN';
+        }
+        COMMS.sensors.classified(c.id, c.classification);
+      }
     } else {
       const id=assignId();
       const newC={

@@ -14,7 +14,7 @@
     e.hp-=amount;
     W.makeExplosion(e.x,e.y,amount>=90?1.6:1.0,e.type==="boat");
     if(e.hp<=0){
-      game.score+=(e.type==="boat"?160:190);
+      game.score+=(e.role==='ssbn'?500:e.role==='zeta'?400:e.type==="boat"?160:190);
       e.dead=true;
       // Permanent wreck marker
       window.G.wrecks.push({x:e.x, y:e.y, type:e.type, t:game.missionT||0});
@@ -66,6 +66,21 @@
         AI.spawnSub(barrierBrg, rand(4500,6000), roles[i], (i-1.5)*1400);
       }
       COMMS.tactical.battleStations('patrol');
+    } else if(scenario==='ssbn_hunt'){
+      // Hunt the SSBN — Typhoon-class boomer with SSN escort
+      const ssbnBrg=rand(0,Math.PI*2);
+      const ssbnDist=rand(5000,7000);
+      AI.spawnSSBN(ssbnBrg, ssbnDist);
+      // Escort SSN — hunter, positioned between player and SSBN
+      const escortBrg=ssbnBrg+rand(-0.4,0.4);
+      const escortDist=ssbnDist-rand(1200,2000); // closer to player, screening
+      AI.spawnSub(escortBrg, escortDist, 'hunter', rand(-400,400));
+      COMMS.tactical.battleStations('ssbn_hunt');
+    } else if(scenario==='boss_fight'){
+      // Boss fight — single Zeta-class SSN, close enough to be in the fight early
+      const brg=rand(0,Math.PI*2);
+      AI.spawnZeta(brg, rand(3000,4500));
+      COMMS.tactical.battleStations('boss_fight');
     } else if(scenario==='free_run'){
       // No enemies — open water for systems testing
       COMMS.nav.speedReport(0);
@@ -81,6 +96,7 @@
     window.G.resetTorpIds();
     if(window.ROUTE) window.ROUTE.length=0;
     game.score=0;game.over=false;game.msg="";game.msgT=0;game.missionT=0;game.msgLog=[];game.sonarLog=[];
+    game._ssbnVictory=false;game._bossVictory=false;
     player.pendingFires=[];
     const spawn=window.MAPS?.getMap()?.playerSpawn||{wx:4000,wy:5000};
     player.wx=spawn.wx; player.wy=spawn.wy; player.x=spawn.wx;
@@ -985,6 +1001,18 @@
           }
           e.navT=0.5;
 
+        } else if(e.role==='ssbn' && (state==='engage'||state==='investigate') && e.contact){
+          // SSBN EVASION: run away, go deep, deploy CMs — never hunt
+          const dx=AI.wrapDx(e.x,e.contact.x), dy=e.contact.y-e.y;
+          const awayBrg=Math.atan2(-dy,-dx);
+          desiredHeading=angleNorm(awayBrg+rand(-0.3,0.3));
+          // Drive deep — head for crush depth
+          if(!e._ssbnEvading){
+            e._ssbnEvading=true;
+            e.depthOrder=rand(400,500);
+          }
+          e.tmaPhase='drift'; // never sprint — stay quiet
+
         } else if(state==='engage' && e.contact){
           // ENGAGE + TMA BUILD: alternate sprint-cross-track to accumulate baseline
           // Phase: 'drift' = slow cross-track bearing observation
@@ -1054,15 +1082,20 @@
           if(e.navT<=0){
             e.navT=rand(C.enemy.subNavT[0], C.enemy.subNavT[1]);
             const maxPatrolTurn=Math.PI*0.33;
-            // Hunters bias toward player — they're on a datum, not random-walking
-            // Pingers maintain cross-track barrier pattern
-            if(e.role==='pinger'){
+            if(e.role==='ssbn'){
+              // SSBNs patrol on long straight legs, biased AWAY from player
+              e._ssbnEvading=false; // reset evasion flag
+              e.navT=rand(300,500); // very long legs
+              const tdx=AI.wrapDx(e.x,player.wx), tdy=player.wy-e.y;
+              const awayFromPlayer=Math.atan2(-tdy,-tdx);
+              e.patrolHeading=angleNorm(awayFromPlayer+rand(-0.6,0.6));
+            } else if(e.role==='pinger'){
+              // Pingers maintain cross-track barrier pattern
               e.patrolHeading=angleNorm((e.patrolHeading??e.heading??0)+rand(-maxPatrolTurn,maxPatrolTurn));
             } else {
               // Compute direction toward player, bias new heading that way
               const tdx=AI.wrapDx(e.x,player.wx), tdy=player.wy-e.y;
               const towardPlayer=Math.atan2(tdy,tdx);
-              const currentH=e.patrolHeading??e.heading??0;
               // Blend: 60% toward player, 40% random drift — stays roughly convergent
               const biased=angleNorm(towardPlayer+rand(-maxPatrolTurn,maxPatrolTurn));
               e.patrolHeading=biased;
@@ -1116,7 +1149,8 @@
         }
 
         // ── Apply turn
-        const maxTurnRate=0.45*dt;
+        // SSBN: huge hull, much slower turn rate
+        const maxTurnRate=(e.role==='ssbn'?0.18:e.role==='zeta'?0.55:0.45)*dt;
         const headingErr=angleNorm(desiredHeading-(e.heading||0));
         e.heading=(e.heading||0)+clamp(headingErr,-maxTurnRate,maxTurnRate);
 
@@ -1128,6 +1162,8 @@
                        : e._evadePhase==='sprint2'  ? rand(16,20)
                        : 18; // sprint1 or no phase yet
         const targetSpd=e.evadeT>0?evadeSpd
+          :e.role==='ssbn'&&(state==='engage'||state==='investigate')?8 // SSBN flees at moderate speed
+          :e.role==='ssbn'?rand(3,5)     // SSBN patrol — very slow and quiet
           :isAmbushing?C.enemy.interceptorAmbushSpd||3   // ambush — near silent
           :e.role==='interceptor'&&e.interceptState==='sprinting'?rand(14,17) // sprint to position
           :state==='engage'&&sprintPhase?14
@@ -1172,16 +1208,38 @@
           e.depth=clamp(e.depth+Math.sign(depthErr)*rate*dt, 30, world.ground-80);
         }
 
-        // ── Ping — only pingers ping; hunters are passive ────────────────────────
+        // ── Ping — pingers ping aggressively; tactical pingers ping when stuck ────
         e.pingCd-=dt;
         const isPinger=e.role==='pinger';
         const isHunter=e.role==='hunter'||e.role==='interceptor'||!e.role;
-        // Hunters never ping — passive only. Pingers ping aggressively.
+        // Pingers: aggressive intervals. Tactical pingers: ping when TMA stuck.
+        // Hunters: never ping (pingCd stays high, no tactical flag).
         const pingInterval=isPinger
           ?(state==='engage'?[5,9]:state==='investigate'?[8,14]:[12,20])
-          :[9999,9999]; // hunters never ping
-        if(e.pingCd<=0 && !game.over && isPinger){
-          e.pingCd=rand(pingInterval[0],pingInterval[1]);
+          :[9999,9999];
+
+        // Tactical ping decision — any enemy with tacticalPing flag
+        // Conditions: has bearing observations but TMA stuck below fire threshold,
+        // suspicion indicates something is out there, not currently evading
+        let wantsTacticalPing=false;
+        if(e.tacticalPing && !isPinger && e.pingCd<=0 && !e.evadeT){
+          const hasBearings=(e.playerBearings||[]).length>=2;
+          const tmaStuck=(e.tmaQuality||0)<(e.tacticalPingTmaThresh??0.25);
+          const suspicious=e.suspicion>=(e.tacticalPingSusThresh??0.15);
+          // Track how long TMA has been stuck — don't ping immediately, wait for passive to fail
+          if(hasBearings && tmaStuck && suspicious){
+            e._tmaStuckT=(e._tmaStuckT||0)+dt;
+            if(e._tmaStuckT>=(e.tacticalPingStuckTime??25)){
+              wantsTacticalPing=true;
+              e._tmaStuckT=0; // reset so next ping requires another wait
+            }
+          } else {
+            e._tmaStuckT=0;
+          }
+        }
+
+        if(e.pingCd<=0 && !game.over && (isPinger || wantsTacticalPing)){
+          e.pingCd=isPinger?rand(pingInterval[0],pingInterval[1]):rand(e.tacticalPingCd?.[0]??30,e.tacticalPingCd?.[1]??50);
           const dxp=AI.wrapDx(player.wx,e.x);
           const dyp=player.wy-e.y;
           const dp=Math.hypot(dxp,dyp);
@@ -1191,8 +1249,8 @@
             e.seen=Math.max(e.seen||0,C.detection.seenT*0.4);
             e.lastX=e.x; e.lastY=e.y; e.lastT=now();
             AI.enemyUpdateContactFromPing(e,player.wx,player.wy,dp);
-            // Share datum immediately with the group — pinger's whole purpose
-            if(AI.wolfpackShareDatum) AI.wolfpackShareDatum(e,player.wx,player.wy,0.45);
+            // Pingers share datum aggressively; tactical pingers keep it to themselves
+            if(isPinger && AI.wolfpackShareDatum) AI.wolfpackShareDatum(e,player.wx,player.wy,0.45);
           }
         }
 
@@ -1205,7 +1263,10 @@
           e.fireCd=rand(t[0],t[1]);
           const tubeIdx=e.torpTubes.findIndex(t=>t<=0);
           // Role-based fire quality — hunters are aggressive, pingers are more careful
-          const roleFireQ = e.role==='hunter'?0.35
+          // SSBNs fire only in desperation — self-defence last resort
+          const roleFireQ = e.role==='ssbn'?0.80
+            : e.role==='zeta'?0.28     // Zeta fires with confidence on thin data
+            : e.role==='hunter'?0.35
             : e.role==='interceptor'?0.30
             : e.role==='pinger'?0.50   // pingers fire only with a decent solution
             : 0.30;
@@ -1259,6 +1320,50 @@
               if(typeof window._playerHearTransient==='function') window._playerHearTransient(e,e.x,e.y);
               // Wolfpack — share datum with nearby allies
               if(e.tmaX!=null && AI.wolfpackShareDatum) AI.wolfpackShareDatum(e,e.tmaX,e.tmaY,e.tmaQuality||0.5);
+              const brgToEnemy=((Math.atan2(AI.wrapDx(player.wx,e.x),e.y-player.wy)*180/Math.PI)+360)%360;
+              COMMS.tactical.enemyTorpedo(Math.round(brgToEnemy).toString().padStart(3,'0')+'°');
+            }
+          }
+        }
+
+        // ── Bearing-only fire — probe shot down a bearing when TMA won't converge ─
+        // Available to any enemy with bearingOnlyEnabled. Uses existing torpedo system.
+        // Fires one torpedo down the best bearing — seeker and search pattern do the rest.
+        if(e.bearingOnlyEnabled && !game.over && (e.torpStock??1)>0){
+          e._bearingOnlyCd=(e._bearingOnlyCd??0)-dt;
+          if(e._bearingOnlyCd<=0){
+            const obs=e.playerBearings||[];
+            const tmaQ=e.tmaQuality||0;
+            // Conditions: have recent bearings, TMA stuck below fire threshold,
+            // suspicion high enough to justify spending a torpedo
+            const recentObs=obs.filter(o=>(game.missionT||0)-o.t<30);
+            const roleQ = e.role==='ssbn'?0.80:e.role==='zeta'?0.28:e.role==='hunter'?0.35:0.30;
+            const stuck=tmaQ<roleQ && recentObs.length>=3;
+            const suspicious=e.suspicion>=(e.bearingOnlySusThresh??0.35);
+            const tubeReady=e.torpTubes?.findIndex(t=>t<=0)>=0;
+            const eLaunchKts=Math.hypot(e.vx,e.vy);
+            if(stuck && suspicious && tubeReady && eLaunchKts<=(C.player.wireMaxLaunchKts??15)){
+              // Fire down the most recent bearing
+              const lastBrg=recentObs[recentObs.length-1].brg;
+              const shot=clampConeDual(Math.cos(lastBrg),Math.sin(lastBrg),
+                e.heading||Math.atan2(e.vy,e.vx),C.enemy.subTorpArcDeg);
+              const off=e.r*1.25;
+              const sx=e.x+(shot.isRear?-Math.cos(e.heading):Math.cos(e.heading))*off;
+              const sy=e.y+(shot.isRear?-Math.sin(e.heading):Math.sin(e.heading))*off;
+              const estDepth=player.depth+rand(-120,120);
+              W.fireTorpedo(sx,sy,shot.dx,shot.dy,false,260,false,0,e.depth||300,
+                clamp(estDepth,30,700),{
+                  speed:     C.enemy.subTorpSpeed??26,
+                  life:      C.enemy.subTorpLife??220,
+                  seekRange: C.enemy.subTorpSeekRange??400,
+                  reacquireChance: C.enemy.subTorpReacquire??0.010,
+                  firedBy:   e,
+                });
+              const tIdx=e.torpTubes.findIndex(t=>t<=0);
+              e.torpTubes[tIdx]=C.enemy.subReloadTime;
+              if(e.torpStock!=null) e.torpStock--;
+              e._bearingOnlyCd=e.bearingOnlyCdTime??50; // long cooldown — considered shots
+              if(typeof window._playerHearTransient==='function') window._playerHearTransient(e,e.x,e.y);
               const brgToEnemy=((Math.atan2(AI.wrapDx(player.wx,e.x),e.y-player.wy)*180/Math.PI)+360)%360;
               COMMS.tactical.enemyTorpedo(Math.round(brgToEnemy).toString().padStart(3,'0')+'°');
             }
@@ -1467,6 +1572,28 @@
           game.groupState='patrol';
           game.prosecutingT=0;
           COMMS.tactical.contactLost();
+        }
+      }
+
+      // SSBN hunt — victory when the boomer is sunk (escort is optional)
+      if(game.scenario==='ssbn_hunt' && !game.over && !game._ssbnVictory){
+        const ssbnAlive=enemies.some(e=>e.role==='ssbn'&&!e.dead);
+        if(!ssbnAlive){
+          game._ssbnVictory=true;
+          game.score+=300; // mission bonus
+          addLog('CONN','Conn — break-up noises confirmed. SSBN is destroyed. Mission complete.');
+          addLog('CONN','Conn — well done. Set course for home.');
+        }
+      }
+
+      // Boss fight — victory when the Zeta is destroyed
+      if(game.scenario==='boss_fight' && !game.over && !game._bossVictory){
+        const zetaAlive=enemies.some(e=>e.role==='zeta'&&!e.dead);
+        if(!zetaAlive){
+          game._bossVictory=true;
+          game.score+=500; // mission bonus
+          addLog('CONN','Conn — confirmed, Zeta-class is destroyed. That\'s one for the history books.');
+          addLog('CONN','Conn — secure from battle stations. Set course for home.');
         }
       }
 

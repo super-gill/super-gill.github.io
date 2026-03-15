@@ -99,6 +99,34 @@
         tag:'STEALTH/COMBAT',
       },
       {
+        id:'ssbn_hunt',
+        title:'SSBN HUNT',
+        sub:'Kill the boomer',
+        lines:[
+          'Intelligence locates a Typhoon-class',
+          'SSBN on bastion patrol. One escort',
+          'SSN screens the approach. Find the',
+          'boomer, evade the escort, and sink it.',
+        ],
+        colour:'rgba(80,20,100,0.90)',
+        accent:'rgba(200,120,255,0.85)',
+        tag:'STRIKE MISSION',
+      },
+      {
+        id:'boss_fight',
+        title:'BOSS FIGHT',
+        sub:'Destroy the Zeta',
+        lines:[
+          'A new enemy submarine has put to sea.',
+          'Designate: Zeta-class. Extremely quiet,',
+          'highly capable, and dangerous. You are',
+          'sent to find and destroy it.',
+        ],
+        colour:'rgba(120,10,10,0.90)',
+        accent:'rgba(255,60,60,0.85)',
+        tag:'SINGLE TARGET',
+      },
+      {
         id:'free_run',
         title:'FREE RUN',
         sub:'Systems test — no enemies',
@@ -114,20 +142,27 @@
       },
     ];
 
-    // Single horizontal row — all 5 cards across the screen
-    const cols=5;
+    // Responsive grid — cards wrap to fit viewport
     const gap=U(16);
     const sidePad=U(40);
-    const cardW=Math.floor((W - sidePad*2 - gap*(cols-1)) / cols);
-    const cardH=Math.min(U(310), H*0.60);
-    const gridX=sidePad;
-    const gridY=H*0.22;
+    const minCardW=U(180);
+    const maxCardW=U(280);
+    const availW=W-sidePad*2;
+    const cols=Math.max(1, Math.min(scenarios.length, Math.floor((availW+gap)/(minCardW+gap))));
+    const cardW=Math.min(maxCardW, Math.floor((availW-gap*(cols-1))/cols));
+    const cardH=U(170);
+    const rows=Math.ceil(scenarios.length/cols);
+    const gridW=cols*cardW+(cols-1)*gap;
+    const gridX=Math.floor((W-gridW)/2);
+    const gridY=H*0.18;
     const pad=U(10);
 
     for(let i=0;i<scenarios.length;i++){
       const s=scenarios[i];
-      const cx=gridX+i*(cardW+gap);
-      const cy=gridY;
+      const col=i%cols;
+      const row=Math.floor(i/cols);
+      const cx=gridX+col*(cardW+gap);
+      const cy=gridY+row*(cardH+gap);
       const selected=game.scenario===s.id;
 
       // Card background
@@ -182,7 +217,8 @@
 
     // Launch button
     const btnW=U(260), btnH=U(52);
-    const btnX=(W-btnW)/2, btnY=gridY+cardH+U(22);
+    const totalGridH=rows*cardH+(rows-1)*gap;
+    const btnX=(W-btnW)/2, btnY=gridY+totalGridH+U(22);
     const selScen=scenarios.find(s=>s.id===game.scenario)||scenarios[0];
     ctx.fillStyle=selScen.colour.replace('0.90','1.0');
     ctx.strokeStyle=selScen.accent;
@@ -204,6 +240,139 @@
     ctx.font=`${U(10)}px ui-monospace,monospace`;
     ctx.textAlign='center';
     ctx.fillText('A/D SPEED  ·  W/S DEPTH  ·  SHIFT+CLICK FIRE  ·  R RESTART  ·  ` DEBUG', W/2, btnY+btnH+U(24));
+
+    // ── Submarine side-profile hero render ──────────────────────────────────
+    const subY=btnY+btnH+U(50);
+    const spaceBelow=H-subY;
+    if(spaceBelow>U(60)){
+      const subLen=Math.min(W*0.7, U(600));
+      const subH=subLen*0.10;
+      const subX=W/2;
+      const t0=performance.now()*0.0003; // slow drift animation
+
+      ctx.save();
+      ctx.translate(subX, subY+spaceBelow*0.35);
+
+      // Subtle water ripple lines behind the sub
+      ctx.strokeStyle='rgba(40,100,180,0.08)';
+      ctx.lineWidth=1;
+      for(let r=0;r<5;r++){
+        const ry=(r-2)*subH*0.8;
+        const rx=subLen*0.6;
+        ctx.beginPath();
+        for(let p=0;p<=40;p++){
+          const px=-rx+p/40*rx*2;
+          const py=ry+Math.sin(px*0.012+t0+r)*subH*0.15;
+          if(p===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+        }
+        ctx.stroke();
+      }
+
+      // Hull — SSN side profile (rounded bow, tapered stern)
+      const L=subLen/2; // half-length
+      const Hw=subH/2;  // half-height
+      ctx.strokeStyle='rgba(100,180,255,0.35)';
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      // Bow cap — semicircle from bottom to top
+      const bowCapX=-L+Hw; // bow cap centre (radius = Hw for a circular nose)
+      const bowSegs=24;
+      for(let i=0;i<=bowSegs;i++){
+        const a=Math.PI/2+i/bowSegs*Math.PI; // 90° to 270° (bottom to top going left)
+        const bx=bowCapX+Math.cos(a)*Hw;
+        const by=Math.sin(a)*Hw;
+        const wobble=Math.sin(i*2.1+t0)*0.2;
+        if(i===0) ctx.moveTo(bx,by+wobble); else ctx.lineTo(bx,by+wobble);
+      }
+      // Top edge — from where bow cap ends to stern taper start
+      const pts=60;
+      for(let i=0;i<=pts;i++){
+        const t=i/pts;
+        const x=bowCapX+t*(L*0.85-bowCapX+L); // bowCapX to stern taper zone
+        // Only stern taper applies here
+        const sternStart=L*0.85;
+        let bulge=1.0;
+        if(x>sternStart) bulge=Math.pow((L-x)/(L-sternStart),0.6);
+        const wobble=Math.sin(t*31.7+t0)*0.25+Math.sin(t*17.3+1.2)*0.15;
+        ctx.lineTo(x,-Hw*bulge+wobble);
+      }
+      // Bottom edge (reverse) — stern to bow cap join
+      for(let i=pts;i>=0;i--){
+        const t=i/pts;
+        const x=bowCapX+t*(L*0.85-bowCapX+L);
+        const sternStart=L*0.85;
+        let bulge=1.0;
+        if(x>sternStart) bulge=Math.pow((L-x)/(L-sternStart),0.6);
+        const wobble=Math.sin(t*31.7+t0+0.5)*0.25+Math.sin(t*17.3+3.0)*0.15;
+        ctx.lineTo(x,Hw*bulge+wobble);
+      }
+      ctx.closePath(); ctx.stroke();
+
+      // Sail (fin) — sits ON TOP of hull, front edge vertical, rear edge raked
+      // Positioned at the back of the front third (~30% from bow)
+      const sailCentre=-L+subLen*0.32;  // back of front third
+      const sailW=subLen*0.08;
+      const sailH=Hw*1.8;              // rises well above hull
+      const sailTop=-Hw-sailH*0.55;    // top of sail above hull top
+      const sailBase=-Hw*0.95;         // sits flush on hull top, not sunk in
+      ctx.strokeStyle='rgba(100,180,255,0.35)';
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      // Front edge — vertical
+      ctx.moveTo(sailCentre-sailW*0.5, sailBase);
+      ctx.lineTo(sailCentre-sailW*0.5, sailTop);
+      // Top edge — flat
+      ctx.lineTo(sailCentre+sailW*0.5, sailTop);
+      // Rear edge — raked aft
+      ctx.lineTo(sailCentre+sailW*0.7, sailBase);
+      ctx.stroke();
+
+      // Periscopes / masts on sail top
+      ctx.strokeStyle='rgba(100,180,255,0.18)';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(sailCentre-sailW*0.1, sailTop);
+      ctx.lineTo(sailCentre-sailW*0.1, sailTop-Hw*0.5);
+      ctx.moveTo(sailCentre+sailW*0.15, sailTop);
+      ctx.lineTo(sailCentre+sailW*0.15, sailTop-Hw*0.35);
+      ctx.stroke();
+
+      // Rudder / stern planes
+      const sternX=L*0.92;
+      ctx.strokeStyle='rgba(100,180,255,0.22)';
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(sternX, -Hw*0.2); ctx.lineTo(sternX+subLen*0.03, -Hw*1.2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(sternX, Hw*0.2); ctx.lineTo(sternX+subLen*0.03, Hw*1.2);
+      ctx.stroke();
+
+      // Propeller hint
+      ctx.strokeStyle='rgba(100,180,255,0.12)';
+      ctx.beginPath();
+      ctx.arc(L+subLen*0.02, 0, Hw*0.6, 0, Math.PI*2);
+      ctx.stroke();
+
+      // Bow planes — forward of sail
+      const bowX=-L*0.75;
+      ctx.strokeStyle='rgba(100,180,255,0.20)';
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(bowX, -Hw*0.1); ctx.lineTo(bowX-subLen*0.025, -Hw*0.9);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(bowX, Hw*0.1); ctx.lineTo(bowX-subLen*0.025, Hw*0.9);
+      ctx.stroke();
+
+      // Ship name text below hull
+      ctx.fillStyle='rgba(80,140,200,0.30)';
+      ctx.font=`bold ${U(12)}px ui-monospace,monospace`;
+      ctx.textAlign='center';
+      ctx.fillText('HMS DOODLE', 0, Hw+U(20));
+
+      ctx.restore();
+    }
   }
 
   // ── Combined Log Panel (Ship Log + Sonar Raw Feed) with tabs ─────────────
@@ -381,8 +550,15 @@
         ctx.fillStyle=sigCol;
         ctx.fillText(e.tierLabel, hx+colArray+colID+colBrg, ry);
 
-        ctx.fillStyle=`rgba(100,120,140,${alpha*0.70})`;
-        ctx.fillText(e.typeLabel, hx+colArray+colID+colBrg+colSig, ry);
+        // Show classification if available, otherwise raw type
+        let dispType=e.typeLabel;
+        for(const [_,sc] of sonarContacts){
+          if(sc.id===e.id && sc.classification){ dispType=sc.classification; break; }
+        }
+        ctx.fillStyle=dispType.includes('ZETA')?`rgba(220,40,40,${alpha*0.90})`
+                     :dispType.includes('SSBN')?`rgba(180,60,200,${alpha*0.90})`
+                     :`rgba(100,120,140,${alpha*0.70})`;
+        ctx.fillText(dispType, hx+colArray+colID+colBrg+colSig, ry);
 
         const ageStr=age<60?Math.round(age)+'s':Math.floor(age/60)+'m'+Math.floor(age%60).toString().padStart(2,'0')+'s';
         ctx.fillStyle=`rgba(17,24,39,${alpha*0.45})`;
@@ -1398,6 +1574,7 @@
       const col=s.dir>0?'#1e3a5f':s.dir===0?'#374151':'#7f1d1d';
       btn(s.label,x,by,w-pad,btnH,isActive,()=>PANEL.setTelegraph(i),col);
     }
+
     }
 
     function drawDepthSection(x, w) {
@@ -1707,29 +1884,41 @@
     ctx.fillStyle=TH.color.text.muted; ctx.font=`${U(TH.font.label)}px ${TH.FONT_FAMILY}`;
     ctx.fillText('SPD',x,panelY+U(33));
     ctx.fillStyle=TH.color.text.primary; ctx.font=`${U(TH.font.valueLg)}px ${TH.FONT_FAMILY}`;
+    const ordKts=Math.round(player.speedOrderKts??0);
     ctx.fillText(`${Math.round(player.speed)}kt`,x,panelY+U(50));
+    // Ordered speed (if different from current)
+    ctx.fillStyle=TH.color.text.muted; ctx.font=`${U(TH.font.label)}px ${TH.FONT_FAMILY}`;
+    ctx.fillText(`ORD ${ordKts}kt`,x+U(50),panelY+U(50));
+
+    // Fine speed control — ±1/±5 kt buttons
+    const spdBtnY2=panelY+U(52);
+    const spdBtnW2=(w-pad-U(6))/4;
+    const spdBtnH2=U(14);
+    btn('-5',x,                    spdBtnY2,spdBtnW2,spdBtnH2,false,()=>PANEL.setSpeedKts(ordKts-5),'#374151');
+    btn('-1',x+spdBtnW2+U(2),     spdBtnY2,spdBtnW2,spdBtnH2,false,()=>PANEL.setSpeedKts(ordKts-1),'#374151');
+    btn('+1',x+2*(spdBtnW2+U(2)), spdBtnY2,spdBtnW2,spdBtnH2,false,()=>PANEL.setSpeedKts(ordKts+1),'#1e3a5f');
+    btn('+5',x+3*(spdBtnW2+U(2)), spdBtnY2,spdBtnW2,spdBtnH2,false,()=>PANEL.setSpeedKts(ordKts+5),'#1e3a5f');
 
     // WAVE counter — only shown when wave mode is active
     if((game.wave||0)>1 || (game.waveDelay||0)>0){
       ctx.fillStyle=TH.color.text.muted; ctx.font=`${U(TH.font.label)}px ${TH.FONT_FAMILY}`;
-      ctx.fillText('WAVE',x+U(55),panelY+U(33));
+      ctx.fillText('WAVE',x+U(100),panelY+U(33));
       ctx.fillStyle=TH.color.text.primary; ctx.font=`${U(TH.font.valueLg)}px ${TH.FONT_FAMILY}`;
-      ctx.fillText(`${game.wave||1}`,x+U(55),panelY+U(50));
+      ctx.fillText(`${game.wave||1}`,x+U(100),panelY+U(50));
     }
 
     // Wave incoming warning
     if(game.waveDelay>0){
-      const wdPct=game.waveDelay/C.enemy.waveDelay;
       const blink=Math.sin(performance.now()*0.006)>0;
       ctx.fillStyle=blink?'rgba(220,38,38,0.80)':'rgba(220,38,38,0.30)';
       ctx.font=`bold ${U(8)}px ui-monospace,monospace`;
-      ctx.fillText(`NEXT WAVE ${Math.ceil(game.waveDelay)}s`,x,panelY+U(62));
+      ctx.fillText(`NEXT WAVE ${Math.ceil(game.waveDelay)}s`,x,panelY+U(68));
     }
     // Group state indicator
     if(game.groupState==='prosecuting'){
       ctx.fillStyle='rgba(220,38,38,0.75)';
       ctx.font=`bold ${U(7)}px ui-monospace,monospace`;
-      ctx.fillText('⚠ PROSECUTING',x,panelY+U(72));
+      ctx.fillText('\u26A0 PROSECUTING',x,panelY+U(68));
     }
 
     // Crew bar removed — detailed info in damage panel
@@ -1737,7 +1926,7 @@
     const dmg=player.damage;
 
     // Noise bar
-    const noiseBarY=panelY+U(55);
+    const noiseBarY=panelY+U(72);
     const noisePct=clamp(player.noise,0,1);
     ctx.fillStyle='rgba(17,24,39,0.40)'; ctx.font=`${U(9)}px ui-monospace,monospace`;
     ctx.fillText('NOISE',x,noiseBarY-2);
@@ -2131,7 +2320,10 @@
     ctx.fillStyle=tdc.frozen?'rgba(180,60,60,0.70)':'rgba(17,24,39,0.35)';
     ctx.font=`${U(11)}px ui-monospace,monospace`;
     ctx.textAlign='left';
-    ctx.fillText(tdc.frozen?'TDC [FROZEN]':'TDC',fcX,panelY+U(18));
+    // Show classification of designated contact
+    const selSc=tdc.target?sonarContacts.get(tdc.target):null;
+    const classLabel=selSc?.classification?' — '+selSc.classification:'';
+    ctx.fillText(tdc.frozen?'TDC [FROZEN]':'TDC'+classLabel,fcX,panelY+U(18));
 
     // ── Solution quality bar — prominent feedback on designated contact ────────
     {

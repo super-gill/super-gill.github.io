@@ -616,6 +616,9 @@
       log('SONAR', `Conn, Sonar — ${id}, TMA solution solid. Ready to fire.`, P.MED);
       qlog('CONN', `Weps, Conn — weapons free on ${id}. Stand by to fire.`, 2.0);
     },
+    classified(id, type) {
+      log('SONAR', `Conn, Sonar — ${id}, classify ${type}`, P.MED);
+    },
     launchTransient(brgStr) {
       log('SONAR', `Conn, Sonar — launch transient, bears ${brgStr}. Torpedo in the water`, P.CRIT);
     },
@@ -659,6 +662,12 @@
                   ['CONN',  'Conn — all hands, action stations. Prepare to evade and engage.', P.MED]],
         patrol:  [['SONAR', 'Conn, Sonar — four-contact barrier, spread across track',     P.MED],
                   ['CONN',  'Helm, Conn — slow ahead. Ultra-quiet routine.',       P.MED]],
+        ssbn_hunt:[['CONN',  'Conn — intelligence brief: Typhoon-class SSBN on bastion patrol, one escort SSN screening.', P.MED],
+                   ['WEPS',  'Conn, Weps — weapons free on both contacts. Primary target is the boomer.', P.MED],
+                   ['CONN',  'Helm, Conn — slow ahead, rig for ultra-quiet. Find the boomer.', P.MED]],
+        boss_fight:[['CONN', 'Conn — flash traffic from SUBLANT. New hostile submarine class confirmed at sea. Designate: Zeta.', P.CRIT],
+                    ['CONN', 'Conn — intelligence reports Zeta-class is extremely quiet, highly capable. Expect a hard fight.', P.MED],
+                    ['WEPS', 'Conn, Weps — weapons free. This one won\'t go down easy — make every shot count.', P.MED]],
       };
       if (lines[scenario]) lines[scenario].forEach(([s, m, p]) => log(s, m, p||P.NORMAL));
     },
