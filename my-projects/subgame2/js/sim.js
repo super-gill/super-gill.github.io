@@ -898,7 +898,8 @@
           const parent=b.parent;
           if(parent && !parent.dead){
             AI.enemyUpdateContactFromPing(parent,player.wx,player.wy,dp,{x:b.x,y:b.y,depth:b.depth});
-            if(parent.pingPulse<=0) parent.pingPulse=0.6; // visual feedback
+            if(parent.pingPulse<=0) parent.pingPulse=0.6;
+            AI.shipShareContact(parent,player.wx,player.wy,160+dp*0.10);
           }
         }
       }
@@ -990,6 +991,7 @@
           const layer=AI.layerPenalty(player.depth,dipDepth);
           if(dp<dipRange && layer>=0.85){
             AI.enemyUpdateContactFromPing(e,player.wx,player.wy,dp,{x:h.x,y:h.y,depth:dipDepth});
+            AI.shipShareContact(e,player.wx,player.wy,160+dp*0.10);
           }
         }
         // Re-target if parent has updated contact
@@ -1165,13 +1167,31 @@
         e.vx=Math.cos(e.heading)*newSpd;
         e.vy=Math.sin(e.heading)*newSpd;
 
-        // ── Torpedo fire (independent of DC attack state) ─────────────────────
+        // ── ASROC fire — range-gated missile torpedo on contact (own or shared) ─
+        if(e._hasAsroc){
+          const acfg=C.enemy.asroc;
+          e._asrocCd=Math.max(0,(e._asrocCd||rand(acfg.fireCd[0],acfg.fireCd[1]))-dt);
+          if(e._asrocCd<=0 && e.contact && !game.over){
+            const aAge=now()-e.contact.t;
+            if(aAge<acfg.contactMaxAge && e.suspicion>=acfg.susThresh){
+              const adx=AI.wrapDx(e.x,e.contact.x), ady=e.contact.y-e.y;
+              const adist=Math.hypot(adx,ady);
+              if(adist>=acfg.minRange && adist<=acfg.maxRange){
+                W.fireMissileTorpedo(e.x,e.y,e.contact.x,e.contact.y);
+                e._asrocCd=rand(acfg.fireCd[0],acfg.fireCd[1]);
+                COMMS.tactical.asrocLaunch?.();
+              }
+            }
+          }
+        }
+
+        // ── Torpedo fire (close-range, requires TMA solution) ────────────────
         e.fireCd-=dt;
         if(e.fireCd<=0 && !game.over && e.contact){
           const t=(state==="engage")?C.enemy.boatFireEngage:C.enemy.boatFireOther;
           e.fireCd=rand(t[0],t[1]);
           const dx=AI.wrapDx(e.x,e.contact.x);
-          const d=Math.abs(dx);
+          const d=Math.hypot(dx,e.contact.y-e.y);
           if(d<1650 && AI.enemyHasFireSolution(e)){
             W.fireTorpedo(e.x,e.y,dx,e.contact.y-e.y,false,260);
           }
@@ -1533,6 +1553,7 @@
             e.seen=Math.max(e.seen||0,C.detection.seenT*0.4);
             e.lastX=e.x; e.lastY=e.y; e.lastT=now();
             AI.enemyUpdateContactFromPing(e,player.wx,player.wy,dp);
+            if(e.type==='boat') AI.shipShareContact(e,player.wx,player.wy,160+dp*0.10);
             // Pingers share datum aggressively; tactical pingers keep it to themselves
             if(isPinger && AI.wolfpackShareDatum) AI.wolfpackShareDatum(e,player.wx,player.wy,0.45);
           }
@@ -1967,6 +1988,26 @@
     // bullets
     for(const b of bullets){
       b.life -= dt;
+
+      if(b.kind==="rocket"){
+        b.x+=b.vx*dt; b.y+=b.vy*dt;
+        const rdx=b.targetX-b.x, rdy=b.targetY-b.y;
+        if(Math.hypot(rdx,rdy)<80 || b.life<=0){
+          // Deploy dumb searching torpedo at datum
+          const searchAng=Math.random()*Math.PI*2;
+          W.fireTorpedo(b.x,b.y, Math.cos(searchAng),Math.sin(searchAng),
+            false,0,false,0, b.deployDepth,b.deployDepth,
+            {life:120,speed:30,seekRange:420,dmg:28,circleSearch:true});
+          // Player hears splash
+          const rbdx=AI.wrapDx(player.wx,b.x), rbdy=b.y-player.wy;
+          if(Math.hypot(rbdx,rbdy)<5000){
+            const rbrg=Math.round(((Math.atan2(rbdx,rbdy)*180/Math.PI)+360)%360);
+            COMMS.tactical.heloDrop?.(rbrg.toString().padStart(3,'0')+'°');
+          }
+          b.life=0;
+        }
+        continue;
+      }
 
       if(b.kind==="depthCharge"){
         b.vy = lerp(b.vy,b.sink,0.08);

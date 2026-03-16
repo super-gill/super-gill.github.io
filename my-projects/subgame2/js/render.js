@@ -382,6 +382,31 @@
       }
     }
 
+    // ── ASROC rockets ────────────────────────────────────────────────────────
+    for(const b of bullets){
+      if(b.kind!=='rocket'||b.life<=0) continue;
+      const [rx,ry]=w2s(b.x,b.y);
+      if(rx<-40||rx>plotW+40||ry<-40||ry>plotH+40) continue;
+      const ang=Math.atan2(b.vy,b.vx);
+      ctx.save();
+      ctx.translate(rx,ry); ctx.rotate(ang);
+      // Rocket body — bright orange dart
+      ctx.strokeStyle='rgba(255,120,20,0.95)';
+      ctx.lineWidth=2.5;
+      doodleLine(-U(10),0, U(10),0, 2.5);
+      doodleLine(U(8),-U(3), U(10),0, 2);
+      doodleLine(U(8),U(3),  U(10),0, 2);
+      // Contrail
+      ctx.strokeStyle='rgba(255,200,80,0.40)';
+      ctx.lineWidth=1.5;
+      ctx.setLineDash([U(4),U(4)]);
+      doodleLine(-U(10),0, -U(25),0, 1.5);
+      ctx.setLineDash([]);
+      ctx.restore();
+      ctx.fillStyle='rgba(255,140,30,0.85)';
+      doodleText('ASROC', rx+U(12), ry-U(5), U(7), 'left');
+    }
+
     // ── Depth charges ─────────────────────────────────────────────────────────
     for(const b of bullets){
       if(b.kind!=='depthCharge'||b.life<=0) continue;

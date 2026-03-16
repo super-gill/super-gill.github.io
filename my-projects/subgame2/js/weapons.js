@@ -78,6 +78,7 @@
       target:null, arming:C.torpedo.arming,
       enableDist, traveled:0, weaveT:rand(0,10),
       seducedBy:null, seduceT:0,
+      _circleSearch: statOverrides?.circleSearch ?? false,
       wire: wireGuided ? {
         live:wireLive, prevAng:launchAng, fromX, fromY,
         cmdBrg: launchAng,  // hold launch bearing until TDC sends an update
@@ -257,6 +258,18 @@
     window.G._onWireCut?.(b);
   }
 
+  // ASROC-style missile torpedo: rocket flies to datum, deploys a dumb searching torpedo.
+  function fireMissileTorpedo(fromX,fromY,targetX,targetY){
+    const cfg=C.enemy.asroc;
+    const dx=targetX-fromX, dy=targetY-fromY;
+    const dist=Math.max(1,Math.hypot(dx,dy));
+    const spd=cfg.rocketSpeed??200;
+    bullets.push({kind:'rocket', x:fromX, y:fromY,
+      vx:(dx/dist)*spd, vy:(dy/dist)*spd,
+      targetX, targetY, deployDepth:cfg.deployDepth??45,
+      life:40, friendly:false, r:5});
+  }
+
   function dropDepthCharge(fromX,fromY,targetY){
     const ty=clamp(targetY,world.seaLevel+120,world.ground-80);
     bullets.push({kind:"depthCharge",x:fromX,y:fromY,vx:rand(-20,20),vy:90,r:8,life:5.0,friendly:false,targetY:ty,sink:rand(160,230),dmg:34,blastR:190});
@@ -315,5 +328,5 @@
     return best;
   }
 
-  window.W={wrapX,makeExplosion,splash,deployDecoy,fireTorpedo,wireUpdate,cutWire,dropDepthCharge,torpAcquire};
+  window.W={wrapX,makeExplosion,splash,deployDecoy,fireTorpedo,wireUpdate,cutWire,dropDepthCharge,fireMissileTorpedo,torpAcquire};
 })();

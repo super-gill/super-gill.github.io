@@ -118,6 +118,23 @@
   function searchPattern(torp, dt, cfg){
     const PI=Math.PI;
     const curAng=Math.atan2(torp.vy, torp.vx);
+
+    // ── Circle/spiral datum search (ASROC-deployed torpedoes) ─────────────────
+    // Starts as a tight circle then gradually expands into a wider spiral.
+    // Turn rate fraction decreases from 100% → 12% over the torpedo's run time,
+    // so radius grows from ~19wu (190m) to ~160wu (1600m). Never falls back to snake.
+    if(torp._circleSearch){
+      if(!torp._search){
+        torp._search={circleDir:(Math.random()<0.5)?1:-1, phaseT:0};
+      }
+      const S=torp._search;
+      S.phaseT+=dt;
+      const maxTurn=(torp.turnRate??cfg.turnRate)*dt;
+      // Fraction: 1.0 at launch → 0.12 at 90s, giving an ever-widening spiral
+      const fraction=Math.max(0.12, 1.0 - S.phaseT/100);
+      torp.targetBrg=curAng + S.circleDir * maxTurn * fraction;
+      return;
+    }
     const snakeAmp=cfg.searchSnake||0.18; // radians half-amplitude
     const snakePeriod=4.0;               // seconds per half-cycle
 

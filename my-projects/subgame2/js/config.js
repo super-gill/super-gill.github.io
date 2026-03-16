@@ -184,6 +184,17 @@
         resetTimeout:60,           // seconds since last miss before reset
         resetCourseDeg:30,         // player heading change triggers reset
       },
+      // ASROC-style missile torpedo — ships only, ASW units only
+      asroc:{
+        minRange:300,         // wu — inside this use torpedoes/DCs instead
+        maxRange:2800,        // wu (~15nm)
+        rocketSpeed:200,      // wu/s — fast surface-skimming flight
+        deployDepth:45,       // m — torpedo enters water at this depth
+        fireCd:[25,40],       // s — cooldown between launches
+        susThresh:0.48,       // minimum suspicion to fire
+        contactMaxAge:30,     // s — won't fire on stale contact
+      },
+
       spawnMinR:1500, spawnMaxR:2500,
 
       // Wave system

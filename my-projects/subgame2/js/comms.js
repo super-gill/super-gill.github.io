@@ -717,6 +717,10 @@
     dcDetonation(brgStr) {
       log('SONAR', `Conn, Sonar — depth charge detonation, bears ${brgStr}.`, P.MED);
     },
+    asrocLaunch() {
+      log('SONAR', `Conn, Sonar — rocket launch transient, surface contact. ASROC inbound.`, P.CRIT);
+      msg('ASROC INBOUND', 3.0);
+    },
   };
 
   // ════════════════════════════════════════════════════════════════════════

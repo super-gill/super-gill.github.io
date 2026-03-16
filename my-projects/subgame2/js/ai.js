@@ -517,6 +517,7 @@
     if(stats.sonobuoys) ent._sonobuoyCfg=stats.sonobuoys;
     if(stats.helo) ent._heloCfg=stats.helo;
     if(stats.turnRate) ent._turnRate=stats.turnRate;
+    if(stats.hasAsroc) ent._hasAsroc=true;
     enemies.push(ent);
   }
 
@@ -534,6 +535,7 @@
       vdsDepth:rand(300,380),
       sonobuoys:{interval:[45,75], maxActive:4, buoyLife:120, buoyDepth:rand(280,350), pingCd:[8,14]},
       helo:{dipDepth:rand(300,360), fuel:rand(100,140), refuel:rand(60,90), launchSus:0.15, hasTorp:true, torpStock:2},
+      hasAsroc:true,
     }, offsetDist);
   }
 
@@ -549,6 +551,7 @@
       role:'pinger',
       turnRate:rand(0.040,0.060),  // ~2-3°/s — large destroyer
       vdsDepth:rand(280,340),
+      hasAsroc:true,
     }, offsetDist);
   }
 
@@ -638,8 +641,23 @@
     }
   }
 
+  // Ships share contact data with other ships only (not with subs, not sub-to-ship).
+  // Each recipient adds its own positional noise — same contact, different firing solutions.
+  function shipShareContact(fromShip, cx, cy, accuracy){
+    const _now=now();
+    for(const e of enemies){
+      if(e===fromShip || e.dead || e.type!=='boat' || e.civilian) continue;
+      // Don't overwrite a fresher own-sensor contact
+      if(e.contact && (_now-e.contact.t)<5) continue;
+      const noiseR=accuracy*rand(0.9,1.4);
+      e.contact={x:cx+rand(-noiseR,noiseR), y:cy+rand(-noiseR,noiseR),
+                 u:noiseR, t:_now, strength:0.40, shared:true};
+      e.suspicion=Math.min(1,Math.max(e.suspicion,0.45));
+    }
+  }
+
   window.AI={wrapDx,wrapDy,layerPenalty,enemyHasFireSolution,enemyUpdateContactFromPing,
              enemyMaybeHearPlayer,enemyDecay,updateEnemyNoise,solveEnemyTMA,enemyRegisterBearing,
              spawnEnemy,spawnSub,spawnSSBN,spawnZeta,spawnGamma,spawnEta,spawnEpsilon,spawnTheta,
-             spawnIota,spawnKappa,spawnLambda,spawnMu,spawnCivilian,wolfpackShareDatum};
+             spawnIota,spawnKappa,spawnLambda,spawnMu,spawnCivilian,wolfpackShareDatum,shipShareContact};
 })();
