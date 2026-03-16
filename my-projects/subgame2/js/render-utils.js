@@ -38,12 +38,8 @@
     const panelH=getPanelH();
     const cx=(canvas.width - stripW)/2;
     const cy=(canvas.height - panelH)/2;
-    let dx=wx-cam.x;
-    let dy=wy-cam.y;
-    if(dx>world.w/2) dx-=world.w;
-    if(dx<-world.w/2) dx+=world.w;
-    if(dy>world.h/2) dy-=world.h;
-    if(dy<-world.h/2) dy+=world.h;
+    const dx=wx-cam.x;
+    const dy=wy-cam.y;
     return [cx+dx*Z, cy+dy*Z];
   }
   function wScale(wu){ return wu*cam.zoom*DPR; }

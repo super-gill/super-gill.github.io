@@ -74,8 +74,8 @@
       } else {
         // Normal waypoint — set ordered heading to waypoint bearing
         const snapped=window.MAPS.snapToSea(
-          (wx+world.w)%world.w,
-          (wy+world.h)%world.h
+          wx,
+          wy
         );
         route.push(snapped);
         // Always set orderedHeading so the boat keeps turning even if waypoint is cleared
@@ -182,9 +182,8 @@
 
     if(route.length>0){
       const wp=route[0];
-      // Wrap-aware delta
-      let dx=wp.wx-player.wx; if(dx>world.w/2) dx-=world.w; if(dx<-world.w/2) dx+=world.w;
-      let dy=wp.wy-player.wy; if(dy>world.h/2) dy-=world.h; if(dy<-world.h/2) dy+=world.h;
+      let dx=wp.wx-player.wx;
+      let dy=wp.wy-player.wy;
       const dist=Math.hypot(dx,dy);
 
       // Arrive threshold — pop waypoint when close enough
@@ -243,15 +242,15 @@
     let ny=player.wy+Math.sin(player.heading)*spWU*dt;
 
     // Land collision — don't enter land, clear route if stuck
-    if(window.MAPS.isLand((nx+world.w)%world.w, (ny+world.h)%world.h)){
+    if(window.MAPS.isLand(nx, ny)){
       route.length=0;
       // Bounce: just don't move this frame
       nx=player.wx; ny=player.wy;
       COMMS.nav.grounded();
     }
 
-    player.wx=(nx+world.w)%world.w;
-    player.wy=(ny+world.h)%world.h;
+    player.wx=nx;
+    player.wy=ny;
     // Horizontal velocity for TMA range estimation (sensors.js _estRange)
     player.vx=Math.cos(player.heading)*spWU;
     player.vxRaw=player.vx; // alias — vy is used for depth so keep separate
@@ -320,6 +319,7 @@
           // Tanks empty — seal the blow valves.
           player._blowVenting = false;
           player._blowVy = 0;
+          if(hpa) hpa._reserveCommitted = false;
           // Check if actually positively buoyant — flooding mass may overwhelm empty MBTs
           const floodLoad = window.DMG?.getTrimState?.()?.buoyancy || 0;
           const floodFE = C.player.floodFillEquiv ?? 1.0;
@@ -356,6 +356,7 @@
           // Differential gone — pressure can no longer displace water, tanks not yet clear
           player._blowVy = 0;
           player._blowVenting = false;
+          if(hpa) hpa._reserveCommitted = false;
           window.COMMS?.trim?.blowExhausted(Math.round(player.depth));
         }
 
@@ -363,6 +364,7 @@
         if(player.depth <= 20){
           player._blowVenting = false;
           player._blowVy = 0;
+          if(hpa) hpa._reserveCommitted = false;
           window.COMMS?.trim?.blowSurfaced();
         }
       } else {
@@ -392,6 +394,8 @@
       // HP active recharge adds noise; both stop when submerged.
       const atSurface = player.depth <= 20;
       if(!player._blowVenting && atSurface){
+        // Surface recharge resets reserve commitment — full banks available for next emergency
+        if(hpa._reserveCommitted) hpa._reserveCommitted = false;
         const lpRate = hpaC.lpRechargeRate || 0.4;
         hpa.pressure = Math.min(maxP, hpa.pressure + lpRate * dt);
         hpa.reserve  = Math.min(maxR, hpa.reserve  + lpRate * 0.5 * dt);
@@ -622,8 +626,24 @@
     }
 
     // ── Collapse / crush depth ────────────────────────────────────────────
-    const crushD = C_p.crushDepth ?? (colD * 1.08);
-    if(player.depth >= crushD){
+    // Structural damage (HP loss) reduces the effective crush depth.
+    // Full HP → nominal crush depth. 30 HP (2 hits) → ~72% of nominal.
+    // The crew don't know the exact new limit — only the hull knows.
+    const crushD_base = C_p.crushDepth ?? (colD * 1.08);
+    const _hpFrac = Math.max(0.01, Math.min(1, (player.hp ?? 100) / 100));
+    const crushD = crushD_base * (0.60 + 0.40 * _hpFrac);
+
+    // Near-crush creaking warning — only relevant when structural damage is present
+    if((player.hp ?? 100) < 90 && player.depth > crushD * 0.90){
+      if(!player._nearCrushWarned){
+        player._nearCrushWarned = true;
+        COMMS.depth.hullDamageCreaking(Math.round(player.depth));
+      }
+    } else {
+      player._nearCrushWarned = false;
+    }
+
+    if(player.depth >= crushD && !window.G?.game?.godMode){
       // Past crush depth — catastrophic hull failure, all hands lost
       if(!player._crushed){
         player._crushed = true;

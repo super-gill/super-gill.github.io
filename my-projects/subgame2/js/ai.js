@@ -5,8 +5,8 @@
 
   function inLayer(d){return d>=world.layerY1&&d<=world.layerY2;}
   function layerPenalty(d1,d2){const a=inLayer(d1),b=inLayer(d2); return (a!==b)?0.70:1.0;}
-  function wrapDx(x1,x2){let dx=x2-x1; if(dx>world.w/2) dx-=world.w; if(dx<-world.w/2) dx+=world.w; return dx;}
-  function wrapDy(y1,y2){let dy=y2-y1; if(dy>world.h/2) dy-=world.h; if(dy<-world.h/2) dy+=world.h; return dy;}
+  function wrapDx(x1,x2){return x2-x1;}
+  function wrapDy(y1,y2){return y2-y1;}
 
   // ── Enemy TMA solver — mirrors the player's solveTMA ────────────────────────
   // Gives enemies the same bearing-line least-squares solver.
@@ -84,7 +84,7 @@
     } else {
       const estRange=dist+(rand(-1,1)*dist*0.25); // ±25% range noise
       e.contact={
-        x:(e.x+Math.cos(noisyBrg)*estRange+world.w)%world.w,
+        x:e.x+Math.cos(noisyBrg)*estRange,
         y:e.y+Math.sin(noisyBrg)*estRange,
         u:400, t:now(), strength:0.15
       };
@@ -102,25 +102,27 @@
     return true;
   }
 
-  function enemyUpdateContactFromPing(e,px,py,dist){
-    const sonarDepth=e.vdsDepth||e.depth||400;
-    const layer=layerPenalty(py,sonarDepth);
+  // sensorPos: optional {x,y,depth} — the actual sensor location (buoy, helo dip).
+  // When omitted, defaults to the enemy ship's own position.
+  function enemyUpdateContactFromPing(e,px,py,dist,sensorPos){
+    const sx=sensorPos?.x??e.x;
+    const sy=sensorPos?.y??e.y;
+    const sDepth=sensorPos?.depth??e.vdsDepth??e.depth??400;
+    const layer=layerPenalty(py,sDepth);
     const u=(160+dist*0.10)*(layer<1?1.55:1.0);
     e.contact={
-      x:(px+rand(-u,u)+world.w)%world.w,
+      x:px+rand(-u,u),
       y:clamp(py+rand(-u,u),world.seaLevel+80,world.ground-80),
       u, t:now(),
       strength:clamp(0.50+(1-dist/2000)*0.40,0.30,0.92)
     };
     e.suspicion=Math.min(1,e.suspicion+0.45*e.contact.strength);
-    // Ping gives a rough bearing — boosts suspicion but does NOT grant instant TMA quality.
-    // Enemy must still build bearing observations to earn a fire solution.
+    // Bearing computed from SENSOR position, not ship — correct for buoys/helos
     if(!e.playerBearings) e.playerBearings=[];
-    const brg=Math.atan2(py-e.y, wrapDx(e.x,px));
+    const brg=Math.atan2(py-sy, wrapDx(sx,px));
     const T=game.missionT||0;
-    // Add multiple bearing observations spread across recent time so TMA has baseline
     for(let i=0;i<3;i++){
-      e.playerBearings.push({fromX:e.x+rand(-50,50), fromY:e.y+rand(-50,50), brg:brg+rand(-1,1)*0.06, t:T-i*8});
+      e.playerBearings.push({fromX:sx+rand(-50,50), fromY:sy+rand(-50,50), brg:brg+rand(-1,1)*0.06, t:T-i*8});
     }
     if(e.playerBearings.length>16) e.playerBearings.splice(0, e.playerBearings.length-16);
     // Rough position hint — lower quality ceiling from ping alone
@@ -212,8 +214,8 @@
     const minR=C.enemy.spawnMinR||2200, maxR=C.enemy.spawnMaxR||4200;
     const ang=rand(0,Math.PI*2);
     const dist=rand(minR,maxR);
-    const ex=(player.wx+Math.cos(ang)*dist+world.w)%world.w;
-    const ey=(player.wy+Math.sin(ang)*dist+world.h)%world.h;
+    const ex=player.wx+Math.cos(ang)*dist;
+    const ey=player.wy+Math.sin(ang)*dist;
     const toPlayer=Math.atan2(player.wy-ey,player.wx-ex)+rand(-0.8,0.8);
     const spd=rand(12,28);
     if(type==='boat'){
@@ -239,8 +241,8 @@
   // offsetDist: distance offset perpendicular to bearing
   function spawnSub(bearing, dist, role='hunter', offsetDist=0){
     const perpAng=bearing+Math.PI/2;
-    const ex=(player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist+world.w)%world.w;
-    const ey=(player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist+world.h)%world.h;
+    const ex=player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist;
+    const ey=player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist;
     const awayAng=bearing+Math.PI;
     // Hunters and interceptors are responding to a datum — head toward the player
     // with some spread (±30°). Pingers run a cross-track barrier pattern.
@@ -283,8 +285,8 @@
 
   // ── SSBN spawn — Typhoon-class boomer ──────────────────────────────────────
   function spawnSSBN(bearing, dist){
-    const ex=(player.wx+Math.cos(bearing)*dist+world.w)%world.w;
-    const ey=(player.wy+Math.sin(bearing)*dist+world.h)%world.h;
+    const ex=player.wx+Math.cos(bearing)*dist;
+    const ey=player.wy+Math.sin(bearing)*dist;
     const patrolHeading=bearing+Math.PI+rand(-0.4,0.4); // generally moving away
     const spd=rand(3,5); // slow patrol creep
     const depth=rand(250,400); // deep bastion patrol
@@ -316,8 +318,8 @@
   // Hunts aggressively using all available systems — passive sonar, tactical active
   // pinging when stuck, and bearing-only probe shots to flush the target.
   function spawnZeta(bearing, dist){
-    const ex=(player.wx+Math.cos(bearing)*dist+world.w)%world.w;
-    const ey=(player.wy+Math.sin(bearing)*dist+world.h)%world.h;
+    const ex=player.wx+Math.cos(bearing)*dist;
+    const ey=player.wy+Math.sin(bearing)*dist;
     // Zeta heads TOWARD the player — actively hunting from the start
     const patrolHeading=bearing+Math.PI+rand(-0.3,0.3);
     const spd=rand(6,8); // aggressive patrol — closing on datum
@@ -359,8 +361,8 @@
   // Extremely quiet on battery but slow and shallow. Ambush predator.
   function spawnGamma(bearing, dist, offsetDist=0){
     const perpAng=bearing+Math.PI/2;
-    const ex=(player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist+world.w)%world.w;
-    const ey=(player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist+world.h)%world.h;
+    const ex=player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist;
+    const ey=player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist;
     const patrolHeading=bearing+Math.PI+rand(-0.5,0.5);
     const spd=rand(3,5); // battery creep
     const depth=rand(80,250); // shallow — old pressure hull
@@ -391,8 +393,8 @@
   // Whisper-quiet with modern sensors. Still slow but very hard to find.
   function spawnEta(bearing, dist, offsetDist=0){
     const perpAng=bearing+Math.PI/2;
-    const ex=(player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist+world.w)%world.w;
-    const ey=(player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist+world.h)%world.h;
+    const ex=player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist;
+    const ey=player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist;
     const patrolHeading=bearing+Math.PI+rand(-0.5,0.5);
     const spd=rand(3,5);
     const depth=rand(100,300);
@@ -422,8 +424,8 @@
   // ── Epsilon-class SSBN — newer ballistic missile submarine ────────────────
   // Smaller and quieter than Delta, but same evasion-focused doctrine.
   function spawnEpsilon(bearing, dist){
-    const ex=(player.wx+Math.cos(bearing)*dist+world.w)%world.w;
-    const ey=(player.wy+Math.sin(bearing)*dist+world.h)%world.h;
+    const ex=player.wx+Math.cos(bearing)*dist;
+    const ey=player.wy+Math.sin(bearing)*dist;
     const patrolHeading=bearing+Math.PI+rand(-0.4,0.4);
     const spd=rand(3,5);
     const depth=rand(250,450);
@@ -455,8 +457,8 @@
   // and a decent torpedo loadout for self-defence and opportunistic attacks.
   function spawnTheta(bearing, dist, offsetDist=0){
     const perpAng=bearing+Math.PI/2;
-    const ex=(player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist+world.w)%world.w;
-    const ey=(player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist+world.h)%world.h;
+    const ex=player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist;
+    const ey=player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist;
     const patrolHeading=bearing+Math.PI+rand(-0.4,0.4);
     const spd=rand(5,8);
     const depth=rand(200,500);
@@ -488,8 +490,8 @@
   // They use the existing boat AI for detection, depth charges, and torpedo fire.
   function _spawnWarship(bearing, dist, stats, offsetDist=0){
     const perpAng=bearing+Math.PI/2;
-    const ex=(player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist+world.w)%world.w;
-    const ey=(player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist+world.h)%world.h;
+    const ex=player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist;
+    const ey=player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist;
     const patrolHeading=bearing+Math.PI+rand(-0.6,0.6);
     const spd=stats.patrolSpd||rand(10,14);
     const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,
@@ -514,6 +516,7 @@
     if(stats.vdsDepth) ent.vdsDepth=stats.vdsDepth;
     if(stats.sonobuoys) ent._sonobuoyCfg=stats.sonobuoys;
     if(stats.helo) ent._heloCfg=stats.helo;
+    if(stats.turnRate) ent._turnRate=stats.turnRate;
     enemies.push(ent);
   }
 
@@ -521,15 +524,16 @@
     _spawnWarship(bearing, dist, {
       r:30, hp:80,
       sensitivity:rand(0.75,0.95),
-      nf:rand(0.60,0.75), // active sonar platform, machinery noise
+      nf:rand(0.60,0.75),
       patrolSpd:rand(10,16),
-      pingCd:rand(6,12), // primary ASW — pings frequently
+      pingCd:rand(6,12),
       cwis:{pKillPerSec:rand(0.50,0.80),range:rand(480,680)},
       subClass:'IOTA',
-      role:'pinger', // frigates are active ASW hunters
-      vdsDepth:rand(300,380),  // towed VDS below thermocline
+      role:'pinger',
+      turnRate:rand(0.055,0.075),  // ~3-4°/s — frigate
+      vdsDepth:rand(300,380),
       sonobuoys:{interval:[45,75], maxActive:4, buoyLife:120, buoyDepth:rand(280,350), pingCd:[8,14]},
-      helo:{dipDepth:rand(300,360), fuel:rand(100,140), refuel:rand(60,90), launchSus:0.15},
+      helo:{dipDepth:rand(300,360), fuel:rand(100,140), refuel:rand(60,90), launchSus:0.15, hasTorp:true, torpStock:2},
     }, offsetDist);
   }
 
@@ -537,13 +541,14 @@
     _spawnWarship(bearing, dist, {
       r:36, hp:100,
       sensitivity:rand(0.80,1.0),
-      nf:rand(0.65,0.80), // big fast warship
+      nf:rand(0.65,0.80),
       patrolSpd:rand(14,20),
       pingCd:rand(8,14),
       cwis:{pKillPerSec:rand(0.65,0.95),range:rand(580,800)},
       subClass:'KAPPA',
       role:'pinger',
-      vdsDepth:rand(280,340),  // towed array below thermocline
+      turnRate:rand(0.040,0.060),  // ~2-3°/s — large destroyer
+      vdsDepth:rand(280,340),
     }, offsetDist);
   }
 
@@ -551,12 +556,13 @@
     _spawnWarship(bearing, dist, {
       r:24, hp:50,
       sensitivity:rand(0.50,0.75),
-      nf:rand(0.55,0.70), // smaller, slightly quieter
+      nf:rand(0.55,0.70),
       patrolSpd:rand(8,14),
-      pingCd:rand(10,20), // less capable sonar suite
+      pingCd:rand(10,20),
       cwis:{pKillPerSec:rand(0.40,0.65),range:rand(400,600)},
       subClass:'LAMBDA',
       role:'pinger',
+      turnRate:rand(0.090,0.120),  // ~5-7°/s — nimble corvette
     }, offsetDist);
   }
 
@@ -564,12 +570,13 @@
     _spawnWarship(bearing, dist, {
       r:42, hp:140,
       sensitivity:rand(0.55,0.75),
-      nf:rand(0.70,0.85), // big ship, lots of machinery
+      nf:rand(0.70,0.85),
       patrolSpd:rand(12,18),
-      pingCd:rand(14,26), // not ASW focused
+      pingCd:rand(14,26),
       cwis:{pKillPerSec:rand(0.70,0.95),range:rand(600,850)},
       subClass:'MU',
-      role:null, // not a dedicated ASW platform
+      role:null,
+      turnRate:rand(0.025,0.040),  // ~1-2°/s — heavy cruiser
     }, offsetDist);
   }
 

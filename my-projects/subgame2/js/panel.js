@@ -75,6 +75,8 @@
       p._blowVy = 0;
       p._blowPending = false;
       p._blowManualT = 0;
+      const hpaR=p.damage?.hpa;
+      if(hpaR) hpaR._reserveCommitted = false;
       window.COMMS?.trim?.blowCancelledByOrder(Math.round(p.depth));
     }
     clearTimeout(p._depthLogTimer);
@@ -272,7 +274,8 @@
       p._blowManualT  = 0;
       p._blowAmbient  = Math.round(ambient);
       p._blowGroupP   = Math.round(hpa?.pressure??0);
-      COMMS.trim.blowOpened(Math.round(ambient), Math.round(hpa?.pressure??0));
+      // Don't announce venting yet — helm will discover the failure, then DC operates manually
+      COMMS.trim.blowOrderedManual();
       COMMS.trim.blowSystemFailed(ballastSys);
     }
   }

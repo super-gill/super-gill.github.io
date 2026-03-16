@@ -185,6 +185,14 @@
         <button class="dev-btn" id="dev-btn-cz-pinger">CZ Pinger</button>
       </div>
 
+      <div class="dev-section-label">Spawn Ship</div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-iota">IOTA</button>
+        <button class="dev-btn" id="dev-btn-kappa">KAPPA</button>
+        <button class="dev-btn" id="dev-btn-lambda">LAMBDA</button>
+        <button class="dev-btn" id="dev-btn-mu">MU</button>
+      </div>
+
       <div class="dev-status" id="dev-status"></div>
     </div>
   `;
@@ -587,5 +595,17 @@
   btn('dev-btn-boat',        ()=>spawnRole('boat'));
   btn('dev-btn-cz-hunter',   ()=>spawnCZ('hunter'));
   btn('dev-btn-cz-pinger',   ()=>spawnCZ('pinger'));
+
+  function spawnShip(spawnFn, label){
+    const g=window.G; if(!g){ status('G not ready'); return; }
+    const brg=Math.random()*Math.PI*2;
+    const dist=800+Math.random()*600;
+    spawnFn(brg, dist);
+    status(`Spawned ${label}`);
+  }
+  btn('dev-btn-iota',   ()=>spawnShip(window.AI.spawnIota,   'IOTA (frigate)'));
+  btn('dev-btn-kappa',  ()=>spawnShip(window.AI.spawnKappa,  'KAPPA (destroyer)'));
+  btn('dev-btn-lambda', ()=>spawnShip(window.AI.spawnLambda, 'LAMBDA (corvette)'));
+  btn('dev-btn-mu',     ()=>spawnShip(window.AI.spawnMu,     'MU (cruiser)'));
 
 })();

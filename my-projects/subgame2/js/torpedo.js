@@ -303,8 +303,8 @@
     }
 
     // ── 7. Position ───────────────────────────────────────────────────────────
-    torp.x=(torp.x+torp.vx*dt+world.w)%world.w;
-    torp.y=(torp.y+torp.vy*dt+world.h)%world.h;
+    torp.x=torp.x+torp.vx*dt;
+    torp.y=torp.y+torp.vy*dt;
 
     // ── 8. Collision ──────────────────────────────────────────────────────────
     const vertFuse=cfg.vertFuse||60;

@@ -4,7 +4,7 @@
   const {world,bullets,particles,decoys,cwisTracers,player,enemies}=window.G;
   const AI=window.AI;
 
-  function wrapX(x){return (x+world.w)%world.w;}
+  function wrapX(x){return x;}
 
   function makeExplosion(x,y,power=1,watery=false){
     const count=Math.floor(18*power);
@@ -123,7 +123,7 @@
     }
 
     // Range check — cut wire if torpedo is too far from sub
-    let dx=b.x-player.wx; if(dx>w.w/2)dx-=w.w; if(dx<-w.w/2)dx+=w.w;
+    let dx=b.x-player.wx;
     let dy=b.y-player.wy;
     const wirePaidOut=Math.hypot(dx,dy);
     b.wire.paidOut=wirePaidOut;
@@ -139,17 +139,19 @@
     // If seeker has a lock, wire yields — torpedo.js is already homing
     if(b.target || b.seducedBy) return;
 
-    // Wire guidance — bearing-only steering, no position oscillation.
+    // Wire guidance — beam-rider approach.
     //
-    // Key insight: estimating a target position and position-homing to it causes
-    // the torpedo to oscillate around the estimate when it overshoots. Instead:
+    // The submarine's fire control computes a bearing to the target. The wire
+    // steers the torpedo onto that bearing LINE and keeps it there. The torpedo
+    // doesn't chase a position — it rides the beam. This avoids oscillation
+    // from range estimation errors: range only affects where on the line the
+    // target is, not the line itself.
     //
-    // Phase 1 (torpedo short of estimated range): steer FROM TORPEDO toward estimated
-    //   position — this corrects heading errors early in the run.
-    // Phase 2 (torpedo at/past estimated range): fly the raw bearing forever.
-    //   Phase 2 is a one-way latch — once set, never reverts to phase 1.
-    //   This eliminates the turn-around bug where the torpedo gets commanded back
-    //   toward a point it has already passed.
+    // Cross-track error: how far the torpedo is from the bearing line.
+    // Correction: proportional steering clamped to ±15° to prevent wild turns.
+    // Lead angle: at SOLID quality, the bearing line itself is adjusted for
+    // target motion (bearing rate × estimated time of flight).
+    //
     // Manual override — when autoTDC is off, use player's cmdBrg instead of sonar lock
     if(b.wire.autoTDC===false && b.wire.cmdBrg!=null){
       b.targetBrg = b.wire.cmdBrg;
@@ -162,37 +164,39 @@
         const tmaQ=sc?.tmaQuality??0;
         const TMA=C.tma;
 
-        // How far has the torpedo traveled from the player? (straight-line)
-        let pdx=b.x-player.wx; if(pdx>w.w/2)pdx-=w.w; if(pdx<-w.w/2)pdx+=w.w;
-        let pdy=b.y-player.wy; if(pdy>w.h/2)pdy-=w.h; if(pdy<-w.h/2)pdy+=w.h;
-        const torpDistFromPlayer = Math.hypot(pdx, pdy);
+        // Bearing line from player to target — this is the "beam"
+        let beamBrg = latestBrg;
 
-        // Estimated target range (used only for phase switch)
-        const estRange = Math.max(500, sc?._estRange ?? 3000);
-
-        // One-way latch: once torpedo reaches 75% of estimated range, fly bearing forever
-        if(!b.wire._bearingMode && torpDistFromPlayer >= estRange * 0.75){
-          b.wire._bearingMode = true;
+        // Lead angle at SOLID quality — shift the beam ahead of the target
+        if(tmaQ>=(TMA?.qualityThresholdSolid??0.70) && sc?._brgRate!=null){
+          // Estimate time for torpedo to reach target area
+          let pdx=b.x-player.wx;
+          let pdy=b.y-player.wy;
+          const torpDist=Math.hypot(pdx,pdy);
+          const estRange=Math.max(500, sc?._estRange??3000);
+          const remaining=Math.max(200, estRange-torpDist);
+          const estTof=remaining/(C.torpedo.speed??50);
+          beamBrg += sc._brgRate * estTof * 0.5;
         }
 
-        let rawTargetBrg;
-        if(b.wire._bearingMode){
-          // Phase 2: raw bearing direction — no position to overshoot
-          rawTargetBrg = latestBrg;
-          // Apply lead angle at SOLID quality
-          if(tmaQ>=(TMA?.qualityThresholdSolid??0.70) && sc?._brgRate!=null){
-            const estSpd = C.torpedo.speed ?? 50;
-            const estTof = Math.max(100, estRange - torpDistFromPlayer) / estSpd;
-            rawTargetBrg = latestBrg + (sc._brgRate) * estTof * 0.5;
-          }
-        } else {
-          // Phase 1: steer toward estimated position to correct heading errors
-          const estTX = player.wx + Math.cos(latestBrg)*estRange;
-          const estTY = player.wy + Math.sin(latestBrg)*estRange;
-          let tdx = estTX - b.x; if(tdx>w.w/2)tdx-=w.w; if(tdx<-w.w/2)tdx+=w.w;
-          let tdy = estTY - b.y; if(tdy>w.h/2)tdy-=w.h; if(tdy<-w.h/2)tdy+=w.h;
-          rawTargetBrg = Math.atan2(tdy, tdx);
-        }
+        // Torpedo position relative to player (beam origin)
+        let pdx=b.x-player.wx;
+        let pdy=b.y-player.wy;
+
+        // Cross-track error: perpendicular distance from torpedo to the beam line
+        // Positive = torpedo is right of beam, negative = left
+        const crossTrack = pdx * Math.sin(beamBrg) - pdy * Math.cos(beamBrg);
+
+        // Along-track: how far down the beam the torpedo has traveled
+        const alongTrack = pdx * Math.cos(beamBrg) + pdy * Math.sin(beamBrg);
+
+        // Correction angle: steer toward the beam, proportional to cross-track error
+        // Clamp to ±15° — prevents wild turns from large offsets
+        const maxCorr = 15 * Math.PI / 180;
+        const corrGain = Math.max(alongTrack, 300); // gentler correction at short range
+        const correction = clamp(-crossTrack / corrGain, -1, 1) * maxCorr;
+
+        let rawTargetBrg = beamBrg + correction;
 
         // Fire control damage adds bearing noise to wire updates
         if(DMG){
@@ -200,8 +204,7 @@
           if(wnm>1.0) rawTargetBrg+=rand(-0.02,0.02)*wnm;
         }
 
-        // Smooth bearing so noisy sonar ticks don't jink the torpedo.
-        // Use a 2s time constant — fast enough to respond, slow enough to filter noise.
+        // Smooth bearing — 2s time constant filters sonar noise
         if(b.targetBrg == null){
           b.targetBrg = rawTargetBrg;
         } else {
@@ -216,8 +219,13 @@
     }
     } // end else (autoTDC not manually overridden)
 
-    // Sensor sweep — feed contacts back to player via wireContacts
+    // Sensor sweep — torpedo relays acoustic contacts back via wire.
+    // Two outputs: wireContacts (tactical display dots) AND bearing observations
+    // fed into the player's TMA from the torpedo's position (triangulation).
     const wireRange=C.torpedo.seekRange*1.4;
+    b._wireSweepT=(b._wireSweepT||0)-dt;
+    const sweepReady=b._wireSweepT<=0;
+    if(sweepReady) b._wireSweepT=rand(2.5,4.0); // relay every 2.5-4s, not every frame
     for(const e of enemies){
       if(e.dead) continue;
       let edx=AI.wrapDx(b.x,e.x);
@@ -226,11 +234,18 @@
       if(dist>wireRange) continue;
       const u=60+dist*0.08;
       window.G.wireContacts.push({
-        x:(e.x+rand(-u,u)+w.w)%w.w,
-        y:(e.y+rand(-u,u)+w.h)%w.h,
+        x:e.x+rand(-u,u),
+        y:e.y+rand(-u,u),
         u, life:1.8, kind:e.type,
         fromTorp:{x:b.x,y:b.y}
       });
+      // Feed bearing into TMA — observation from torpedo's position
+      // Only if this enemy has an established sonar contact (player has heard it)
+      if(sweepReady && window.G.sonarContacts?.has(e) && window.SENSE?.registerBearing){
+        const torpBrg=Math.atan2(edy,edx);
+        const torpU=clamp(u/Math.max(dist,50), 0.02, 0.08);
+        window.SENSE.registerBearing(e, torpBrg, torpU, 'wire', {x:b.x, y:b.y});
+      }
     }
   }
 

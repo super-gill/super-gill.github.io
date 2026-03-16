@@ -73,10 +73,46 @@
       COMMS.sensors.tmaDegrading(c.id);
     }
     if(!stuck) c._hintedManeuver=false;
+
+    // ── Bearing-cross triangulation for range ────────────────────────────────
+    // When we have good crossing geometry (qCross > 0.3), intersect the two
+    // most divergent bearing lines to estimate target position and range.
+    // Only updates _estRange if no recent active ping (active range is better).
+    const activeAge=T-(c._rangeT||0);
+    if(qCross>0.3 && obs.length>=4 && (c._rangeSource!=='active' || activeAge>15)){
+      // Find the pair with maximum crossing angle
+      let bestI=0, bestJ=1, bestCross=0;
+      for(let i=0;i<obs.length;i++)
+        for(let j=i+1;j<obs.length;j++){
+          const d=Math.abs(((obs[i].bearing-obs[j].bearing+3*Math.PI)%(Math.PI*2))-Math.PI);
+          const cr=Math.min(d,Math.PI-d);
+          if(cr>bestCross){ bestCross=cr; bestI=i; bestJ=j; }
+        }
+      const a=obs[bestI], b=obs[bestJ];
+      // Intersect two rays: P = a.from + t*dir(a.brg), P = b.from + s*dir(b.brg)
+      const ca=Math.cos(a.bearing), sa=Math.sin(a.bearing);
+      const cb=Math.cos(b.bearing), sb=Math.sin(b.bearing);
+      const det=ca*sb-sa*cb;
+      if(Math.abs(det)>0.01){
+        const ddx=b.fromX-a.fromX, ddy=b.fromY-a.fromY;
+        const t=(ddx*sb-ddy*cb)/det;
+        if(t>50){ // target must be ahead of observation point
+          const ix=a.fromX+ca*t, iy=a.fromY+sa*t;
+          const rng=Math.hypot(AI.wrapDx(player.wx,ix), iy-player.wy);
+          const clamped=clamp(rng, 200, 12000);
+          // Blend — faster than bearing-rate (0.7/0.3) since this is better geometry
+          c._estRange=c._estRange!=null ? c._estRange*0.6+clamped*0.4 : clamped;
+          c._rangeSource='tma';
+          c._rangeT=T;
+        }
+      }
+    }
   }
 
 
-  function registerBearing(e, bearing, u_brg, source='hull'){
+  // fromPos: optional {x,y} — observation point. Defaults to player position.
+  // Wire-relayed torpedo contacts use the torpedo's position for TMA triangulation.
+  function registerBearing(e, bearing, u_brg, source='hull', fromPos=null){
     const T=game.missionT||0;
     const TMA=C.tma;
     if(sonarContacts.has(e)){
@@ -116,12 +152,14 @@
         }
       }
 
+      const obsX=fromPos?.x??player.wx;
+      const obsY=fromPos?.y??player.wy;
       if(c.bearings.length>=TMA.maxBearings) c.bearings.shift();
-      c.bearings.push({fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T,source});
+      c.bearings.push({fromX:obsX,fromY:obsY,bearing,u_brg,t:T,source});
       c.lastObsT=T; c.lastT=window.M.now(); c.activeT=3.0;
       c.latestBrg=bearing;
       if(source==='hull'){ c.latestHullBrg=bearing; c.lastHullBrgT=T; }
-      c.latestFromX=player.wx; c.latestFromY=player.wy;
+      c.latestFromX=obsX; c.latestFromY=obsY;
 
       // Bearing rate: smooth derivative from last two hull bearings
       // Used for lead-angle at SOLID tier (only source of target motion estimate)
@@ -151,12 +189,17 @@
         if(sinTheta > 0.20){
           const rawR = (ownSpd * sinTheta) / Math.abs(c._brgRate);
           const clamped = clamp(rawR, 200, 12000);
-          // Smooth heavily — range estimates are noisy, 8s time constant
-          c._estRange = c._estRange != null
-            ? c._estRange * 0.92 + clamped * 0.08
-            : clamped;
+          // Only use bearing-rate range if no better source is recent
+          const betterAge=(game.missionT||0)-(c._rangeT||0);
+          const hasBetter=c._rangeSource==='active'&&betterAge<10 || c._rangeSource==='tma'&&betterAge<20;
+          if(!hasBetter){
+            // Moderate smoothing — faster convergence than before (was 0.92/0.08)
+            c._estRange = c._estRange != null
+              ? c._estRange * 0.82 + clamped * 0.18
+              : clamped;
+            if(!c._rangeSource) c._rangeSource='brgrate';
+          }
         }
-        // else: geometry too close to CBDR, don't update _estRange
       }
 
       const prevQ=c.tmaQuality??0;
@@ -258,14 +301,23 @@
   }
 
   // Active ping or proximity — very tight bearing, boosts quality to SOLID directly.
-  // No position stored anywhere — bearing only, always.
+  // Also provides DIRECT RANGE — the primary payoff for going active.
   function registerFix(e, fx, fy, u, source){
     const brg=Math.atan2(fy-player.wy, AI.wrapDx(player.wx,fx));
     const dist=Math.hypot(AI.wrapDx(player.wx,fx), fy-player.wy);
     const u_brg=clamp(u/Math.max(dist,50), 0.01, 0.05);
     registerBearing(e, brg, u_brg, 'hull');
     const c=sonarContacts.get(e);
-    if(c){ c.tmaQuality=Math.max(c.tmaQuality, 0.90); c.activeT=source==='active'?5.0:3.0; }
+    if(c){
+      c.tmaQuality=Math.max(c.tmaQuality, 0.90);
+      c.activeT=source==='active'?5.0:3.0;
+      // Direct range from ping return — fast blend, small noise
+      const rangeNoise=dist*rand(-0.05,0.05); // ±5% measurement error
+      const pingRange=Math.max(100, dist+rangeNoise);
+      c._estRange=c._estRange!=null ? c._estRange*0.3+pingRange*0.7 : pingRange;
+      c._rangeSource='active';
+      c._rangeT=game.missionT||0;
+    }
   }
 
 
@@ -516,7 +568,7 @@
       // Good fix for active ping — estimated position
       const estDist=d*(0.85+rand(-1,1)*0.20);
       e.contact={
-        x:(srcX+world.w)%world.w, y:srcY,
+        x:srcX, y:srcY,
         u:clamp(d*0.10+80,60,400), t:performance.now()/1000,
         strength:clamp(sig*0.85,0.3,0.9)
       };
@@ -657,5 +709,5 @@
     return true;
   }
 
-  window.SENSE={setDetected,passiveUpdate,towedArrayUpdate,proximityDetect,activePing,clearContact,tickContacts};
+  window.SENSE={setDetected,passiveUpdate,towedArrayUpdate,proximityDetect,activePing,clearContact,tickContacts,registerBearing};
 })();

@@ -1013,11 +1013,12 @@
       }
     }
 
-    player.hp=Math.max(1,100-Object.values(d.strikes).reduce((a,b)=>a+b,0)*15);
+    player.hp=Math.max(1,100-Object.values(d.strikes).reduce((a,b)=>a+b,0)*35);
   }
 
   // ── Sinking check ─────────────────────────────────────────────────────────
   function _checkSinking(){
+    if(window.G?.game?.godMode) return;
     const d=player.damage;
     const fl=d.flooded;
     const flCount=COMPS.filter(c=>fl[c]).length;

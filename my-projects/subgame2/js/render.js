@@ -7,7 +7,7 @@
   const {doodleLine,doodleCircle,doodleText,w2s,wScale,PANEL_H,STRIP_W,U}=window.R;
   const {drawLand,drawRoute,drawPlayerTopDown,drawEnemySubTopDown,drawEnemyBoatTopDown,drawTorpedoTopDown}=window.RWORLD;
   const {drawDepthStrip,drawThreatBar,drawNavCompass}=window.RHUD;
-  const {drawStartScreen,drawLogPanel,drawDcPanel,drawDamagePanel,drawCrewPanel,drawDamageScreen,drawPanel}=window.RPANEL;
+  const {drawStartScreen,drawLogPanel,drawDcPanel,drawDamagePanel,drawCrewPanel,drawDamageScreen,drawPanel,drawEndScreen}=window.RPANEL;
 
   // ── Main draw ─────────────────────────────────────────────────────────────────
   function draw(){
@@ -23,6 +23,12 @@
     // ── Start screen ────────────────────────────────────────────────────────
     if(!game.started){
       drawStartScreen(W,H);
+      return;
+    }
+
+    // ── End screens (game over / victory) ───────────────────────────────────
+    if(game.over || game.won){
+      drawEndScreen(W,H);
       return;
     }
 
@@ -348,8 +354,11 @@
         }
 
         const lifeLeft=Math.ceil(b.life);
-        const statusTxt=hasTarget?`T${b.torpId} LOCKED`:`T${b.torpId} SEARCH ${lifeLeft}s`;
-        ctx.fillStyle=hasTarget?'rgba(30,58,95,0.75)':'rgba(17,24,39,0.45)';
+        const wireStatus=b.wire?.live;
+        const statusTxt=hasTarget?`T${b.torpId} LOCKED`
+          :wireStatus?`T${b.torpId} WIRE ${lifeLeft}s`
+          :`T${b.torpId} SEARCH ${lifeLeft}s`;
+        ctx.fillStyle=hasTarget?'rgba(30,58,95,0.75)':wireStatus?'rgba(20,100,60,0.70)':'rgba(17,24,39,0.45)';
         doodleText(statusTxt, tx2+U(8), ty2-U(6), U(8), 'left');
       } else if(b.friendly && !seekerOn){
         const distLeft=wScale((b.enableDist||0)-b.traveled);
@@ -371,6 +380,31 @@
         ctx.beginPath(); ctx.moveTo(tx2,ty2); ctx.lineTo(...w2s(b.wire.fromX,b.wire.fromY)); ctx.stroke();
         ctx.setLineDash([]);
       }
+    }
+
+    // ── Depth charges ─────────────────────────────────────────────────────────
+    for(const b of bullets){
+      if(b.kind!=='depthCharge'||b.life<=0) continue;
+      const [dcx,dcy]=w2s(b.x,b.y);
+      if(dcx<-20||dcx>plotW+20||dcy<-20||dcy>plotH+20) continue;
+      const bw=U(7), bh=U(5);
+      // Barrel body
+      ctx.fillStyle='rgba(160,90,30,0.88)';
+      ctx.strokeStyle='rgba(220,140,50,0.95)';
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.roundRect(dcx-bw/2, dcy-bh/2, bw, bh, U(1.5));
+      ctx.fill(); ctx.stroke();
+      // Band lines
+      ctx.strokeStyle='rgba(240,180,70,0.70)';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(dcx-bw/2+U(2), dcy-bh/2); ctx.lineTo(dcx-bw/2+U(2), dcy+bh/2);
+      ctx.moveTo(dcx+bw/2-U(2), dcy-bh/2); ctx.lineTo(dcx+bw/2-U(2), dcy+bh/2);
+      ctx.stroke();
+      // Label
+      ctx.fillStyle='rgba(240,160,50,0.80)';
+      doodleText(`DC ${Math.round(b.y)}m`, dcx+bw/2+U(4), dcy+U(4), U(7.5), 'left');
     }
 
     // ── Wire-fed contacts ─────────────────────────────────────────────────────
@@ -425,7 +459,7 @@
                     :'60,80,80';
         const sternOff = 5.5;
         const sternAng = player.heading + Math.PI;
-        const sternWX = (player.wx + Math.cos(sternAng)*sternOff + world.w) % world.w;
+        const sternWX = player.wx + Math.cos(sternAng)*sternOff;
         const sternWY = player.wy + Math.sin(sternAng)*sternOff;
 
         const trail = player._cableTrail||[];

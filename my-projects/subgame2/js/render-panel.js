@@ -1,5 +1,5 @@
 // render-panel.js — start screen, log panel, damage control panel, command panel
-// Exposes window.RPANEL: { drawStartScreen, drawLogPanel, drawDcPanel, drawDamagePanel, drawPanel }
+// Exposes window.RPANEL: { drawStartScreen, drawLogPanel, drawDcPanel, drawDamagePanel, drawPanel, drawEndScreen }
 // Requires window.R (render-utils.js) to be loaded first.
 (() => {
   'use strict';
@@ -2367,12 +2367,36 @@
       }
     }
 
-    // Designation buttons row
+    // Designation buttons row — paginated when contacts exceed visible slots
     const cbW=U(35), cbH=U(17), cbGap=U(3);
-    let cbX=fcX;
     const cbY=panelY+U(24);
+    const arrowW=U(16);
+    const clrW=U(32);
+    const availW=fcW-clrW-U(6); // space for contact buttons + arrows
+    const slotsPerPage=Math.max(1,Math.floor(availW/(cbW+cbGap)));
+    const totalContacts=tdcContacts.length;
+    const needsPaging=totalContacts>slotsPerPage;
+    if(!game._tdcPage) game._tdcPage=0;
+    // Clamp page to valid range
+    const maxPage=Math.max(0,Math.ceil(totalContacts/slotsPerPage)-1);
+    if(game._tdcPage>maxPage) game._tdcPage=maxPage;
+    const pageStart=game._tdcPage*slotsPerPage;
+    const pageEnd=Math.min(pageStart+slotsPerPage,totalContacts);
+
+    let cbX=fcX;
     ctx.font=`${U(9)}px ui-monospace,monospace`;
-    for(const c of tdcContacts){
+
+    // Page left arrow
+    if(needsPaging){
+      const canLeft=game._tdcPage>0;
+      btn('\u25C0', cbX, cbY, arrowW, cbH, false,
+        ()=>{ if(game._tdcPage>0) game._tdcPage--; },
+        canLeft?'rgba(17,24,39,0.60)':'rgba(17,24,39,0.20)');
+      cbX+=arrowW+U(2);
+    }
+
+    for(let ci=pageStart;ci<pageEnd;ci++){
+      const c=tdcContacts[ci];
       const isSelected=tdc.target===c.ref;
       const cQ=c.sc?.tmaQuality??0;
       const selCol=c.isTorp?'rgba(100,30,200,0.75)':c.isDead?'rgba(150,30,30,0.75)':cQ>=0.6?'#1e3a5f':cQ>=0.2?'rgba(146,64,14,0.85)':'rgba(80,80,80,0.75)';
@@ -2380,10 +2404,18 @@
         ()=>{ game.tdc.target=c.ref; game.tdc.targetId=c.id; setMsg(`TDC: ${c.id} DESIGNATED`,1.0); },
         selCol);
       cbX+=cbW+cbGap;
-      if(cbX+cbW>fcX+fcW-U(38)) break;
     }
+
+    // Page right arrow
+    if(needsPaging){
+      const canRight=game._tdcPage<maxPage;
+      btn('\u25B6', cbX, cbY, arrowW, cbH, false,
+        ()=>{ if(game._tdcPage<maxPage) game._tdcPage++; },
+        canRight?'rgba(17,24,39,0.60)':'rgba(17,24,39,0.20)');
+    }
+
     // CLR: clear TDC designation + remove all dead contacts from sonarContacts map
-    btn('CLR',fcX+fcW-U(32),cbY,U(32),cbH,false,()=>{
+    btn('CLR',fcX+fcW-clrW,cbY,clrW,cbH,false,()=>{
       game.tdc.target=null; game.tdc.targetId=null;
       // Remove dead entries from sonarContacts so they vanish from contacts list
       const sc=window.G.sonarContacts;
@@ -2887,28 +2919,29 @@
       ctx.fillText(`⚡ REACTOR SCRAM — ${epmStr}  ${Math.round(restartPct*100)}%`,panelW/2,by+bh*0.70);
     }
 
-    // ── Game over overlay ─────────────────────────────────────────────────────
+  }
+
+  // ── End screens (game over / victory) — full canvas, no game underneath ──────
+  function drawEndScreen(W,H){
+    const cx=W/2;
+
     if(game.over){
       const dmg=player.damage;
       const DMG=window.DMG;
       const escaped=game.escapeResolved&&dmg?.escapeState==='complete';
 
-      // Full black overlay
-      ctx.fillStyle='rgba(4,8,18,0.96)';
-      ctx.fillRect(0,0,panelW,panelY);
+      ctx.fillStyle='rgba(4,8,18,0.98)';
+      ctx.fillRect(0,0,W,H);
 
-      const cx=panelW/2;
-      let ty=panelY*0.12;
+      let ty=H*0.12;
 
       if(escaped){
         const type=dmg.escapeType;
         const survived=dmg.escapeSurvivors;
         const total=DMG.totalCrew();
-        const killed=DMG.totalKilled();
         const playerOut=dmg.escapePlayerSurvived;
         const depth=dmg.escapeDepthM;
 
-        // Heading
         ctx.textAlign='center';
         if(playerOut){
           ctx.fillStyle='rgba(160,200,240,0.90)';
@@ -2920,7 +2953,6 @@
           ctx.fillText('LOST WITH THE BOAT',cx,ty+U(24));
         }
 
-        // Boat name / score line
         ty+=U(38);
         ctx.fillStyle='rgba(100,130,180,0.55)';
         ctx.font=`${U(10)}px ui-monospace,monospace`;
@@ -2932,7 +2964,6 @@
         ctx.fillText(`DEPTH AT ESCAPE: ${depth}m   |   SCORE: ${game.score}`,cx,ty);
 
         ty+=U(22);
-        // Survivor count — the big number
         const survPct=total>0?Math.round(survived/total*100):0;
         const survCol=survPct>=70?'rgba(60,200,100,0.90)':survPct>=40?'rgba(220,180,30,0.90)':'rgba(220,60,60,0.90)';
         ctx.fillStyle=survCol;
@@ -2943,7 +2974,6 @@
         ctx.font=`${U(9)}px ui-monospace,monospace`;
         ctx.fillText('crew reached the surface',cx,ty);
 
-        // Compartment crew summary
         ty+=U(20);
         ctx.fillStyle='rgba(100,130,180,0.45)';
         ctx.font=`${U(8)}px ui-monospace,monospace`;
@@ -2952,8 +2982,8 @@
 
         const COMP_KEYS=DMG.COMPS;
         const COMP_LABELS=['TORP RM','CONTROL','AUX MCH','REACTOR','MANEUVR','ENGINRG'];
-        const colW=(panelW*0.7)/6;
-        const colStartX=cx-panelW*0.35+colW/2;
+        const colW=(W*0.7)/6;
+        const colStartX=cx-W*0.35+colW/2;
         for(let ci=0;ci<6;ci++){
           const comp=COMP_KEYS[ci];
           const list=dmg.crew[comp]||[];
@@ -2969,14 +2999,12 @@
           ctx.fillText(`${ckia} lost`,cx2,ty+U(19));
         }
 
-        // A few notable names
         ty+=U(36);
         ctx.fillStyle='rgba(100,130,180,0.45)';
         ctx.font=`${U(8)}px ui-monospace,monospace`;
         ctx.fillText(`──────────────────────────────────────────────────`,cx,ty);
         ty+=U(12);
 
-        // Show CO status, then up to 8 notable casualties
         const allCrew=COMP_KEYS.flatMap(c=>(dmg.crew[c]||[]));
         const co=allCrew.find(c=>c.rating==='CDR');
         if(co){
@@ -2998,25 +3026,122 @@
         }
 
       } else {
-        // No escape — sunk or crushed
         const crushed = game.overCause==='crush';
         ctx.fillStyle='rgba(200,60,60,0.90)';
         ctx.font=`bold ${U(44)}px ui-monospace,monospace`;
         ctx.textAlign='center';
-        ctx.fillText(crushed?'HULL FAILURE':'SUNK',cx,panelY*0.45);
+        ctx.fillText(crushed?'HULL FAILURE':'SUNK',cx,H*0.45);
         ctx.fillStyle='rgba(140,160,200,0.60)';
         ctx.font=`${U(12)}px ui-monospace,monospace`;
-        ctx.fillText(crushed?`Crush depth exceeded — ${Math.round(player.depth)}m`:'No escape initiated',cx,panelY*0.45+U(22));
+        ctx.fillText(crushed?`Crush depth exceeded — ${Math.round(player.depth)}m`:'No escape initiated',cx,H*0.45+U(22));
         ctx.fillStyle='rgba(140,160,200,0.55)';
         ctx.font=`${U(10)}px ui-monospace,monospace`;
-        ctx.fillText(`All hands lost   |   SCORE: ${game.score}`,cx,panelY*0.45+U(40));
+        ctx.fillText(`All hands lost   |   SCORE: ${game.score}`,cx,H*0.45+U(40));
       }
 
-      // Restart hint
       ctx.fillStyle='rgba(100,130,180,0.45)';
       ctx.font=`${U(9)}px ui-monospace,monospace`;
       ctx.textAlign='center';
-      ctx.fillText('R — restart',cx,panelY-U(20));
+      ctx.fillText('R — new game',cx,H-U(20));
+    }
+
+    if(game.won && !game.over){
+      const SCENARIO_NAMES={
+        duel:'1V1 DUEL', ambush:'AMBUSH', patrol:'BARRIER TRANSIT',
+        ssbn_hunt:'SSBN HUNT', boss_fight:'BOSS FIGHT', asw_taskforce:'ASW TASKFORCE',
+      };
+      const SCENARIO_FLAVOUR={
+        duel:'Enemy submarine destroyed.',
+        ambush:'All hostiles neutralised. You survived the ambush.',
+        patrol:'Barrier patrol eliminated. Transit route is clear.',
+        ssbn_hunt:'SSBN destroyed. Strategic mission complete.',
+        boss_fight:'Zeta-class confirmed destroyed.',
+        asw_taskforce:'ASW taskforce neutralised. Surface threat eliminated.',
+      };
+
+      ctx.fillStyle='rgba(4,8,18,0.98)';
+      ctx.fillRect(0,0,W,H);
+
+      let ty=H*0.10;
+
+      ctx.textAlign='center';
+      ctx.fillStyle='rgba(80,220,130,0.90)';
+      ctx.font=`bold ${U(36)}px ui-monospace,monospace`;
+      ctx.fillText('MISSION COMPLETE',cx,ty+U(28));
+
+      ty+=U(42);
+      ctx.fillStyle='rgba(80,180,120,0.40)';
+      ctx.font=`${U(10)}px ui-monospace,monospace`;
+      ctx.fillText('──────────────────────────────────────────────────',cx,ty);
+
+      ty+=U(18);
+      ctx.fillStyle='rgba(160,220,180,0.80)';
+      ctx.font=`bold ${U(14)}px ui-monospace,monospace`;
+      ctx.fillText(SCENARIO_NAMES[game.scenario]||game.scenario.toUpperCase(),cx,ty);
+
+      ty+=U(16);
+      ctx.fillStyle='rgba(140,180,170,0.60)';
+      ctx.font=`${U(9)}px ui-monospace,monospace`;
+      ctx.fillText(SCENARIO_FLAVOUR[game.scenario]||'All enemies destroyed.',cx,ty);
+
+      ty+=U(16);
+      ctx.fillStyle='rgba(80,180,120,0.30)';
+      ctx.font=`${U(10)}px ui-monospace,monospace`;
+      ctx.fillText('──────────────────────────────────────────────────',cx,ty);
+
+      ty+=U(22);
+      const mT=game.missionT||0;
+      const mins=Math.floor(mT/60);
+      const secs=Math.floor(mT%60);
+      const timeStr=`${mins}:${secs.toString().padStart(2,'0')}`;
+      const killed=game._enemiesKilled||0;
+      const DMG=window.DMG;
+      const totalCrew=DMG?DMG.totalCrew():0;
+      const totalKilled=DMG?DMG.totalKilled():0;
+      const crewAlive=totalCrew-totalKilled;
+
+      const stats=[
+        ['MISSION TIME', timeStr],
+        ['ENEMIES DESTROYED', `${killed}`],
+        ['CREW SURVIVING', `${crewAlive} / ${totalCrew}`],
+        ['FINAL SCORE', `${game.score}`],
+      ];
+
+      const statH=U(20);
+      const statW=W*0.50;
+      for(const [label,val] of stats){
+        ctx.fillStyle='rgba(140,180,200,0.55)';
+        ctx.font=`${U(9)}px ui-monospace,monospace`;
+        ctx.textAlign='left';
+        ctx.fillText(label,cx-statW/2,ty);
+        ctx.fillStyle='rgba(80,220,140,0.85)';
+        ctx.font=`bold ${U(10)}px ui-monospace,monospace`;
+        ctx.textAlign='right';
+        ctx.fillText(val,cx+statW/2,ty);
+        ty+=statH;
+      }
+
+      ty+=U(6);
+      ctx.fillStyle='rgba(80,180,120,0.30)';
+      ctx.font=`${U(10)}px ui-monospace,monospace`;
+      ctx.textAlign='center';
+      ctx.fillText('──────────────────────────────────────────────────',cx,ty);
+
+      ty+=U(18);
+      const scorePct=crewAlive>0&&totalCrew>0?Math.round(crewAlive/totalCrew*100):0;
+      const crewCol=scorePct>=90?'rgba(80,220,130,0.90)':scorePct>=60?'rgba(220,200,40,0.90)':'rgba(220,100,60,0.90)';
+      ctx.fillStyle=crewCol;
+      ctx.font=`bold ${U(22)}px ui-monospace,monospace`;
+      ctx.fillText(`${scorePct}%`,cx,ty);
+      ty+=U(14);
+      ctx.fillStyle='rgba(140,180,170,0.50)';
+      ctx.font=`${U(8)}px ui-monospace,monospace`;
+      ctx.fillText('crew survival rate',cx,ty);
+
+      ctx.fillStyle='rgba(80,180,120,0.45)';
+      ctx.font=`${U(9)}px ui-monospace,monospace`;
+      ctx.textAlign='center';
+      ctx.fillText('R — new game',cx,H-U(20));
     }
   }
 
@@ -3774,5 +3899,5 @@
     }
   }
 
-  window.RPANEL = {drawStartScreen, drawLogPanel, drawDcPanel, drawDamagePanel, drawCrewPanel, drawDamageScreen, drawPanel};
+  window.RPANEL = {drawStartScreen, drawLogPanel, drawDcPanel, drawDamagePanel, drawCrewPanel, drawDamageScreen, drawPanel, drawEndScreen};
 })();

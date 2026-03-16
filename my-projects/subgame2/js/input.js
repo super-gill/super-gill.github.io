@@ -99,9 +99,8 @@
       const Z=(window.CONFIG?.camera?.zoom||0.12)*(window.G?.DPR||1);
       const dx=(input.mouseX-input._camDragLastX)/Z;
       const dy=(input.mouseY-input._camDragLastY)/Z;
-      const w=window.G?.world?.w||12000, h=window.G?.world?.h||12000;
-      cam.x=(cam.x-dx+w)%w;
-      cam.y=(cam.y-dy+h)%h;
+      cam.x=cam.x-dx;
+      cam.y=cam.y-dy;
       input._camDragLastX=input.mouseX;
       input._camDragLastY=input.mouseY;
     }

@@ -710,6 +710,13 @@
     dipSonar(brgStr) {
       log('SONAR', `Conn, Sonar — dipping sonar active, bears ${brgStr}`, P.MED);
     },
+    heloDrop(brgStr) {
+      log('SONAR', `Conn, Sonar — torpedo in the water, bears ${brgStr}. Helo drop, classify ASW.`, P.CRIT);
+      msg('TORPEDO IN THE WATER', 3.0);
+    },
+    dcDetonation(brgStr) {
+      log('SONAR', `Conn, Sonar — depth charge detonation, bears ${brgStr}.`, P.MED);
+    },
   };
 
   // ════════════════════════════════════════════════════════════════════════
@@ -839,6 +846,12 @@
       msg(`COLLAPSE DEPTH — ${Math.round(depthM)}m`, 3.0);
     },
 
+    hullDamageCreaking(depthM) {
+      log('ENG', `Conn, Eng — hull working hard at ${Math.round(depthM)}m. Structural damage is audible — creaking and stress pops heard throughout the boat. Recommend reducing depth.`, P.CRIT);
+      qlog('CONN', `Conn — understood. Watch your depth, watch your depth.`, 1.4, P.CRIT);
+      msg(`HULL STRESS — ${Math.round(depthM)}m`, 2.5);
+    },
+
   };
 
   // ════════════════════════════════════════════════════════════════════════
@@ -892,6 +905,7 @@
 
     blowOpened(ambientBar, groupBar) {
       // Full RN emergency blow sequence — queued so lines play in order
+      // Used only when auto blow works (immediate venting)
       log('CONN', 'Conn — all hands — Emergency stations, emergency stations, emergency stations: Blow ballast. Prepare to surface the boat.', P.CRIT);
       msg('EMERGENCY STATIONS', 2.5);
       qlog('CONN', 'Conn — full ahead both. Full rise on the planes. Prepare to surface the boat.', 1.5, P.CRIT);
@@ -899,6 +913,13 @@
       qlog('CONN', 'DC, Conn — prepare to operate main vents in hand control. Blow main ballast.', 4.0, P.CRIT);
       qlog('ENG',  `Conn, Eng — emergency blow open. Main ballast venting. Ambient ${ambientBar} bar, group pressure ${groupBar} bar.`, 5.5, P.CRIT);
       msg('EMERGENCY BLOW — VENTING', 5.5);
+    },
+    blowOrderedManual() {
+      // Emergency stations only — venting comms deferred until DC actually opens HPA
+      log('CONN', 'Conn — all hands — Emergency stations, emergency stations, emergency stations: Blow ballast. Prepare to surface the boat.', P.CRIT);
+      msg('EMERGENCY STATIONS', 2.5);
+      qlog('CONN', 'Conn — full ahead both. Full rise on the planes.', 1.5, P.CRIT);
+      qlog('HELM', 'Conn, Helm — full ahead, full rise. Aye. Attempting blow.', 2.8, P.MED);
     },
     blowProgress(depthM, differential) {
       if(differential > 20){
