@@ -550,9 +550,16 @@
     const fillRate  = (C.player.fillRate || 0.022) * rateMult * (dmgFx.depthRateMult ?? 1.0);
 
     if(!blowing && mbt){
-      // Target fill = neutral + proportional correction from depth error
-      // errD>0 → too deep → need to flood more → targetFill > neutralFill
-      const targetFill = clamp(neutralFill + errD * kFill, 0.02, 0.98);
+      // Two-zone depth controller:
+      // Outside brake zone — full authority (constant max fill offset, fast approach)
+      // Inside brake zone  — proportional settle (avoids hanging near target)
+      const brakeZone      = C.player.depthBrakeZone      || 15;
+      const maxFillOffset  = C.player.depthMaxFillOffset   || 0.08;
+      const errAbs = Math.abs(errD);
+      const fillOffset = errAbs < brakeZone
+        ? errD * (maxFillOffset / brakeZone)     // proportional inside brake zone
+        : Math.sign(errD) * maxFillOffset;       // full authority outside brake zone
+      const targetFill = clamp(neutralFill + fillOffset, 0.02, 0.98);
       const wantDrain  = targetFill < avgFill; // need to vent water
       // Draining requires HPA authority; flooding is always free (sea pressure helps)
       const effectiveRate = wantDrain

@@ -161,6 +161,21 @@
     if(e.type==='boat' && (player.periscopeT||0)>0) signal*=(C.player.periscope?.detectBoost||1.55);
     if(signal<C.enemy.hearSignalMin) return;
 
+    // ── Enemy deaf arc — player can hide in enemy baffles ─────────────────────
+    // Uses enemyBaffle* fields from C.player.sonar (Soviet boats: wider, speed-sensitive)
+    const sg=C.player.sonar||{};
+    const eBaffleBase =(sg.enemyBaffleBase??20)*Math.PI/180;
+    const eBaffleMax  =(sg.enemyBaffleMax ??55)*Math.PI/180;
+    const eBaffleHalf =clamp(eBaffleBase+(e.speed||0)*(sg.enemyBafflePerKt??2.0)*Math.PI/180, eBaffleBase, eBaffleMax);
+    const eRolloff    =(sg.baffleRolloffDeg??20)*Math.PI/180;
+    const eBrg        =Math.atan2(dy,dx);
+    const eRelAngle   =Math.abs(((eBrg-(e.heading||0)+3*Math.PI)%(Math.PI*2))-Math.PI);
+    const eDeadStart  =Math.PI-eBaffleHalf;
+    const eFullLimit  =eDeadStart-eRolloff;
+    const eGeoMult    =eRelAngle<=eFullLimit?1.0:eRelAngle>=eDeadStart?0.0:1.0-(eRelAngle-eFullLimit)/eRolloff;
+    signal*=eGeoMult;
+    if(signal<C.enemy.hearSignalMin) return;
+
     // Detection prob — deafness reduces it when enemy is sprinting; sensitivity scales hearing
     // _dmgSensorMult: sonar casualty from torpedo damage (set in damageEnemy in sim.js)
     const sensorMult=e._dmgSensorMult??1.0;
@@ -759,7 +774,7 @@
   function spawnMu(bearing, dist, offsetDist=0){
     _spawnWarship(bearing, dist, {
       r:42, hp:140,
-      sensitivity:rand(0.48,0.68),  // Slava cruiser: ASW secondary role, loud/limited sonar
+      sensitivity:rand(0.32,0.52),  // Slava cruiser: ASW secondary role, basic hull sonar only
       nf:rand(0.70,0.85),
       patrolSpd:rand(12,18),
       pingCd:rand(14,26),
@@ -828,6 +843,103 @@
     }
   }
 
+  // ── Active sonar — ship pings when suspicious or in hunt state ───────────────
+  // Hull sonar (all ships): above thermal layer only — cannot detect below layer.
+  // VDS (Krivak/Udaloy — e.vdsDepth set): can also reach below layer.
+  // Active pinging reveals ship to player — audible COMMS event both on hit and miss.
+  function shipActiveSonar(e, dt){
+    if(e.type!=='boat' || e.civilian) return;
+    const asw=C.enemy.asw;
+
+    // Hunt state tick — expires after huntTimeout with no new contact
+    if(e._huntState){
+      e._huntT=(e._huntT||0)-dt;
+      if(e._huntT<=0){ e._huntState=false; e._huntDatum=null; e._sectorBearing=null; }
+    }
+
+    // Only go active if suspicious enough or actively hunting
+    if(!e._huntState && e.suspicion<asw.activePingThreshold) return;
+
+    // Ping cooldown
+    e._pingCd=(e._pingCd||0)-dt;
+    if(e._pingCd>0) return;
+
+    // Set next cooldown — tighter when holding contact
+    const hasContact=!!e.contact;
+    e._pingCd = hasContact
+      ? asw.activePingContactInterval + rand(-5,5)
+      : rand(asw.activePingInterval[0], asw.activePingInterval[1]);
+
+    // Geometry
+    const dx=wrapDx(e.x, player.wx);
+    const dy=player.wy-e.y;
+    const d=Math.hypot(dx,dy);
+
+    // Layer constraint — hull sonar blocked below thermocline; VDS penetrates it
+    const playerBelowLayer=player.depth>(world.layerY2+40);
+    const hullCanDetect=!playerBelowLayer;
+    const vdsCanDetect=!!e.vdsDepth;
+
+    let detected=false;
+
+    if(hullCanDetect && d<=asw.activePingRange){
+      const pDet=clamp((1-d/asw.activePingRange)*0.70*(e.sensitivity||1.0),0,0.85);
+      if(Math.random()<pDet) detected=true;
+    }
+    if(!detected && vdsCanDetect && d<=asw.vdsPingRange){
+      const pDet=clamp((1-d/asw.vdsPingRange)*0.65*(e.sensitivity||1.0),0,0.80);
+      if(Math.random()<pDet) detected=true;
+    }
+
+    if(detected){
+      const sDepth=vdsCanDetect?(e.vdsDepth||300):0;
+      enemyUpdateContactFromPing(e, player.wx, player.wy, d, {x:e.x, y:e.y, depth:sDepth});
+      if(e._huntState) e._huntT=asw.huntTimeout; // reset timer on contact
+      window.COMMS?.sonar?.activePing(1);
+      shipShareContact(e, player.wx, player.wy, d*0.25);
+    } else {
+      // Player hears missed pings — active sonar is not stealthy
+      window.COMMS?.sonar?.activePing(0);
+    }
+  }
+
+  // ── Hunt state — triggered when a friendly surface ship is killed ─────────────
+  // All surviving surface ships floor suspicion, begin aggressive active search.
+  // Coordinator (highest sensitivity) assigns bearing sectors to each searching unit.
+  function triggerHuntState(killedShip){
+    if(!killedShip || killedShip.type!=='boat') return;
+    const asw=C.enemy.asw;
+    const datum={x:killedShip.x, y:killedShip.y};
+
+    const ships=enemies.filter(e=>e.type==='boat'&&!e.civilian&&!e.dead);
+    if(!ships.length) return;
+
+    // Assign search sectors — ASW specialists ranked by capability (Udaloy leads)
+    const aswRank={UDALOY:0,KRIVAK:1,GRISHA:2};
+    const searchers=ships
+      .filter(e=>e.role==='pinger')
+      .sort((a,b)=>(aswRank[a.subClass]??9)-(aswRank[b.subClass]??9));
+    const count=Math.max(searchers.length,1);
+    for(let i=0;i<searchers.length;i++){
+      searchers[i]._sectorBearing=(2*Math.PI/count)*i;
+      searchers[i]._sectorArc=asw.sectorArcDeg*(Math.PI/180);
+    }
+
+    // Apply hunt state to all surface ships
+    for(const e of ships){
+      e._huntState=true;
+      e._huntT=asw.huntTimeout;
+      e._huntDatum=datum;
+      e.suspicion=Math.max(e.suspicion, asw.huntSuspicionFloor);
+      e._pingCd=0; // ping immediately on next frame
+      e._atDatum=false; // reset sector search — new datum from this kill
+      e._datumHoldT=0;
+      e._sectorRange=0;
+    }
+
+    addLog('SONAR','Conn, Sonar — underwater explosion. Multiple contacts going active, all units.');
+  }
+
   // Ships share contact data with other ships only (not with subs, not sub-to-ship).
   // Each recipient adds its own positional noise — same contact, different firing solutions.
   function shipShareContact(fromShip, cx, cy, accuracy){
@@ -847,5 +959,6 @@
              enemyMaybeHearPlayer,enemyDecay,updateEnemyNoise,solveEnemyTMA,enemyRegisterBearing,
              spawnEnemy,spawnSub,spawnSSBN,spawnZeta,spawnGamma,spawnEta,spawnEpsilon,spawnTheta,
              spawnNovember,spawnWhiskey,spawnYankee,spawnPapa,spawnGolf,
-             spawnIota,spawnKappa,spawnLambda,spawnMu,spawnCivilian,wolfpackShareDatum,shipShareContact};
+             spawnIota,spawnKappa,spawnLambda,spawnMu,spawnCivilian,wolfpackShareDatum,shipShareContact,
+             shipActiveSonar,triggerHuntState};
 })();

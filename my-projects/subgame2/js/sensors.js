@@ -104,6 +104,24 @@
           c._estRange=c._estRange!=null ? c._estRange*0.6+clamped*0.4 : clamped;
           c._rangeSource='tma';
           c._rangeT=T;
+          // ── Contact heading estimation — diff successive triangle intersections ──
+          // Two estimates ≥12s apart give a displacement → estimated course
+          const prevEstT=c._tmaEstT;
+          if(prevEstT!=null && T-prevEstT>=12 && T-prevEstT<=90){
+            const hdgDx=ix-c._tmaEstX, hdgDy=iy-c._tmaEstY;
+            const moved=Math.hypot(hdgDx,hdgDy);
+            if(moved>30){ // suppress noise from tiny displacements
+              const rawHdg=Math.atan2(hdgDy,hdgDx);
+              // Angular interpolation via sin/cos blend — avoids wrap discontinuity
+              c._estHeading=c._estHeading!=null
+                ? Math.atan2(Math.sin(rawHdg)*0.35+Math.sin(c._estHeading)*0.65,
+                             Math.cos(rawHdg)*0.35+Math.cos(c._estHeading)*0.65)
+                : rawHdg;
+              c._estHeadingConf=clamp(qCross*qBase, 0, 1);
+              c._estHeadingT=T;
+            }
+          }
+          c._tmaEstX=ix; c._tmaEstY=iy; c._tmaEstT=T;
         }
       }
     }
@@ -634,14 +652,30 @@
       }
       if(e.type==='boat') signal*=1.25;
       const selfMask=player.noise*0.55;
-      const detect=(signal-selfMask)*deafness;
+
+      // ── Bow array deaf arc — hull sonar cannot hear into own stern null ──────
+      // relAngle: 0 = dead ahead, π = dead astern
+      const trueBearing=Math.atan2(dy,dx);
+      const sg=C.player.sonar||{};
+      const baffleBase=(sg.baffleHalfAngleDegBase??15)*Math.PI/180;
+      const baffleMax =(sg.baffleHalfAngleDegMax ??45)*Math.PI/180;
+      const baffleHalf=clamp(baffleBase+(player.speed||0)*(sg.baffleHalfAngleDegPerKt??1.5)*Math.PI/180, baffleBase, baffleMax);
+      const rolloff   =(sg.baffleRolloffDeg??20)*Math.PI/180;
+      const relAngle  =Math.abs(((trueBearing-(player.heading||0)+3*Math.PI)%(Math.PI*2))-Math.PI);
+      const deadStart =Math.PI-baffleHalf;   // beyond this: fade out
+      const fullLimit =deadStart-rolloff;    // before this: full sensitivity
+      const geoMult   =relAngle<=fullLimit?1.0:relAngle>=deadStart?0.0:1.0-(relAngle-fullLimit)/rolloff;
+      // sonarQuality: vessel-specific sensitivity — was defined per preset but never read
+      const squal=C.player.sonarQuality??0.85;
+
+      const detect=(signal-selfMask)*deafness*geoMult*squal;
       if(detect<=0) continue;
       // Watch fatigue — tired operators miss contacts and bearings drift
       const fatigue=game.watchFatigue||0;
       const fatiguePenalty=1-fatigue*0.40;  // up to 40% detection loss at full fatigue
       const p=clamp((0.05+detect*0.55+(e.type==='boat'?0.10:0.05))*fatiguePenalty, 0, 0.75);
       if(Math.random()<p){
-        const trueBearing=Math.atan2(dy,dx);
+        // trueBearing already computed above for deaf arc geometry
         const layerMult=(layer<1)?1.50:1.0;
         const baseU=80+d*0.10;
         const noiseU=baseU*layerMult*(dmgFx.bearingNoiseMult??1.0)*(1+player.noise*0.8)*(1+(1-deafness)*0.6)*(1+fatigue*0.60);

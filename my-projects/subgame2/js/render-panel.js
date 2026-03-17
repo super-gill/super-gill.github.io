@@ -2254,13 +2254,17 @@
     // Torpedo tube display
     {
       const tubes=player.torpTubes||[];
+      const tubeLoad=player.tubeLoad||[];
+      const tubeOp=player.tubeOp||null;
       const stock=typeof player.torpStock==='number'?player.torpStock:0;
+      const mStock=player.missileStock||0;
       const reloadTime=C.player.torpReloadTime||28;
       const fireDelay=C.player.fireDelay||1.8;
       const pending=player.pendingFires||[];
       const hdrY=panelY+U(18);
-      const outOfAmmo=stock<=0&&pending.length===0;
+      const outOfAmmo=stock<=0&&mStock<=0&&pending.length===0;
       const allBusy=tubes.length>0&&tubes.every(t=>t>0);
+      const selTube=game.wirePanel?.selectedTube??0;
 
       ctx.fillStyle=outOfAmmo?'rgba(17,24,39,0.28)':'#111827';
       ctx.font=`bold ${U(11)}px ui-monospace,monospace`;
@@ -2270,7 +2274,8 @@
       ctx.font=`bold ${U(11)}px ui-monospace,monospace`;
       ctx.fillStyle=outOfAmmo?'rgba(17,24,39,0.20)':'#111827';
       ctx.textAlign='right';
-      ctx.fillText(`${stock} left`,x+U(145),hdrY+U(11));
+      const stockStr=`${stock}T${mStock>0?' '+mStock+'M':''}`;
+      ctx.fillText(stockStr,x+U(145),hdrY+U(11));
 
       const pipW=U(18), pipH=U(30), pipGap=U(4);
       const pipStartX=x+U(3);
@@ -2279,10 +2284,22 @@
         const px=pipStartX+i*(pipW+pipGap);
         const wireOccupied=tubes[i]===-1||(player.tubeWires?.[i]?.wire?.live===true);
         const ready=tubes[i]===0&&!wireOccupied;
-        const hasShell=ready&&stock>0;
+        const load=tubeLoad[i]; // 'torp', missile key, or null (empty)
+        const isMissileLoad=load&&load!=='torp';
+        const hasShell=ready&&load!=null&&(isMissileLoad?(mStock>0||true):stock>0); // loaded = has weapon
         const pf=pending.find(p=>p.tubeIdx===i);
+        const isSelected=i===selTube;
+        const isOpTube=tubeOp?.tubeIdx===i;
+
+        // Selection highlight
+        if(isSelected&&!pf&&!wireOccupied){
+          ctx.fillStyle='rgba(30,58,95,0.10)';
+          ctx.fillRect(px-U(1),pipY-U(1),pipW+U(2),pipH+U(2));
+        }
+
         ctx.fillStyle='rgba(17,24,39,0.08)';
         ctx.fillRect(px,pipY,pipW,pipH);
+
         if(pf){
           const frac=clamp(1-pf.t/fireDelay,0,1);
           const pulse=0.5+0.5*Math.sin(performance.now()*0.008);
@@ -2303,7 +2320,19 @@
           ctx.textAlign='center';
           ctx.fillText('WIRE',px+pipW/2,pipY+pipH*0.45);
           ctx.fillText(`T${i+1}`,px+pipW/2,pipY+pipH*0.72);
-        } else if(!ready){
+        } else if(isOpTube){
+          // Tube op in progress — show progress fill
+          const frac=clamp(tubeOp.progress/tubeOp.totalT,0,1);
+          ctx.fillStyle='rgba(120,80,20,0.22)';
+          ctx.fillRect(px,pipY+pipH*(1-frac),pipW,pipH*frac);
+          ctx.fillStyle='rgba(180,140,60,0.75)';
+          ctx.font=`${U(7)}px ui-monospace,monospace`;
+          ctx.textAlign='center';
+          const opLbl=tubeOp.type==='unload'?'OUT':tubeOp.type==='strike'?'SWAP':'IN';
+          ctx.fillText(opLbl,px+pipW/2,pipY+pipH*0.52);
+          ctx.fillText(Math.ceil(tubeOp.totalT-tubeOp.progress)+'s',px+pipW/2,pipY+pipH*0.78);
+        } else if(!ready&&tubes[i]>0){
+          // Auto-reloading (torpedo only)
           const frac=clamp(1-tubes[i]/reloadTime,0,1);
           ctx.fillStyle='rgba(17,24,39,0.18)';
           ctx.fillRect(px,pipY+pipH*(1-frac),pipW,pipH*frac);
@@ -2312,32 +2341,118 @@
           ctx.textAlign='center';
           ctx.fillText(Math.ceil(tubes[i])+'s',px+pipW/2,pipY+pipH*0.62);
         } else if(hasShell){
-          ctx.fillStyle='rgba(30,58,95,0.55)';
+          // Loaded and ready
+          const col=isMissileLoad?'rgba(100,40,120,0.55)':'rgba(30,58,95,0.55)';
+          const colTxt=isMissileLoad?'rgba(200,140,220,0.95)':'rgba(30,58,95,0.95)';
+          ctx.fillStyle=col;
           ctx.fillRect(px,pipY,pipW,pipH);
-          ctx.fillStyle='rgba(30,58,95,0.95)';
-          ctx.font=`${U(11)}px ui-monospace,monospace`;
+          ctx.fillStyle=colTxt;
+          ctx.font=`bold ${U(7)}px ui-monospace,monospace`;
           ctx.textAlign='center';
-          ctx.fillText('▶',px+pipW/2,pipY+pipH*0.65);
+          // Short load type label
+          const loadAbbr=isMissileLoad?(C.missiles?.[load]?.shortLabel||load).slice(0,4):'MK48';
+          ctx.fillText(loadAbbr,px+pipW/2,pipY+pipH*0.42);
+          ctx.fillText('▶',px+pipW/2,pipY+pipH*0.75);
+        } else if(load===null||load===undefined){
+          // Truly empty tube
+          ctx.fillStyle='rgba(17,24,39,0.06)';
+          ctx.fillRect(px,pipY,pipW,pipH);
+          ctx.fillStyle='rgba(17,24,39,0.30)';
+          ctx.font=`${U(7)}px ui-monospace,monospace`;
+          ctx.textAlign='center';
+          ctx.fillText('MT',px+pipW/2,pipY+pipH*0.62);
         } else {
           ctx.fillStyle='rgba(17,24,39,0.06)';
           ctx.fillRect(px,pipY,pipW,pipH);
         }
-        ctx.strokeStyle=wireOccupied?'rgba(13,148,136,0.70)':pf?'rgba(180,100,0,0.70)':hasShell?'rgba(30,58,95,0.60)':ready?'rgba(17,24,39,0.15)':'rgba(17,24,39,0.25)';
-        ctx.lineWidth=pf?1.5:1;
+        // Selection border
+        const selBorder=isSelected?'rgba(100,150,220,0.55)':null;
+        ctx.strokeStyle=selBorder||(wireOccupied?'rgba(13,148,136,0.70)':pf?'rgba(180,100,0,0.70)':isMissileLoad?'rgba(160,80,200,0.60)':hasShell?'rgba(30,58,95,0.60)':ready?'rgba(17,24,39,0.15)':'rgba(17,24,39,0.25)');
+        ctx.lineWidth=isSelected?2:pf?1.5:1;
         ctx.strokeRect(px,pipY,pipW,pipH);
+
+        // Click to select tube for load management
+        btn('',px,pipY,pipW,pipH,false,()=>{ if(game.wirePanel) game.wirePanel.selectedTube=i; },'transparent');
       }
+
+      // ── Load management section ─────────────────────────────────────────────
+      // Shows actions for the selected tube; collapses when firing or wire active
+      {
+        const lmY=pipY+pipH+U(4);
+        const lmH=U(18);
+        const wireOnSel=tubes[selTube]===-1||(player.tubeWires?.[selTube]?.wire?.live===true);
+        const selLoad=tubeLoad[selTube];
+        const selState=tubes[selTube];
+        const opOnSel=tubeOp?.tubeIdx===selTube;
+        const opBusy=!!tubeOp;
+        const misTypes=C.player.missileTypes||[];
+
+        ctx.font=`${U(8)}px ui-monospace,monospace`;
+        ctx.textAlign='left';
+
+        if(wireOnSel){
+          ctx.fillStyle='rgba(13,148,136,0.50)';
+          ctx.fillText(`T${selTube+1} WIRE LIVE`,pipStartX,lmY+U(13));
+        } else if(opOnSel){
+          // Progress bar for current op
+          const frac=clamp(tubeOp.progress/tubeOp.totalT,0,1);
+          const barW=U(145)-pipStartX+x;
+          ctx.fillStyle='rgba(17,24,39,0.12)';
+          ctx.fillRect(pipStartX,lmY,barW,lmH);
+          ctx.fillStyle='rgba(180,140,60,0.35)';
+          ctx.fillRect(pipStartX,lmY,barW*frac,lmH);
+          ctx.fillStyle='rgba(180,140,60,0.80)';
+          const opLabels={load:'LOADING',unload:'UNLOADING',strike:'STRIKE RELOAD'};
+          ctx.fillText(`${opLabels[tubeOp.type]||'BUSY'} T${selTube+1}  ${Math.ceil(tubeOp.totalT-tubeOp.progress)}s`,pipStartX+U(3),lmY+U(13));
+        } else if(selLoad==null){
+          // Empty tube — show LOAD buttons
+          const nOpts=1+misTypes.length;
+          const btnW=(U(150)-pipStartX+x)/nOpts-U(2);
+          let bx=pipStartX;
+          btn('LD TORP',bx,lmY,btnW,lmH,opBusy,()=>window._orderLoad?.(selTube,'torp'),opBusy?'rgba(17,24,39,0.10)':'rgba(17,24,39,0.25)');
+          bx+=btnW+U(2);
+          for(const mk of misTypes){
+            const ml=(C.missiles?.[mk]?.shortLabel||mk).slice(0,6);
+            const canLoad=(mStock>0)&&!opBusy;
+            btn(`LD ${ml}`,bx,lmY,btnW,lmH,!canLoad,()=>window._orderLoad?.(selTube,mk),canLoad?'rgba(100,40,120,0.30)':'rgba(17,24,39,0.10)');
+            bx+=btnW+U(2);
+          }
+        } else {
+          // Loaded tube — show UNLOAD + CHANGE options
+          const nOpts=2+misTypes.filter(mk=>mk!==(selLoad==='torp'?null:selLoad)).length;
+          const btnW=(U(150)-pipStartX+x)/Math.max(nOpts,2)-U(2);
+          let bx=pipStartX;
+          const canAct=!opBusy&&selState===0;
+          btn('UNLOAD',bx,lmY,btnW,lmH,!canAct,()=>window._orderUnload?.(selTube),canAct?'rgba(17,24,39,0.25)':'rgba(17,24,39,0.10)');
+          bx+=btnW+U(2);
+          // Change options — torpedo if currently missile, missile(s) if currently torpedo
+          if(selLoad!=='torp'){
+            const canChg=canAct&&(stock>0);
+            btn('CHG TORP',bx,lmY,btnW,lmH,!canChg,()=>window._orderStrikeReload?.(selTube,'torp'),canChg?'rgba(17,24,39,0.25)':'rgba(17,24,39,0.10)');
+            bx+=btnW+U(2);
+          } else {
+            for(const mk of misTypes){
+              const ml=(C.missiles?.[mk]?.shortLabel||mk).slice(0,6);
+              const canChg=canAct&&(mStock>0);
+              btn(`CHG ${ml}`,bx,lmY,btnW,lmH,!canChg,()=>window._orderStrikeReload?.(selTube,mk),canChg?'rgba(100,40,120,0.30)':'rgba(17,24,39,0.10)');
+              bx+=btnW+U(2);
+            }
+          }
+        }
+      }
+
       ctx.textAlign='left';
       ctx.font=`${U(9)}px ui-monospace,monospace`;
       ctx.fillStyle='rgba(17,24,39,0.40)';
       const hasPending=pending.length>0;
       const statusStr=outOfAmmo?'DRY':hasPending?'FIRING…':allBusy?'RELOADING':'SHIFT+CLICK AIM  F FIRE';
-      ctx.fillText(statusStr,pipStartX,pipY+pipH+U(10));
+      ctx.fillText(statusStr,pipStartX,pipY+pipH+U(10)+U(22));
     }
-    weaponRow('ACTIVE PING [SPACE]',player.pingCd,C.player.pingCd,panelY+U(106),'PING',
+    weaponRow('ACTIVE PING [SPACE]',player.pingCd,C.player.pingCd,panelY+U(124),'PING',
       ()=>{ if(player.pingCd<=0){ window.SENSE?.activePing(); setMsg('PING!',0.8); }});
     const cmStock=player.cmStock??0;
     const cmLabel=cmStock>0?`CM [X] x${cmStock}`:'CM [X] EMPTY';
-    weaponRow(cmLabel,player.cmCd,C.player.cmCd,panelY+U(136),cmStock>0?'DEPLOY':'---',
+    weaponRow(cmLabel,player.cmCd,C.player.cmCd,panelY+U(154),cmStock>0?'DEPLOY':'---',
       ()=>{ if(window.W&&player.cmCd<=0&&cmStock>0){
         player.cmStock--;
         player.cmCd=C.player.cmCd;
@@ -2346,6 +2461,74 @@
         setMsg('NOISEMAKER OUT',0.9);
       }});
 
+    }
+
+    function drawMastSection(x, w) {
+      const masts=player.masts||[];
+      const cfgs=C.player.masts||[];
+      if(!cfgs.length) return;
+
+      ctx.fillStyle=TH.color.header;
+      ctx.font=`${U(TH.font.header)}px ${TH.FONT_FAMILY}`;
+      ctx.textAlign='left';
+      ctx.fillText('MASTS',x,panelY+U(18));
+
+      const rowH=U(26), rowGap=U(3);
+      const btnW=U(38), btnH=U(18);
+
+      for(let i=0;i<cfgs.length;i++){
+        const cfg=cfgs[i];
+        const m=masts[i]||{state:'down',t:0};
+        const ry=panelY+U(24)+i*(rowH+rowGap);
+
+        // State colour
+        const stateCol=m.state==='up'?'rgba(22,163,74,0.80)'
+          :m.state==='damaged'?'rgba(180,30,30,0.80)'
+          :(m.state==='raising'||m.state==='lowering')?'rgba(146,64,14,0.80)'
+          :'rgba(17,24,39,0.30)';
+
+        // Label
+        ctx.fillStyle=stateCol;
+        ctx.font=`${U(9)}px ui-monospace,monospace`;
+        ctx.textAlign='left';
+        ctx.fillText(cfg.label,x,ry+U(12));
+
+        // State text
+        const stateStr=m.state==='up'?'UP'
+          :m.state==='damaged'?'LOST'
+          :m.state==='raising'?`↑${Math.ceil(m.t)}s`
+          :m.state==='lowering'?`↓${Math.ceil(m.t)}s`
+          :'DOWN';
+        ctx.fillStyle=stateCol;
+        ctx.font=`${U(8)}px ui-monospace,monospace`;
+        ctx.textAlign='left';
+        ctx.fillText(stateStr,x+U(56),ry+U(12));
+
+        // Raise/Lower toggle button
+        if(m.state!=='damaged'){
+          const isUp=m.state==='up'||m.state==='raising';
+          const bLabel=isUp?'LOWER':'RAISE';
+          const bCol=isUp?'rgba(127,29,29,0.65)':'rgba(17,58,39,0.65)';
+          PANEL.btn2(ctx,bLabel,x+w-pad-btnW,ry,btnW,btnH,bCol,()=>window._toggleMast?.(cfg.key));
+        }
+
+        // Warning flash when in flood risk zone
+        if((m.state==='up'||m.state==='raising')&&player.depth>(cfg.safeDepth+5)&&player.depth<=cfg.crushDepth){
+          const blink=Math.sin(performance.now()*0.012)>0;
+          if(blink){
+            ctx.fillStyle='rgba(220,150,0,0.22)';
+            ctx.beginPath(); ctx.roundRect(x,ry-U(2),w-pad,rowH,2); ctx.fill();
+          }
+        }
+        // Crush danger flash
+        if((m.state==='up'||m.state==='raising')&&player.depth>cfg.crushDepth){
+          const blink=Math.sin(performance.now()*0.020)>0;
+          if(blink){
+            ctx.fillStyle='rgba(220,38,38,0.28)';
+            ctx.beginPath(); ctx.roundRect(x,ry-U(2),w-pad,rowH,2); ctx.fill();
+          }
+        }
+      }
     }
 
     function drawWireSection(x, w) {
@@ -2461,6 +2644,72 @@
         ctx.fillText('No wire',x,detY+U(22));
       }
     }
+    }
+
+    function drawVlsSection(x, w) {
+      const nCells = C.player.vlsCells || 0;
+      const cells  = player.vlsCells || [];
+      const wType  = C.player.vlsWeapon;
+      const wLabel = wType ? (C.missiles?.[wType]?.shortLabel || wType.toUpperCase()).slice(0,6) : '?';
+      const hasSolution = !!game.ascmSolution;
+      const readyCount  = cells.filter(c => c?.state === 'ready').length;
+
+      ctx.fillStyle = TH.color.header;
+      ctx.font = `${U(TH.font.header)}px ${TH.FONT_FAMILY}`;
+      ctx.textAlign = 'left';
+      ctx.fillText('VLS', x, panelY+U(18));
+
+      ctx.fillStyle = readyCount > 0 ? 'rgba(30,150,60,0.65)' : 'rgba(100,100,100,0.50)';
+      ctx.font = `${U(8)}px ui-monospace,monospace`;
+      ctx.textAlign = 'right';
+      ctx.fillText(`${readyCount}/${nCells}`, x+w-pad, panelY+U(18));
+
+      // 4-column grid
+      const cols   = 4;
+      const rows   = Math.ceil(nCells / cols);
+      const cPad   = U(2);
+      const cellW  = (w - pad - cPad*(cols-1)) / cols;
+      const cellH  = U(28);
+      const gridY  = panelY + U(26);
+
+      for (let i = 0; i < nCells; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const cx  = x + col*(cellW + cPad);
+        const cy  = gridY + row*(cellH + cPad);
+        const cell    = cells[i];
+        const isReady = cell?.state === 'ready';
+        const canFire = isReady && hasSolution;
+
+        ctx.fillStyle = isReady
+          ? (canFire ? 'rgba(15,60,30,0.70)' : 'rgba(20,50,20,0.55)')
+          : 'rgba(15,15,20,0.55)';
+        ctx.beginPath(); ctx.roundRect(cx, cy, cellW, cellH, U(2)); ctx.fill();
+
+        ctx.strokeStyle = isReady ? 'rgba(30,160,60,0.40)' : 'rgba(60,60,80,0.20)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect(cx+0.5, cy+0.5, cellW-1, cellH-1, U(2)); ctx.stroke();
+
+        ctx.fillStyle = isReady ? 'rgba(100,200,120,0.70)' : 'rgba(80,80,100,0.40)';
+        ctx.font = `${U(7)}px ui-monospace,monospace`;
+        ctx.textAlign = 'left';
+        ctx.fillText(`${i+1}`, cx+U(2), cy+U(9));
+
+        ctx.fillStyle = isReady ? 'rgba(180,230,190,0.90)' : 'rgba(80,80,100,0.30)';
+        ctx.font = `bold ${U(8)}px ui-monospace,monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(isReady ? wLabel : 'EXP', cx+cellW/2, cy+cellH*0.70);
+
+        if (canFire) {
+          PANEL.btn2(ctx, '', cx, cy, cellW, cellH, 'transparent', () => window._fireVLS?.(i));
+        }
+      }
+
+      const stY = gridY + rows*(cellH + cPad) + U(8);
+      ctx.font = `${U(7.5)}px ui-monospace,monospace`;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = hasSolution ? 'rgba(30,160,60,0.65)' : 'rgba(17,24,39,0.30)';
+      ctx.fillText(hasSolution ? 'FIRE CTRL SET' : 'NO SOLUTION', x, stY);
     }
 
     function drawTdcSection(x, w) {
@@ -2655,6 +2904,109 @@
         ctx.font=`${U(9.5)}px ui-monospace,monospace`;
         ctx.fillStyle='rgba(17,24,39,0.20)';
         ctx.fillText('NO TARGET DESIGNATED',fcX,rdY3+U(14));
+      }
+    }
+
+    // ── ASCM solution panel ───────────────────────────────────────────────────
+    {
+      const asc=game.ascmSolution;
+      const rdY4=panelY+U(138);  // below WEPS solution (rdY3=panelY+U(110) + ~U(28))
+      const hasMissile=(player.missileStock||0)>0||(player.tubeLoad||[]).some(l=>l&&l!=='torp');
+      // True only when a missile is sitting in a ready tube
+      const tubeLoad=player.tubeLoad||[];
+      const torpTubes=player.torpTubes||[];
+      const hasMissileTubeReady=tubeLoad.some((l,i)=>l&&l!=='torp'&&torpTubes[i]===0);
+
+      ctx.font=`${U(9)}px ui-monospace,monospace`;
+      ctx.fillStyle='rgba(17,24,39,0.38)';
+      ctx.textAlign='left';
+      ctx.fillText('ASCM',fcX,rdY4);
+
+      if(asc && hasMissileTubeReady){
+        // FIRE button — right side of header row
+        const fireBtnW=U(38), fireBtnH=U(13);
+        const fireBtnX=fcX+fcW-fireBtnW;
+        const fireBtnY=rdY4-U(11);
+        PANEL.btn2(ctx,'FIRE',fireBtnX,fireBtnY,fireBtnW,fireBtnH,'rgba(140,20,20,0.70)',()=>window._fireMissile?.());
+      } else if(hasMissile){
+        ctx.fillStyle=asc?'rgba(120,50,160,0.70)':'rgba(17,24,39,0.20)';
+        ctx.font=`${U(8)}px ui-monospace,monospace`;
+        ctx.textAlign='right';
+        ctx.fillText(asc?asc.source:'NO SOLUTION',fcX+fcW-U(4),rdY4);
+      } else {
+        ctx.fillStyle='rgba(17,24,39,0.20)';
+        ctx.font=`${U(8)}px ui-monospace,monospace`;
+        ctx.textAlign='right';
+        ctx.fillText('NO MISSILE LOADED',fcX+fcW-U(4),rdY4);
+      }
+
+      if(asc){
+        // Quality bar
+        const aqBarW=fcW-U(4), aqBarH=U(4), aqBarY=rdY4+U(3);
+        ctx.fillStyle='rgba(17,24,39,0.07)';
+        ctx.fillRect(fcX,aqBarY,aqBarW,aqBarH);
+        const aqFill=aqBarW*clamp(asc.quality,0,1);
+        const aqCol=asc.quality>=0.6?'rgba(120,40,160,0.65)':asc.quality>=0.4?'rgba(100,30,120,0.55)':'rgba(80,20,100,0.45)';
+        ctx.fillStyle=aqCol;
+        ctx.fillRect(fcX,aqBarY,aqFill,aqBarH);
+
+        // BRG + RNG readouts
+        const aHalf=fcW/2;
+        const aValY=rdY4+U(20);
+        ctx.font=`${U(9)}px ui-monospace,monospace`;
+        ctx.fillStyle='rgba(17,24,39,0.38)'; ctx.textAlign='left';
+        ctx.fillText('BRG',fcX,rdY4+U(10));
+        ctx.fillText('RNG',fcX+aHalf,rdY4+U(10));
+        const aBrg=asc.bearing!=null?Math.round(asc.bearing).toString().padStart(3,'0')+'°':'---';
+        const aRng=asc.range!=null?((asc.range/185.2).toFixed(1)+'nm~'):'---';
+        ctx.font=`${U(14)}px ui-monospace,monospace`;
+        ctx.fillStyle='rgba(120,50,160,0.90)';
+        ctx.fillText(aBrg,fcX,aValY);
+        ctx.fillStyle=asc.range?'rgba(120,50,160,0.90)':'rgba(17,24,39,0.25)';
+        ctx.fillText(aRng,fcX+aHalf,aValY);
+
+        // Acquisition confidence label
+        const aq=asc.quality;
+        const acqLabel=aq>=0.80?'SOLID — HIGH CONFIDENCE':aq>=0.60?'GOOD — LIKELY ACQUIRE':aq>=0.40?'MARGINAL — POSSIBLE MISS':aq>=0.20?'POOR — HIGH MISS RISK':'NO SOLUTION';
+        const acqCol=aq>=0.60?'rgba(120,50,160,0.80)':aq>=0.40?'rgba(146,64,14,0.80)':'rgba(100,100,100,0.60)';
+        ctx.font=`${U(7.5)}px ui-monospace,monospace`;
+        ctx.fillStyle=acqCol; ctx.textAlign='left';
+        ctx.fillText(acqLabel,fcX,rdY4+U(27));
+
+        // Contact label
+        ctx.font=`${U(7.5)}px ui-monospace,monospace`;
+        ctx.fillStyle='rgba(17,24,39,0.38)';
+        ctx.fillText(asc.contactId,fcX+U(1),rdY4+U(35));
+
+        // Stadimeter button — visible only at periscope depth
+        const atPD=player.depth<=(C.player.periscopeDepth||18)+4;
+        if(atPD){
+          const stadBtnY=rdY4+U(38);
+          const stadBtnW=fcW-U(4);
+          const stadBtnH=U(12);
+          const stadRunning=(player.stadimeterT||0)>0;
+          if(stadRunning){
+            const prog=clamp(1-(player.stadimeterT/4.0),0,1);
+            ctx.fillStyle='rgba(17,24,39,0.12)';
+            ctx.fillRect(fcX,stadBtnY,stadBtnW,stadBtnH);
+            ctx.fillStyle='rgba(120,50,160,0.45)';
+            ctx.fillRect(fcX,stadBtnY,stadBtnW*prog,stadBtnH);
+            ctx.font=`${U(7)}px ui-monospace,monospace`;
+            ctx.fillStyle='rgba(200,180,220,0.90)';
+            ctx.textAlign='center';
+            ctx.fillText(`OBSERVING ${Math.ceil(player.stadimeterT)}s`,fcX+stadBtnW/2,stadBtnY+U(8.5));
+          } else {
+            PANEL.btn2(ctx,'STADIMETER',fcX,stadBtnY,stadBtnW,stadBtnH,'rgba(70,30,100,0.55)',()=>window._stadimeterStart?.());
+          }
+        }
+      } else {
+        ctx.font=`${U(8.5)}px ui-monospace,monospace`;
+        ctx.fillStyle='rgba(17,24,39,0.18)';
+        ctx.textAlign='left';
+        ctx.fillText('NO SURFACE CONTACT',fcX,rdY4+U(18));
+        ctx.font=`${U(7.5)}px ui-monospace,monospace`;
+        ctx.fillStyle='rgba(17,24,39,0.15)';
+        ctx.fillText('QUALITY \u2265 20% REQUIRED',fcX,rdY4+U(28));
       }
     }
 
@@ -2990,7 +3342,9 @@
       { draw: drawPostureSection,   min:  95, pref: 120, max: 135 },
       { draw: drawEmergencySection, min: 105, pref: 140, max: 155 },
       { draw: drawWeaponsSection,   min: 125, pref: 155, max: 175 },
+      { draw: drawMastSection,      min: 120, pref: 150, max: 165 },
       { draw: drawWireSection,      min: 145, pref: 185, max: 210 },
+      ...( (C.player.vlsCells||0) > 0 ? [{ draw: drawVlsSection, min: 105, pref: 135, max: 155 }] : [] ),
       { draw: drawTdcSection,       min: 220, pref: 999, max: 999, fill: true },
     ];
 

@@ -2,7 +2,7 @@
   'use strict';
   const C=window.CONFIG;
   const {TAU,clamp,lerp,now,jitter,deg2rad}=window.M;
-  const {ctx,canvas,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,sonarContacts,player,game,setMsg,wrecks,buoys}=window.G;
+  const {ctx,canvas,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,sonarContacts,player,game,setMsg,wrecks,buoys,missiles}=window.G;
   const AI=window.AI;
   const {doodleLine,doodleCircle,doodleText,w2s,wScale,PANEL_H,STRIP_W,U}=window.R;
   const {drawLand,drawRoute,drawPlayerTopDown,drawEnemySubTopDown,drawEnemyBoatTopDown,drawTorpedoTopDown}=window.RWORLD;
@@ -179,6 +179,76 @@
             if(q<0.2) doodleText('BRG', lx+U(4), ly+U(5), U(6), 'left');
             else if(q<0.6){ ctx.fillStyle=`rgba(217,119,6,${alpha*0.75})`; doodleText('BLDG', lx+U(4), ly+U(5), U(6), 'left'); }
             else { ctx.fillStyle=`rgba(22,163,74,${alpha*0.75})`; doodleText('SOLID', lx+U(4), ly+U(5), U(6), 'left'); }
+
+            // ── Bearing-rate chevron — early-track enemy drift indicator ────
+            // Shows which way the contact is drifting across the bearing line.
+            // Works from first observations; no TMA geometry needed.
+            // perpX/perpY already computed above = right perpendicular (screen space).
+            if(c._brgRate!=null && Math.abs(c._brgRate)>0.0008){
+              const dir=c._brgRate>0?1:-1; // +1 = drifting right, -1 = drifting left
+              const rateStr=clamp(Math.abs(c._brgRate)*400,0,1);
+              const chA=alpha*clamp(0.30+rateStr*0.45,0,0.75);
+              // Place chevron at 35% along the bearing line
+              const chFrac=0.35;
+              const chx=lox+(ex-lox)*chFrac;
+              const chy=loy+(ey-loy)*chFrac;
+              // Unit forward along line
+              const fwdX=(ex-lox)/lineLen, fwdY=(ey-loy)/lineLen;
+              // Right perp (reusing perpX/perpY * dir for side selection)
+              const dpx=perpX*dir, dpy=perpY*dir;
+              const sz=U(5);
+              ctx.strokeStyle=`rgba(17,24,39,${chA})`;
+              ctx.lineWidth=1.5; ctx.setLineDash([]);
+              // V-chevron: apex offset in drift direction, tails along bearing line
+              ctx.beginPath();
+              ctx.moveTo(chx-fwdX*sz, chy-fwdY*sz);  // tail top
+              ctx.lineTo(chx+dpx*sz,  chy+dpy*sz);    // apex
+              ctx.lineTo(chx+fwdX*sz, chy+fwdY*sz);  // tail bottom
+              ctx.stroke();
+            }
+          }
+        }
+
+        // ── Estimated contact position + heading arrow ──────────────────────
+        // Shown when TMA triangle geometry yields a heading estimate
+        if(c._estHeading!=null && c._estRange!=null){
+          const headingAge=T_game-(c._estHeadingT||0);
+          if(headingAge<90){
+            const conf=(c._estHeadingConf||0)*(1-Math.min(1,headingAge/90));
+            if(conf>0.15){
+              // Project contact position: origin + bearing ray * estimated range
+              const ox=c.latestFromX??player.wx, oy=c.latestFromY??player.wy;
+              const cpx=ox+Math.cos(c.latestBrg??0)*c._estRange;
+              const cpy=oy+Math.sin(c.latestBrg??0)*c._estRange;
+              const [scx,scy]=w2s(cpx,cpy);
+              // Dot at estimated position
+              ctx.fillStyle=`rgba(17,24,39,${alpha*clamp(conf*1.2,0,0.75)})`;
+              ctx.beginPath(); ctx.arc(scx,scy,U(3),0,Math.PI*2); ctx.fill();
+              // Heading arrow — compute in world space, convert tip to screen
+              const arrowLen=800+conf*600;
+              const tipX=cpx+Math.cos(c._estHeading)*arrowLen;
+              const tipY=cpy+Math.sin(c._estHeading)*arrowLen;
+              const [stx,sty]=w2s(tipX,tipY);
+              const aAlpha=alpha*clamp(conf*1.1,0,0.70);
+              ctx.strokeStyle=`rgba(17,24,39,${aAlpha})`;
+              ctx.lineWidth=1.5; ctx.setLineDash([]);
+              ctx.beginPath(); ctx.moveTo(scx,scy); ctx.lineTo(stx,sty); ctx.stroke();
+              // Arrowhead — screen space
+              const ang=Math.atan2(sty-scy,stx-scx);
+              const aw=U(5);
+              ctx.beginPath();
+              ctx.moveTo(stx,sty);
+              ctx.lineTo(stx+Math.cos(ang+2.6)*aw, sty+Math.sin(ang+2.6)*aw);
+              ctx.moveTo(stx,sty);
+              ctx.lineTo(stx+Math.cos(ang-2.6)*aw, sty+Math.sin(ang-2.6)*aw);
+              ctx.stroke();
+              // Compass bearing label (only at reasonable confidence)
+              if(conf>0.35){
+                const hdgDeg=(((Math.atan2(Math.cos(c._estHeading),-Math.sin(c._estHeading))*180/Math.PI)+360)%360);
+                ctx.fillStyle=`rgba(17,24,39,${alpha*conf*0.65})`;
+                doodleText(Math.round(hdgDeg).toString().padStart(3,'0')+'°', scx+U(5), scy-U(8), U(7), 'left');
+              }
+            }
           }
         }
       }
@@ -416,6 +486,38 @@
       doodleText('ASROC', rx+U(12), ry-U(5), U(7), 'left');
     }
 
+    // ── Cruise missiles ───────────────────────────────────────────────────────
+    if(missiles){
+      for(const m of missiles){
+        const [mx,my]=w2s(m.x,m.y);
+        if(mx<-60||mx>plotW+60||my<-60||my>plotH+60) continue;
+        // Trail
+        if(m.trail && m.trail.length>1){
+          ctx.strokeStyle='rgba(220,60,60,0.40)';
+          ctx.lineWidth=1.5;
+          ctx.beginPath();
+          for(let _ti=0;_ti<m.trail.length;_ti++){
+            const [tx,ty]=w2s(m.trail[_ti].x,m.trail[_ti].y);
+            if(_ti===0) ctx.moveTo(tx,ty); else ctx.lineTo(tx,ty);
+          }
+          ctx.stroke();
+        }
+        // Body — red dart
+        const ang=Math.atan2(m.vy,m.vx);
+        ctx.save();
+        ctx.translate(mx,my); ctx.rotate(ang);
+        ctx.strokeStyle='rgba(240,40,40,0.95)'; ctx.lineWidth=2.5;
+        doodleLine(-U(8),0,U(8),0,2.5);
+        doodleLine(U(6),-U(3),U(8),0,2);
+        doodleLine(U(6),U(3),U(8),0,2);
+        ctx.restore();
+        // State label
+        const mLbl=m.state==='seeker_active'?(m.target?'LOCKED':'SEEK'):'MSL';
+        ctx.fillStyle=m.target?'rgba(240,40,40,0.90)':'rgba(220,80,80,0.80)';
+        doodleText(mLbl,mx+U(10),my-U(5),U(7),'left');
+      }
+    }
+
     // ── Depth charges ─────────────────────────────────────────────────────────
     for(const b of bullets){
       if(b.kind!=='depthCharge'||b.life<=0) continue;
@@ -594,6 +696,66 @@
             cex+U(8), cey, U(7), 'left'
           );
         }
+      }
+    }
+
+    // ── Hull sonar geometry overlay ──────────────────────────────────────────
+    // Stern deaf wedge (speed-dependent) + rolloff zone + amber edge lines when widening
+    {
+      const heading=player.heading||0;
+      const sg=C.player.sonar||{};
+      const baffleBase=(sg.baffleHalfAngleDegBase??15)*Math.PI/180;
+      const baffleMax =(sg.baffleHalfAngleDegMax ??45)*Math.PI/180;
+      const baffleHalf=clamp(baffleBase+(player.speed||0)*(sg.baffleHalfAngleDegPerKt??1.5)*Math.PI/180,baffleBase,baffleMax);
+      const rolloff   =(sg.baffleRolloffDeg??20)*Math.PI/180;
+      const stern     =heading+Math.PI;
+      const deadLen   =wScale(900);
+      // speedRatio: 0 at ≤4kt, 1 at ≥14kt — drives amber intensity
+      const speedRatio=clamp(((player.speed||0)-4)/10,0,1);
+
+      ctx.save();
+      // Rolloff zone — wider but lighter
+      ctx.globalAlpha=0.04+speedRatio*0.04;
+      ctx.fillStyle='rgba(17,24,39,1)';
+      ctx.beginPath();
+      ctx.moveTo(ppx,ppy);
+      ctx.arc(ppx,ppy,deadLen,stern-(baffleHalf+rolloff),stern+(baffleHalf+rolloff));
+      ctx.closePath();
+      ctx.fill();
+      // Dead zone core — darker
+      ctx.globalAlpha=0.07+speedRatio*0.06;
+      ctx.fillStyle='rgba(17,24,39,1)';
+      ctx.beginPath();
+      ctx.moveTo(ppx,ppy);
+      ctx.arc(ppx,ppy,deadLen,stern-baffleHalf,stern+baffleHalf);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Amber edge lines — appear as baffle widens with speed
+      if(speedRatio>0.15){
+        const amberA=0.18+speedRatio*0.35;
+        ctx.strokeStyle=`rgba(217,119,6,${amberA})`;
+        ctx.lineWidth=1;
+        ctx.setLineDash([4,5]);
+        const edgeLen=wScale(650);
+        ctx.beginPath();
+        ctx.moveTo(ppx,ppy);
+        ctx.lineTo(ppx+Math.cos(stern-baffleHalf)*edgeLen,ppy+Math.sin(stern-baffleHalf)*edgeLen);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(ppx,ppy);
+        ctx.lineTo(ppx+Math.cos(stern+baffleHalf)*edgeLen,ppy+Math.sin(stern+baffleHalf)*edgeLen);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // "HULL" label — only when speed is significant so it doesn't clash with towed "DEAF"
+      if(speedRatio>0.10){
+        const dlx=ppx+Math.cos(stern)*wScale(200);
+        const dly=ppy+Math.sin(stern)*wScale(200);
+        ctx.fillStyle=`rgba(217,119,6,${0.25+speedRatio*0.35})`;
+        doodleText('HULL',dlx,dly,U(7),'center');
       }
     }
 

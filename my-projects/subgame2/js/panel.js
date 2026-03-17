@@ -302,9 +302,20 @@
       COMMS.weapons.unableFiring();
       return;
     }
-    // Use reserveTube from sim context — call into sim module
+    // Use selected tube first, fall back to first available torpedo tube
     if(typeof window._reserveTube!=='function'){ COMMS.weapons.fireControlOffline(); return; }
-    const tubeIdx=window._reserveTube();
+    const sel=game.wirePanel?.selectedTube??-1;
+    let tubeIdx=-1;
+    if(sel>=0 && typeof window._reserveSpecificTube==='function'){
+      const r=window._reserveSpecificTube(sel);
+      if(r.reason==='missile'){ COMMS.weapons.error('Missile load — use ASCM panel'); return; }
+      if(r.reason==='wire'){    COMMS.weapons.error('Wire live on selected tube'); return; }
+      if(r.reason==='empty'){   COMMS.weapons.error('Selected tube empty'); return; }
+      if(r.reason==='damaged'){ COMMS.weapons.error('Tube damaged / unavailable'); return; }
+      if(r.reason==='reloading'){ COMMS.weapons.error('Selected tube reloading'); return; }
+      tubeIdx=r.idx;
+    }
+    if(tubeIdx<0) tubeIdx=window._reserveTube();
     if(tubeIdx<0){
       const dmgFx=window.DMG?.getEffects()||{};
       const why=player.torpStock<=0?'No weapons remaining'
@@ -317,7 +328,6 @@
       const a=wp.bearing-player.heading;
       return ((a+Math.PI)%(2*Math.PI))-Math.PI;
     })());
-    const trackStr=game.tdc.targetId?`, track ${game.tdc.targetId}`:'';
     // Launch speed cap — cannot fire wire-guided shot above wireMaxLaunchKts
     const launchSpeedKts = player.speed ?? 0;
     const launchCap = C.player.wireMaxLaunchKts ?? 15;
@@ -332,9 +342,12 @@
     if(window.G.setTacticalState('action')){
       COMMS.crewState.actionStations('attack');
     }
-    COMMS.weapons.firingProcedures(false, trackStr, tubeIdx+1);
+    const tubeLoad=(player.tubeLoad||[])[tubeIdx];
+    const wlP=(!tubeLoad||tubeLoad==='torp')?'TORPEDO':(window.CONFIG?.missiles?.[tubeLoad]?.shortLabel||tubeLoad.toUpperCase());
+    const cidP=game.tdc.targetId||'';
+    COMMS.weapons.firingProcedures(tubeIdx+1, wlP, cidP, false);
     if(!player.pendingFires) player.pendingFires=[];
-    player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth:wp.depth, wire:true, lockedTarget:game.tdc.target});
+    player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth:wp.depth, wire:true, lockedTarget:game.tdc.target, weaponLabel:wlP, contactId:cidP});
     // HPA cost for tube impulse air
     window.DMG?.drawHPA?.( (C.player.hpa?.torpedoCost||2), false );
   }

@@ -433,10 +433,99 @@
     reloaded(tube) {
       log('WEPS', `Conn, Weps — tube ${tube} reloaded, ready in all respects`);
     },
-    firingProcedures(manual, track, tube) {
-      if (manual) log('CONN', `Weps, Conn — stand by, tube, tube ${tube}`);
-      else        log('CONN', `Weps, Conn — stand by, tube ${tube}${track}`);
+    // Tube load management — ordered by player, one op at a time in the torpedo room
+    loadOrder(tube, weaponLabel) {
+      log('WEPS', `Conn, Weps — aye. Loading tube ${tube} with ${weaponLabel}`);
+      msg(`LOADING T${tube}\u2026`, 0.7);
+    },
+    loadComplete(tube, weaponLabel) {
+      log('WEPS', `Conn, Weps — tube ${tube} loaded, ${weaponLabel} ready in all respects`);
+    },
+    unloadOrder(tube) {
+      log('WEPS', `Conn, Weps — aye. Unloading tube ${tube}, weapon coming back`);
+      msg(`UNLOADING T${tube}\u2026`, 0.7);
+    },
+    unloadComplete(tube) {
+      log('WEPS', `Conn, Weps — tube ${tube} unloaded, weapon secured in the rack`);
+    },
+    strikeReloadOrder(tube, weaponLabel) {
+      log('WEPS', `Conn, Weps — aye. Strike reload, tube ${tube} with ${weaponLabel}`);
+      msg(`STRIKE RELOAD T${tube}\u2026`, 0.7);
+    },
+    strikeReloadComplete(tube, weaponLabel) {
+      log('WEPS', `Conn, Weps — tube ${tube} reloaded, ${weaponLabel} ready in all respects`);
+    },
+    torpRoomBusy() {
+      log('WEPS', 'Conn, Weps — torpedo room busy, stand by');
+      msg('TORP ROOM BUSY', 0.7);
+    },
+    // Full firing point procedure — CONN opens the sequence
+    firingProcedures(tube, weaponLabel, contactId, manual) {
+      if (manual) {
+        log('CONN', `Weps, Conn — firing point procedures, tube ${tube}, ${weaponLabel}, manual bearing`);
+      } else {
+        const trk = contactId ? `, track ${contactId}` : '';
+        log('CONN', `Weps, Conn — firing point procedures, tube ${tube}, ${weaponLabel}${trk}`);
+      }
       msg('FIRING\u2026', 0.6);
+    },
+    // WEPS acknowledges and confirms readiness
+    fppAck(tube, weaponLabel, contactId) {
+      const trk = contactId ? `, ${contactId}` : '';
+      log('WEPS', `Tube ${tube}, ${weaponLabel}${trk} — aye. Prepare tube ${tube}`);
+    },
+    // NAV / ship confirms positional readiness
+    shipReady() {
+      log('NAV', 'Ship ready');
+    },
+    // WEPS confirms weapon is set and solution loaded
+    weaponReady() {
+      log('WEPS', 'Weapon ready');
+    },
+    // CONN gives the fire order
+    fireOrder(tube, weaponLabel, contactId, manual) {
+      if (manual) {
+        log('CONN', `Fire, tube ${tube}, ${weaponLabel}, manual bearing`);
+      } else {
+        const trk = contactId ? `, ${contactId}` : '';
+        log('CONN', `Fire, tube ${tube}, ${weaponLabel}${trk}`);
+      }
+    },
+    // SONAR — missile variant of away call
+    missileAway() {
+      msg('MISSILE AWAY', 1.4);
+      log('SONAR', 'Conn, Sonar — launch transient. Missile airborne');
+    },
+    missileHit(target) {
+      msg('TARGET HIT', 1.8);
+      log('SONAR', `Conn, Sonar — detonation. ${target} hit`);
+    },
+    missileMiss() {
+      msg('MISS', 1.2);
+      log('SONAR', 'Conn, Sonar — detonation in water. No target struck');
+    },
+    missileDefeat(target) {
+      msg('MISSILE DEFEATED', 1.5);
+      log('SONAR', `Conn, Sonar — ${target} CIWS active. Missile defeated`);
+    },
+    // VLS — streamlined fire sequence (no tube flood-down)
+    vlsFired(cell, weaponLabel, contactId) {
+      log('CONN', `Fire, VLS cell ${cell}, ${weaponLabel}, ${contactId}`);
+      qlog('WEPS', `VLS cell ${cell} fired electrically — ${weaponLabel} airborne`, 0.6);
+      msg('MISSILE AWAY', 1.2);
+    },
+    // Stadimeter — optical range observation at periscope depth
+    stadimeterObserve(contactId) {
+      log('CONN', `Weps, Conn — stadimeter observation, ${contactId}. Mark when ready`);
+      msg('STADIMETER\u2026', 3.5);
+    },
+    stadimeterComplete(classKnown) {
+      const acc = classKnown ? '\u00b118%' : '\u00b130%';
+      log('WEPS', `Conn, Weps — stadimeter complete. Range estimate locked, accuracy ${acc}`);
+    },
+    stadimeterInterrupted() {
+      log('WEPS', 'Conn, Weps — stadimeter interrupted. No range estimate');
+      msg('STADIMETER ABORTED', 0.8);
     },
     unableFiring() {
       msg('FIRING IN PROGRESS', 0.8);
@@ -1201,6 +1290,33 @@
   // ════════════════════════════════════════════════════════════════════════
   // EXPORT
   // ════════════════════════════════════════════════════════════════════════
-  window.COMMS = { P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons, nav, sensors, tactical, panel, ui, crewState, depth, trim, planes, fire, watch, medical, snorkel };
+  const mast = {
+    raised(label)       { log('CONN', `${label} raised`); },
+    lowered(label)      { log('CONN', `${label} lowered`); },
+    floodWarning(label) {
+      log('CONN', `Conn — ${label} below safe depth. Flooding risk — lower immediately`, P.CRIT);
+      msg(`${label} FLOOD RISK`, 1.8);
+    },
+    crushed(label) {
+      log('CONN', `${label} crushed — hull flooding`, P.CRIT);
+      msg(`${label} CRUSHED`, 2.5);
+    },
+    esmContacts(contacts) {
+      for(const c of contacts.slice(0,3)){
+        log('ESM', `Conn, ESM — emitter bears ${String(c.brgDeg).padStart(3,'0')}, ${c.strength}`);
+      }
+      if(contacts.length>3) log('ESM', `ESM — ${contacts.length} emitters total`);
+    },
+    radarSweep(count) {
+      if(count>0){
+        log('CONN', `Radar — ${count} surface contact${count>1?'s':''}`);
+        log('SONAR', 'Conn, Sonar — own-ship radar emission. Escorts will go active', P.MED);
+      } else {
+        log('CONN', 'Radar — no contacts');
+      }
+    },
+  };
+
+  window.COMMS = { P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons, nav, sensors, tactical, panel, ui, crewState, depth, trim, planes, fire, watch, medical, snorkel, mast };
 
 })();

@@ -30,7 +30,9 @@
       depthTau:8.0, depthRateMax:1.8,   // 1.8 m/s normal (~108m/min) — SSN realistic
       buoyancyScale:3.6,   // m/s per fill-unit deviation; neutralFill=0.50 → max ±1.8 m/s
       fillRate:0.022,      // fill fraction/s max rate of tank change (hydraulic ops)
-      kFill:0.0016,        // fill units per metre depth error for controller
+      kFill:0.0016,        // fill units per metre depth error (legacy — superseded by two-zone)
+      depthBrakeZone:15,   // m — within this range of target, controller scales back authority
+      depthMaxFillOffset:0.08, // max fill offset from neutral outside brake zone (→ ~0.29 m/s)
       ballast:0.0, ballastRate:0.85, buoyAccel:210, buoyDamp:0.85, vyMax:190,
       flankNoiseBoost:0.42, flankTransient:0.28,
       silentRunning:{speedCap:8, noiseMult:0.55},
@@ -115,6 +117,19 @@
     // Every field that any code reads from C.player must appear in every preset.
     // No inheritance — if a field is missing it will be immediately obvious as undefined.
     playerPresets:(()=>{
+      const mastsUS=[
+        {key:'scope_atk',label:'ATK SCOPE',safeDepth:22,crushDepth:40,raiseDur:4,lowerDur:4,type:'periscope'},
+        {key:'esm',      label:'ESM',      safeDepth:22,crushDepth:38,raiseDur:3,lowerDur:3,type:'esm'},
+        {key:'radar',    label:'RADAR',    safeDepth:22,crushDepth:38,raiseDur:3,lowerDur:3,type:'radar'},
+        {key:'comms',    label:'COMMS',    safeDepth:22,crushDepth:38,raiseDur:3,lowerDur:3,type:'comms'},
+      ];
+      const mastsUK=[
+        {key:'scope_atk', label:'ATK SCOPE', safeDepth:22,crushDepth:40,raiseDur:4,lowerDur:4,type:'periscope'},
+        {key:'scope_srch',label:'SRCH SCOPE',safeDepth:22,crushDepth:40,raiseDur:5,lowerDur:5,type:'periscope'},
+        {key:'esm',       label:'ESM',       safeDepth:22,crushDepth:38,raiseDur:3,lowerDur:3,type:'esm'},
+        {key:'radar',     label:'RADAR',     safeDepth:22,crushDepth:38,raiseDur:3,lowerDur:3,type:'radar'},
+        {key:'comms',     label:'COMMS',     safeDepth:22,crushDepth:38,raiseDur:3,lowerDur:3,type:'comms'},
+      ];
       // Fields shared across all presets (physics constants, HPA, casualties, etc.)
       const sh={
         speedIncrementKts:1, speedTau:45, turnRateDeg:2.2, turnRateMinDeg:0.5,
@@ -150,11 +165,30 @@
                        recoveryTime:[20,30],speedCap:12},
           reactorRunaway:{hitChance:0.08,transientRange:3000,transientSus:0.60},
         },
+        // ── ASCM — default no missiles (overridden per vessel) ───────────────
+        missileStock: 0, missileTypes: [], vlsCells: 0, vlsWeapon: null,
         // ── Battery — nuclear defaults (always full except SCRAM) ─────────────
         isDiesel: false,
         battery:{ drainOnScram:0.0020, chargeRate:0.008 },
         snorkelDepth:12, snorkelNoise:0, snorkelSpeedCap:100,
         hasTowedArray: true,
+        masts: mastsUS,
+        esmRange:12000, radarRange:7000,
+        // ── Sonar geometry — bow array coverage + deaf arc (baffles) ─────────
+        // All angles in degrees; code converts to radians when reading.
+        // Bow array: full sensitivity within ±bowHullHalfAngleDeg of ahead.
+        // Deaf arc: stern sector masked by own propeller noise, widens with speed.
+        sonar:{
+          bowHullHalfAngleDeg:    150,   // degrees — full coverage from dead ahead (±150° = everything except stern 30°)
+          baffleHalfAngleDegBase:  15,   // degrees at rest / very slow
+          baffleHalfAngleDegPerKt:  1.5, // degrees added per knot — widens with speed
+          baffleHalfAngleDegMax:   45,   // degrees maximum (reached ~20kt)
+          baffleRolloffDeg:        20,   // degrees of gradient between full sensitivity and dead zone
+          // Soviet enemy sonar — louder machinery = wider deaf arc
+          enemyBaffleBase:         20,   // degrees base
+          enemyBafflePerKt:         2.0, // degrees per knot
+          enemyBaffleMax:          55,   // degrees maximum
+        },
       };
       return [
         {...sh, key:'688i',      name:'USS DALLAS',       vesselClass:'LOS ANGELES CLASS', nation:'US', difficulty:'medium',
@@ -170,8 +204,9 @@
                 r:28,hpMax:100,hitR:30, speedMaxKts:20,flankKts:28,
                 noiseFloor:0.040,flankNoiseBoost:0.42,
                 torpTubes:4,torpStock:32,torpReloadTime:28,cmStock:12,
+                vlsCells:12, vlsWeapon:'tasm', missileStock:8, missileTypes:['harpoon'],
                 cavitationKtsRef:18,speedDeafness:{startKts:4,fullDeafKts:10}},
-        {...sh, key:'trafalgar', name:'HMS TRAFALGAR',    vesselClass:'TRAFALGAR CLASS',   nation:'UK', difficulty:'medium',
+        {...sh, key:'trafalgar', name:'HMS TRAFALGAR',    vesselClass:'TRAFALGAR CLASS',   nation:'UK', difficulty:'medium', masts:mastsUK,
                 flavour:'Pump-jet propulsor — dramatically quieter at speed.',
                 lore:[
                   'S107 · Commissioned 1983 · Lead boat of class — 7 built',
@@ -190,8 +225,11 @@
                 r:26,hpMax:100,hitR:28, speedMaxKts:18,flankKts:26,
                 noiseFloor:0.032,flankNoiseBoost:0.30,
                 torpTubes:5,torpStock:25,torpReloadTime:30,cmStock:12,
-                cavitationKtsRef:20,speedDeafness:{startKts:5,fullDeafKts:12}},
-        {...sh, key:'swiftsure', name:'HMS SWIFTSURE',    vesselClass:'SWIFTSURE CLASS',   nation:'UK', difficulty:'medium',
+                missileStock:6, missileTypes:['sub_harpoon'],
+                cavitationKtsRef:20,speedDeafness:{startKts:5,fullDeafKts:12},
+                // Pump-jet: quieter stern flow — slightly wider bow coverage, tighter baffles
+                sonar:{...sh.sonar, bowHullHalfAngleDeg:155, baffleHalfAngleDegBase:13}},
+        {...sh, key:'swiftsure', name:'HMS SWIFTSURE',    vesselClass:'SWIFTSURE CLASS',   nation:'UK', difficulty:'medium', masts:mastsUK,
                 flavour:'Older design, fewer weapons. Quieter than 688i at depth.',
                 lore:[
                   'S126 · Commissioned 1973 · Lead boat of class — 6 built',
@@ -210,7 +248,10 @@
                 r:24,hpMax:90, hitR:26, speedMaxKts:18,flankKts:25,
                 noiseFloor:0.038,flankNoiseBoost:0.38,
                 torpTubes:5,torpStock:20,torpReloadTime:32,cmStock:10,
-                cavitationKtsRef:17,speedDeafness:{startKts:4,fullDeafKts:11}},
+                missileStock:6, missileTypes:['sub_harpoon'],
+                cavitationKtsRef:17,speedDeafness:{startKts:4,fullDeafKts:11},
+                // Older design, conventional screw — slightly wider baffles than Trafalgar
+                sonar:{...sh.sonar, baffleHalfAngleDegBase:18}},
         {...sh, key:'seawolf',   name:'USS CONNECTICUT',  vesselClass:'SEAWOLF CLASS',     nation:'US', difficulty:'easy',
                 flavour:'Post-Cold War overkill. Eight tubes, extreme depth, maximum firepower.',
                 lore:[
@@ -224,7 +265,10 @@
                 r:32,hpMax:120,hitR:35, speedMaxKts:20,flankKts:35,
                 noiseFloor:0.025,flankNoiseBoost:0.28,
                 torpTubes:8,torpStock:50,torpReloadTime:22,cmStock:16,
-                cavitationKtsRef:22,speedDeafness:{startKts:5,fullDeafKts:13}},
+                missileStock:8, missileTypes:['harpoon'],
+                cavitationKtsRef:22,speedDeafness:{startKts:5,fullDeafKts:13},
+                // Best US sonar suite, quietest stern — tightest baffles, widest bow coverage
+                sonar:{...sh.sonar, bowHullHalfAngleDeg:158, baffleHalfAngleDegBase:12}},
         {...sh, key:'type209',   name:'U-36',             vesselClass:'TYPE 209',          nation:'DE', difficulty:'expert',
                 flavour:'Diesel-electric. Near-silent on battery. One wrong move and you are out of torpedoes.',
                 lore:[
@@ -244,11 +288,14 @@
                 r:18,hpMax:70, hitR:20, speedMaxKts:8, flankKts:12,
                 noiseFloor:0.018,flankNoiseBoost:0.55,
                 torpTubes:8,torpStock:14,torpReloadTime:35,cmStock:8,
+                missileStock:4, missileTypes:['sm39'],
                 cavitationKtsRef:11,speedDeafness:{startKts:6,fullDeafKts:14},
                 // Diesel-electric overrides
                 isDiesel:true, hasTowedArray:false,
                 battery:{ drainPerKt:0.00014, chargeRate:0.003, surfaceChargeRate:0.005 },
-                snorkelNoise:0.35, snorkelSpeedCap:5},
+                snorkelNoise:0.35, snorkelSpeedCap:5,
+                // Electric motor: near-silent stern at low speed — very tight baffles, slow widening
+                sonar:{...sh.sonar, baffleHalfAngleDegBase:12, baffleHalfAngleDegPerKt:1.0}},
       ];
     })(),
     detection:{detectT:7.5, seenT:2.6, proximityR:180, pingDetectR:1800,
@@ -287,8 +334,8 @@
       fireTransientRange:1800, fireTransientSus:0.45,  // launch heard by player
 
       susInvestigate:0.22, susEngage:0.78,
-      quietNoiseThreshold:0.14, susDecayBase:0.010, susDecayQuietExtra:0.015,
-      contactMaxAge:10.0, contactMaxAgeQuiet:5.0,
+      quietNoiseThreshold:0.14, susDecayBase:0.003, susDecayQuietExtra:0.006,
+      contactMaxAge:20.0, contactMaxAgeQuiet:12.0,
       fireMinSus:0.62, fireMaxAge:14.0, fireMinStrength:0.45,
       boatFireEngage:[22,35], boatFireOther:[50,80],
       boatTorpStock:6,   // Mk-46 equivalent — finite loadout
@@ -331,6 +378,19 @@
         resetTimeout:60,           // seconds since last miss before reset
         resetCourseDeg:30,         // player heading change triggers reset
       },
+      // ASW doctrine — active sonar, hunt state, sector search
+      asw:{
+        activePingThreshold:    0.55,    // suspicion level that triggers active ping
+        activePingInterval:     [60,120],// s between pings in alert state (no contact)
+        activePingContactInterval: 30,  // s between pings when maintaining contact
+        activePingRange:        1600,    // wu — hull sonar active detection (above layer only) ~8.6nm
+        vdsPingRange:           2400,    // wu — VDS active detection (can reach below layer) ~13nm
+        huntSuspicionFloor:     0.70,    // suspicion minimum on hunt state entry
+        huntTimeout:            300,     // s — hunt state expires if no contact this long
+        sectorArcDeg:           90,      // degrees — each ship's assigned search sector
+        sectorExpandRate:       1.5,     // wu/s — how fast sector search target expands from datum
+        datumHoldTime:          120,     // s — hold near last contact before searching
+      },
       // ASROC-style missile torpedo — ships only, ASW units only
       asroc:{
         minRange:300,         // wu — inside this use torpedoes/DCs instead
@@ -357,6 +417,55 @@
       // Interceptor: how far ahead of projected player track to sprint
       interceptorLeadTime:90,   // seconds of player track to project forward
       interceptorAmbushSpd:3,   // kt — nearly silent when holding ambush position
+      // Baffle-clear maneuver — periodic course check to listen into stern null
+      // Only aggressive sub types (hunter/interceptor/zeta) do this
+      baffleClear:{
+        intervalMin:   90,   // s — minimum time between clears
+        intervalMax:  150,   // s — maximum time between clears
+        checkDurMin:   20,   // s — how long to hold the cleared heading
+        checkDurMax:   30,
+        turnDeg:       35,   // degrees to offset from base heading
+        rolesEnabled: ['hunter','interceptor','zeta'],
+      },
+    },
+    // ── Anti-Ship Cruise Missiles ──────────────────────────────────────────────
+    missiles:{
+      harpoon:{
+        label:'UUM-84 HARPOON', shortLabel:'HARPOON',
+        speed:450,              // kt cruise speed
+        range:25000,            // wu (~140km operational range)
+        seekerFOV:0.698,        // rad (~40° half-angle acquisition cone)
+        warheadDmg:85,
+        reloadMult:1.5,         // × torpedo reload time (capsule handling)
+        vls:false,
+      },
+      sub_harpoon:{
+        label:'SUB-HARPOON', shortLabel:'S-HARPOON',
+        speed:450,
+        range:25000,
+        seekerFOV:0.698,
+        warheadDmg:85,
+        reloadMult:1.5,
+        vls:false,
+      },
+      tasm:{
+        label:'BGM-109C TASM', shortLabel:'TASM',
+        speed:400,              // kt cruise speed
+        range:999999,           // effectively unlimited within game world
+        seekerFOV:0.611,        // rad (~35° half-angle)
+        warheadDmg:120,
+        reloadMult:null,        // VLS only — no reload at sea
+        vls:true,
+      },
+      sm39:{
+        label:'SM39 EXOCET', shortLabel:'EXOCET',
+        speed:370,
+        range:9000,             // wu (~50km — within tactical game range)
+        seekerFOV:0.524,        // rad (~30° — narrower, punishes poor solutions)
+        warheadDmg:65,
+        reloadMult:1.5,
+        vls:false,
+      },
     },
     ship:{
       tracerLife:[0.06,0.14], tracerSpread:0.06, tracerBursts:[2,4]
