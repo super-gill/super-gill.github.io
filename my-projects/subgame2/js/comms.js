@@ -1140,8 +1140,67 @@
   };
 
   // ════════════════════════════════════════════════════════════════════════
+  // SNORKEL PROCEDURES (diesel-electric boats only)
+  // ════════════════════════════════════════════════════════════════════════
+  const snorkel = {
+    // CO orders snorkel — crew prepares, boat rises to snorkel depth
+    ordered() {
+      log('CONN', 'Conn, aye — prepare to snorkel. Coming to snorkel depth.', P.MED);
+      msg('SNORKEL ORDERED', 1.5);
+      qlog('HELM', 'Helm, aye — coming to snorkel depth. Rate of rise normal.', 1.0);
+      qlog('ENG',  'Conn, Eng — snorkel induction system checked open. Standing by to raise mast.', 2.5);
+    },
+    // Snorkel depth reached — mast raised, diesels start
+    deployed() {
+      log('ENG',  'Conn, Eng — snorkel mast raised. Induction open. Starting diesels.', P.MED);
+      msg('SNORKEL — RAISING MAST', 1.5);
+      qlog('MANV', 'Conn, Manoeuvring — diesel generators on the line. Battery charging. Making ahead slow.', 2.0, P.MED);
+      qlog('ENG',  'Conn, Eng — diesels running normally. Exhaust confirmed outboard. Charging at full rate.', 4.0);
+      qlog('CONN', 'Manoeuvring, Conn — aye. All stations — we are snorkelling. ESM watch closed up.', 5.5, P.MED);
+    },
+    // CO cancels — mast comes down, diesels secured, back on battery
+    cancelled() {
+      log('CONN', 'Conn — cancel snorkel. Lowering mast. Take her back down.', P.MED);
+      msg('SNORKEL — RETRACTING', 1.2);
+      qlog('ENG',  'Conn, Eng — lowering snorkel mast. Induction sealed. Securing diesels.', 1.5);
+      qlog('MANV', 'Conn, Manoeuvring — diesels secured. Propulsion to battery. Hotel load normal.', 3.5, P.MED);
+      qlog('CONN', 'Manoeuvring, Conn — aye. Running on battery.', 5.0);
+    },
+    // Battery warnings — fired once per band crossing
+    batteryLow(pct) {
+      if(pct <= 10){
+        log('ENG',  `Conn, Eng — battery critical at ${pct}%. Must snorkel or reduce speed immediately.`, P.CRIT);
+        qlog('MANV', `Conn, Manoeuvring — at current load, propulsion offline in under two minutes.`, 1.5, P.CRIT);
+        msg(`BATTERY CRITICAL — ${pct}%`, 2.5);
+      } else if(pct <= 20){
+        log('ENG',  `Conn, Eng — battery low, ${pct}%. Request permission to snorkel.`, P.MED);
+        msg(`BATTERY LOW — ${pct}%`, 2.0);
+      } else {
+        log('ENG',  `Conn, Eng — battery at ${pct}%. Recommend snorkelling at earliest opportunity.`, P.NORMAL);
+      }
+    },
+    // Battery dead — propulsion lost
+    exhausted() {
+      log('MANV', 'Conn, Manoeuvring — battery exhausted. No propulsion. EPM not installed.', P.CRIT);
+      qlog('ENG',  'Conn, Eng — propulsion offline. Snorkel or surface to recover. Hotel load on reserve cells.', 1.5, P.CRIT);
+      qlog('CONN', 'All stations, Conn — loss of propulsion on battery exhaustion. Boat is dead in the water. Stand by.', 3.0, P.CRIT);
+      msg('PROPULSION LOST — BATTERY DEAD', 3.0);
+    },
+    // Battery recovered enough to move again
+    recovered() {
+      log('MANV', 'Conn, Manoeuvring — battery above minimum. Propulsion answering.', P.MED);
+      qlog('ENG',  'Conn, Eng — propulsion restored. Recommend maintaining snorkel until battery above fifty percent.', 2.0);
+      msg('PROPULSION RESTORED', 1.5);
+    },
+    // ESM / noise warnings while snorkelling
+    noisyCaution() {
+      log('CONN', 'Conn — all stations. Snorkelling creates a detectable signature. Maintain ESM watch. Be ready to lower mast on contact.', P.MED);
+    },
+  };
+
+  // ════════════════════════════════════════════════════════════════════════
   // EXPORT
   // ════════════════════════════════════════════════════════════════════════
-  window.COMMS = { P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons, nav, sensors, tactical, panel, ui, crewState, depth, trim, planes, fire, watch, medical };
+  window.COMMS = { P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons, nav, sensors, tactical, panel, ui, crewState, depth, trim, planes, fire, watch, medical, snorkel };
 
 })();

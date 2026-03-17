@@ -376,6 +376,7 @@
   function toggleTowedArray(){
     const p=window.G?.player;
     if(!p) return;
+    if(window.CONFIG?.player?.hasTowedArray === false) return;
     const ta=p.towedArray;
     if(!ta) return;
     if(ta.state==='destroyed'){

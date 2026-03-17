@@ -118,7 +118,7 @@
         sub:'Destroy the Zeta',
         lines:[
           'A new enemy submarine has put to sea.',
-          'Designate: Zeta-class. Extremely quiet,',
+          'Designate: Akula-class. Extremely quiet,',
           'highly capable, and dangerous. You are',
           'sent to find and destroy it.',
         ],
@@ -244,6 +244,9 @@
     ctx.fillText('DIVE — BEGIN MISSION',W/2,btnY+btnH*0.65);
 
     window.PANEL?.btn2(ctx,'',btnX,btnY,btnW,btnH,'transparent',()=>{
+      const vk=game.vesselKey||'688i';
+      const presets=window.CONFIG.playerPresets||[];
+      window.CONFIG.player=presets.find(p=>p.key===vk)||presets[0]||window.CONFIG.player;
       game.started=true;
       game.scenario=game.scenario||'waves';
       window.SIM.resetScenario(game.scenario);
@@ -255,137 +258,238 @@
     ctx.textAlign='center';
     ctx.fillText('A/D SPEED  ·  W/S DEPTH  ·  SHIFT+CLICK FIRE  ·  R RESTART  ·  ` DEBUG', W/2, btnY+btnH+U(24));
 
-    // ── Submarine side-profile hero render ──────────────────────────────────
-    const subY=btnY+btnH+U(50);
-    const spaceBelow=H-subY;
-    if(spaceBelow>U(60)){
-      const subLen=Math.min(W*0.7, U(600));
-      const subH=subLen*0.10;
-      const subX=W/2;
-      const t0=performance.now()*0.0003; // slow drift animation
+    // ── Vessel selector — clickable submarine silhouettes ───────────────────
+    const presets=(window.CONFIG.playerPresets||[]);
+    if(presets.length){
+      const selKey=game.vesselKey||'688i';
+      const t0=performance.now()*0.0003;
+      const n=presets.length;
+      const vsY=btnY+btnH+U(64);
+      const spaceBelow=H-vsY-U(6);
+      if(spaceBelow>U(80)){
+        // Section label
+        ctx.textAlign='center';
+        ctx.fillStyle='rgba(80,140,200,0.38)';
+        ctx.font=`${U(12)}px ui-monospace,monospace`;
+        ctx.letterSpacing='4px';
+        ctx.fillText('SELECT VESSEL',W/2,vsY-U(14));
+        ctx.letterSpacing='0px';
 
-      ctx.save();
-      ctx.translate(subX, subY+spaceBelow*0.35);
+        const cellH=Math.min(spaceBelow,U(148));
+        const totalW=Math.min(W*0.94,U(1000));
+        const cellW=Math.floor(totalW/n);
+        const rowX=(W-cellW*n)/2;
 
-      // Subtle water ripple lines behind the sub
-      ctx.strokeStyle='rgba(40,100,180,0.08)';
-      ctx.lineWidth=1;
-      for(let r=0;r<5;r++){
-        const ry=(r-2)*subH*0.8;
-        const rx=subLen*0.6;
-        ctx.beginPath();
-        for(let p=0;p<=40;p++){
-          const px=-rx+p/40*rx*2;
-          const py=ry+Math.sin(px*0.012+t0+r)*subH*0.15;
-          if(p===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+        // ── drawVesselSilhouette — draws centered at local (0,0) ──────────
+        // ax=hull length scale, bR=bow roundness, ss=stern taper start (0-1),
+        // sf=sail position fraction from bow (0-1), sW=sail width, sH=sail height,
+        // hw=hull height scale (>1 = fatter), rk=raked sail, bp=bow planes,
+        // st=stern style ('screw'|'pumpjet')
+        function drawVesselSilhouette(key,cW,cH,sel){
+          const shapes={
+            '688i':     {ax:0.84,bR:1.00,ss:0.82,sf:0.32,sW:0.080,sH:1.80,hw:1.00,rk:true, bp:true, st:'screw'},
+            'trafalgar':{ax:0.78,bR:1.10,ss:0.80,sf:0.33,sW:0.090,sH:1.65,hw:1.00,rk:true, bp:true, st:'pumpjet'},
+            'swiftsure':{ax:0.73,bR:1.15,ss:0.78,sf:0.35,sW:0.100,sH:1.90,hw:1.00,rk:false,bp:true, st:'pumpjet'},
+            'seawolf':  {ax:0.67,bR:1.42,ss:0.85,sf:0.31,sW:0.115,sH:1.55,hw:1.30,rk:true, bp:false,st:'screw'},
+            'type209':  {ax:0.56,bR:0.82,ss:0.76,sf:0.43,sW:0.070,sH:1.25,hw:0.75,rk:false,bp:false,st:'screw'},
+          };
+          const sp=shapes[key]||shapes['688i'];
+          const al=sel?0.90:0.20;
+          const lw=sel?2.2:1.0;
+          const baseL=cW*0.46;
+          const L=baseL*sp.ax;
+          const Hw=L*0.15*sp.hw; // hull half-height — fatter hull = larger Hw
+
+          if(sel){ctx.shadowColor='rgba(100,200,255,0.55)';ctx.shadowBlur=U(12);}
+
+          const bowCapX=-L+Hw*sp.bR;
+          const sternTaperX=L*sp.ss;
+          const pts=40;
+
+          // Hull outline
+          ctx.strokeStyle=sel?`rgba(180,230,255,${al})`:`rgba(100,160,220,${al})`;
+          ctx.lineWidth=lw;
+          ctx.beginPath();
+          // Bow cap
+          const bowSegs=20;
+          for(let i=0;i<=bowSegs;i++){
+            const a=Math.PI/2+i/bowSegs*Math.PI;
+            const bx=bowCapX+Math.cos(a)*Hw*sp.bR;
+            const by=Math.sin(a)*Hw;
+            const wob=Math.sin(i*2.1+t0)*0.3;
+            if(i===0)ctx.moveTo(bx,by+wob);else ctx.lineTo(bx,by+wob);
+          }
+          // Top edge
+          for(let i=0;i<=pts;i++){
+            const t=i/pts;
+            const x=bowCapX+t*(sternTaperX-bowCapX+L);
+            let b=1.0;
+            if(x>sternTaperX)b=Math.pow((L-x)/(L-sternTaperX),0.6);
+            ctx.lineTo(x,-Hw*b+Math.sin(t*22+t0)*0.3);
+          }
+          // Bottom edge
+          for(let i=pts;i>=0;i--){
+            const t=i/pts;
+            const x=bowCapX+t*(sternTaperX-bowCapX+L);
+            let b=1.0;
+            if(x>sternTaperX)b=Math.pow((L-x)/(L-sternTaperX),0.6);
+            ctx.lineTo(x,Hw*b+Math.sin(t*22+t0+0.5)*0.3);
+          }
+          ctx.closePath();ctx.stroke();
+
+          // Sail
+          const sailCX=-L+sp.sf*2*L;
+          const sW=sp.sW*2*L;
+          const sH=Hw*sp.sH;
+          const sailTop=-Hw-sH*0.6;
+          const sailBase=-Hw*0.95;
+          ctx.strokeStyle=sel?`rgba(160,220,255,${al*0.85})`:`rgba(80,130,180,${al})`;
+          ctx.lineWidth=lw*0.85;
+          ctx.beginPath();
+          ctx.moveTo(sailCX-sW*0.5,sailBase);
+          ctx.lineTo(sailCX-sW*0.5,sailTop);
+          ctx.lineTo(sailCX+sW*0.5,sailTop);
+          ctx.lineTo(sailCX+(sp.rk?sW*0.72:sW*0.5),sailBase);
+          ctx.stroke();
+          // Masts
+          ctx.strokeStyle=sel?`rgba(140,200,240,${al*0.40})`:`rgba(60,110,160,${al*0.45})`;
+          ctx.lineWidth=lw*0.5;
+          ctx.beginPath();
+          ctx.moveTo(sailCX-sW*0.1,sailTop);ctx.lineTo(sailCX-sW*0.1,sailTop-Hw*0.55);
+          ctx.moveTo(sailCX+sW*0.1,sailTop);ctx.lineTo(sailCX+sW*0.1,sailTop-Hw*0.38);
+          ctx.stroke();
+
+          // Bow planes
+          if(sp.bp){
+            const bpX=-L*0.69;
+            ctx.strokeStyle=sel?`rgba(140,200,240,${al*0.65})`:`rgba(70,110,160,${al*0.70})`;
+            ctx.lineWidth=lw*0.70;
+            ctx.beginPath();
+            ctx.moveTo(bpX,-Hw*0.14);ctx.lineTo(bpX-L*0.027,-Hw*0.88);
+            ctx.moveTo(bpX, Hw*0.14);ctx.lineTo(bpX-L*0.027, Hw*0.88);
+            ctx.stroke();
+          }
+
+          // Stern
+          const sternX=L*0.91;
+          ctx.lineWidth=lw*0.75;
+          if(sp.st==='pumpjet'){
+            // Pump-jet duct — two concentric ovals
+            ctx.strokeStyle=sel?`rgba(140,200,240,${al*0.60})`:`rgba(70,110,160,${al*0.60})`;
+            ctx.beginPath();ctx.ellipse(sternX+L*0.022,0,L*0.022,Hw*0.72,0,0,Math.PI*2);ctx.stroke();
+            ctx.strokeStyle=sel?`rgba(140,200,240,${al*0.28})`:`rgba(70,110,160,${al*0.28})`;
+            ctx.beginPath();ctx.ellipse(sternX+L*0.022,0,L*0.010,Hw*0.35,0,0,Math.PI*2);ctx.stroke();
+            // Swept stern planes (instead of rudder)
+            ctx.strokeStyle=sel?`rgba(140,200,240,${al*0.50})`:`rgba(70,110,160,${al*0.55})`;
+            ctx.lineWidth=lw*0.75;
+            ctx.beginPath();
+            ctx.moveTo(sternX-L*0.04,-Hw*0.18);ctx.lineTo(sternX,      -Hw*1.08);
+            ctx.moveTo(sternX-L*0.04, Hw*0.18);ctx.lineTo(sternX,       Hw*1.08);
+            ctx.stroke();
+          } else {
+            // Screw hint
+            ctx.strokeStyle=sel?`rgba(120,180,220,${al*0.42})`:`rgba(60,100,150,${al*0.48})`;
+            ctx.beginPath();ctx.arc(sternX+L*0.038,0,Hw*0.52,0,Math.PI*2);ctx.stroke();
+            // Rudder / stern planes
+            ctx.strokeStyle=sel?`rgba(140,200,240,${al*0.50})`:`rgba(70,110,160,${al*0.55})`;
+            ctx.lineWidth=lw*0.75;
+            ctx.beginPath();
+            ctx.moveTo(sternX,-Hw*0.18);ctx.lineTo(sternX+L*0.033,-Hw*1.12);
+            ctx.moveTo(sternX, Hw*0.18);ctx.lineTo(sternX+L*0.033, Hw*1.12);
+            ctx.stroke();
+          }
+          ctx.shadowBlur=0;
         }
-        ctx.stroke();
+
+        for(let i=0;i<n;i++){
+          const p=presets[i];
+          const sel=p.key===selKey;
+          const cx=rowX+i*cellW+cellW/2;
+          const cy=vsY+cellH*0.38;
+
+          ctx.save();
+          ctx.translate(cx,cy);
+          drawVesselSilhouette(p.key,cellW,cellH,sel);
+          ctx.restore();
+
+          // Name
+          ctx.textAlign='center';
+          ctx.fillStyle=sel?'rgba(180,225,255,0.92)':'rgba(100,150,200,0.28)';
+          ctx.font=`bold ${U(13)}px ui-monospace,monospace`;
+          ctx.fillText(p.name,cx,vsY+cellH*0.72);
+          // Class
+          ctx.fillStyle=sel?'rgba(120,180,240,0.60)':'rgba(80,120,170,0.18)';
+          ctx.font=`${U(11)}px ui-monospace,monospace`;
+          ctx.fillText(p.vesselClass,cx,vsY+cellH*0.83);
+          // Nation · Difficulty (colour-coded)
+          const dc=p.difficulty==='easy'?'80,200,120':p.difficulty==='expert'?'255,120,80':'140,170,200';
+          ctx.fillStyle=sel?`rgba(${dc},0.75)`:`rgba(${dc},0.20)`;
+          ctx.font=`${U(11)}px ui-monospace,monospace`;
+          ctx.fillText(`${p.nation} · ${p.difficulty.toUpperCase()}`,cx,vsY+cellH*0.94);
+
+          // Click hitbox
+          const _p=p;
+          window.PANEL?.btn2(ctx,'',rowX+i*cellW,vsY,cellW,cellH,'transparent',()=>{
+            game.vesselKey=_p.key;
+          });
+        }
+
+        // Info block — lore (left) + capability matrix (right)
+        const selPreset=presets.find(p=>p.key===selKey);
+        if(selPreset){
+          const infoY=vsY+cellH+U(36);
+          const infoW=Math.min(W*0.80,U(820));
+          const infoX=(W-infoW)/2;
+          const loreW=infoW*0.46;
+          const matX=infoX+loreW+U(20);
+          const matW=infoW-loreW-U(24);
+
+          // ── Left: lore lines ───────────────────────────────────────────
+          if(selPreset.lore){
+            selPreset.lore.forEach((line,li)=>{
+              ctx.textAlign='left';
+              ctx.fillStyle=li===0?'rgba(160,205,245,0.72)':'rgba(120,165,210,0.46)';
+              ctx.font=`${li===0?`bold ${U(11)}`:`${U(10)}`}px ui-monospace,monospace`;
+              ctx.fillText(line,infoX,infoY+li*U(17),loreW-U(8));
+            });
+          }
+
+          // ── Right: capability matrix ───────────────────────────────────
+          // bar helper: draws label, filled bar, value text on one row
+          function matRow(label,fill,valStr,ry){
+            const lbW=U(118); const bW=matW-lbW-U(8); const bH=U(6);
+            ctx.textAlign='left';
+            ctx.fillStyle='rgba(90,140,190,0.55)';
+            ctx.font=`${U(9)}px ui-monospace,monospace`;
+            ctx.fillText(label,matX,ry);
+            // bar track
+            ctx.fillStyle='rgba(20,50,90,0.55)';
+            ctx.fillRect(matX+lbW,ry-U(7),bW,bH);
+            // bar fill — colour shifts with value
+            const f=Math.max(0,Math.min(1,fill));
+            const r=Math.round(60+f*120), g=Math.round(120+f*80), b=Math.round(200);
+            ctx.fillStyle=`rgba(${r},${g},${b},0.80)`;
+            ctx.fillRect(matX+lbW,ry-U(7),bW*f,bH);
+            // value
+            ctx.fillStyle='rgba(160,210,255,0.78)';
+            ctx.font=`${U(9)}px ui-monospace,monospace`;
+            ctx.fillText(valStr,matX+lbW+U(6),ry);
+          }
+
+          const p=selPreset;
+          const stealthBar=Math.max(0,Math.min(1,(0.045-p.noiseFloor)/0.027));
+          const stealthLabel=p.noiseFloor<=0.020?'ULTRA LOW':p.noiseFloor<=0.032?'VERY LOW':p.noiseFloor<=0.040?'LOW':'MODERATE';
+          let ry=infoY;
+          const rg=U(17);
+          matRow('SPEED',      p.flankKts/35,           `${p.flankKts} KT FLANK`,              ry); ry+=rg;
+          matRow('DEPTH',      p.divingLimitM/480,      `${p.divingLimitM} M`,                  ry); ry+=rg;
+          matRow('STEALTH',    stealthBar,               stealthLabel,                           ry); ry+=rg;
+          matRow('SONAR',      p.sonarQuality,           p.sonarSuite||'—',                      ry); ry+=rg;
+          matRow('TOWED ARRAY',p.sonarQuality*0.9,       p.towedArray||'—',                      ry); ry+=rg;
+          matRow('TORPEDOES',  p.torpTubes/8,            `${p.torpTubes}T  ${p.torpType||'—'}`,  ry); ry+=rg;
+          matRow('CM STOCK',   p.cmStock/16,             `${p.cmStock} ROUNDS`,                  ry);
+        }
       }
-
-      // Hull — SSN side profile (rounded bow, tapered stern)
-      const L=subLen/2; // half-length
-      const Hw=subH/2;  // half-height
-      ctx.strokeStyle='rgba(100,180,255,0.35)';
-      ctx.lineWidth=2;
-      ctx.beginPath();
-      // Bow cap — semicircle from bottom to top
-      const bowCapX=-L+Hw; // bow cap centre (radius = Hw for a circular nose)
-      const bowSegs=24;
-      for(let i=0;i<=bowSegs;i++){
-        const a=Math.PI/2+i/bowSegs*Math.PI; // 90° to 270° (bottom to top going left)
-        const bx=bowCapX+Math.cos(a)*Hw;
-        const by=Math.sin(a)*Hw;
-        const wobble=Math.sin(i*2.1+t0)*0.2;
-        if(i===0) ctx.moveTo(bx,by+wobble); else ctx.lineTo(bx,by+wobble);
-      }
-      // Top edge — from where bow cap ends to stern taper start
-      const pts=60;
-      for(let i=0;i<=pts;i++){
-        const t=i/pts;
-        const x=bowCapX+t*(L*0.85-bowCapX+L); // bowCapX to stern taper zone
-        // Only stern taper applies here
-        const sternStart=L*0.85;
-        let bulge=1.0;
-        if(x>sternStart) bulge=Math.pow((L-x)/(L-sternStart),0.6);
-        const wobble=Math.sin(t*31.7+t0)*0.25+Math.sin(t*17.3+1.2)*0.15;
-        ctx.lineTo(x,-Hw*bulge+wobble);
-      }
-      // Bottom edge (reverse) — stern to bow cap join
-      for(let i=pts;i>=0;i--){
-        const t=i/pts;
-        const x=bowCapX+t*(L*0.85-bowCapX+L);
-        const sternStart=L*0.85;
-        let bulge=1.0;
-        if(x>sternStart) bulge=Math.pow((L-x)/(L-sternStart),0.6);
-        const wobble=Math.sin(t*31.7+t0+0.5)*0.25+Math.sin(t*17.3+3.0)*0.15;
-        ctx.lineTo(x,Hw*bulge+wobble);
-      }
-      ctx.closePath(); ctx.stroke();
-
-      // Sail (fin) — sits ON TOP of hull, front edge vertical, rear edge raked
-      // Positioned at the back of the front third (~30% from bow)
-      const sailCentre=-L+subLen*0.32;  // back of front third
-      const sailW=subLen*0.08;
-      const sailH=Hw*1.8;              // rises well above hull
-      const sailTop=-Hw-sailH*0.55;    // top of sail above hull top
-      const sailBase=-Hw*0.95;         // sits flush on hull top, not sunk in
-      ctx.strokeStyle='rgba(100,180,255,0.35)';
-      ctx.lineWidth=1.5;
-      ctx.beginPath();
-      // Front edge — vertical
-      ctx.moveTo(sailCentre-sailW*0.5, sailBase);
-      ctx.lineTo(sailCentre-sailW*0.5, sailTop);
-      // Top edge — flat
-      ctx.lineTo(sailCentre+sailW*0.5, sailTop);
-      // Rear edge — raked aft
-      ctx.lineTo(sailCentre+sailW*0.7, sailBase);
-      ctx.stroke();
-
-      // Periscopes / masts on sail top
-      ctx.strokeStyle='rgba(100,180,255,0.18)';
-      ctx.lineWidth=1;
-      ctx.beginPath();
-      ctx.moveTo(sailCentre-sailW*0.1, sailTop);
-      ctx.lineTo(sailCentre-sailW*0.1, sailTop-Hw*0.5);
-      ctx.moveTo(sailCentre+sailW*0.15, sailTop);
-      ctx.lineTo(sailCentre+sailW*0.15, sailTop-Hw*0.35);
-      ctx.stroke();
-
-      // Rudder / stern planes
-      const sternX=L*0.92;
-      ctx.strokeStyle='rgba(100,180,255,0.22)';
-      ctx.lineWidth=1.5;
-      ctx.beginPath();
-      ctx.moveTo(sternX, -Hw*0.2); ctx.lineTo(sternX+subLen*0.03, -Hw*1.2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(sternX, Hw*0.2); ctx.lineTo(sternX+subLen*0.03, Hw*1.2);
-      ctx.stroke();
-
-      // Propeller hint
-      ctx.strokeStyle='rgba(100,180,255,0.12)';
-      ctx.beginPath();
-      ctx.arc(L+subLen*0.02, 0, Hw*0.6, 0, Math.PI*2);
-      ctx.stroke();
-
-      // Bow planes — forward of sail
-      const bowX=-L*0.75;
-      ctx.strokeStyle='rgba(100,180,255,0.20)';
-      ctx.lineWidth=1.5;
-      ctx.beginPath();
-      ctx.moveTo(bowX, -Hw*0.1); ctx.lineTo(bowX-subLen*0.025, -Hw*0.9);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(bowX, Hw*0.1); ctx.lineTo(bowX-subLen*0.025, Hw*0.9);
-      ctx.stroke();
-
-      // Ship name text below hull
-      ctx.fillStyle='rgba(80,140,200,0.30)';
-      ctx.font=`bold ${U(12)}px ui-monospace,monospace`;
-      ctx.textAlign='center';
-      ctx.fillText('HMS DOODLE', 0, Hw+U(20));
-
-      ctx.restore();
     }
   }
 
@@ -570,7 +674,7 @@
           if(sc.id===e.id && sc.classification){ dispType=sc.classification; break; }
         }
         const isCiv=dispType==='TANKER'||dispType==='CARGO'||dispType==='FISHING'||dispType==='FERRY'||dispType==='MERCHANT';
-        ctx.fillStyle=dispType.includes('ZETA')?`rgba(220,40,40,${alpha*0.90})`
+        ctx.fillStyle=dispType.includes('AKULA')?`rgba(220,40,40,${alpha*0.90})`
                      :dispType.includes('SSBN')?`rgba(180,60,200,${alpha*0.90})`
                      :dispType.includes('SSGN')?`rgba(200,100,40,${alpha*0.90})`
                      :dispType.includes('DESTROYER')||dispType.includes('FRIGATE')||dispType.includes('CRUISER')||dispType.includes('CORVETTE')?`rgba(40,120,200,${alpha*0.85})`
@@ -858,7 +962,7 @@
     // ── Fill compartments inside pill ─────────────────────────────────────────
     for(let ci=0;ci<6;ci++){
       const comp=compKeys[ci]; const cx2=compXs[ci]; const cw=compWs[ci];
-      const sysList=DMG.SECTION_SYSTEMS[comp]||[];
+      const sysList=DMG.activeSystems(comp);
       let worstIdx=0;
       for(const s of sysList) worstIdx=Math.max(worstIdx,DMG.STATES.indexOf(DMG.effectiveState(s,dmg)));
       const worst=DMG.STATES[worstIdx];
@@ -893,8 +997,8 @@
     ctx.save(); pillPath(); ctx.clip();
     for(let ci=1;ci<6;ci++){
       const x=compXs[ci];
-      const stA=DMG.effectiveState((DMG.SECTION_SYSTEMS[compKeys[ci-1]]||[])[0],dmg)||'nominal';
-      const stB=DMG.effectiveState((DMG.SECTION_SYSTEMS[compKeys[ci]]||[])[0],dmg)||'nominal';
+      const stA=DMG.effectiveState(DMG.activeSystems(compKeys[ci-1])[0],dmg)||'nominal';
+      const stB=DMG.effectiveState(DMG.activeSystems(compKeys[ci])[0],dmg)||'nominal';
       const worst=Math.max(DMG.STATES.indexOf(stA),DMG.STATES.indexOf(stB));
       ctx.strokeStyle=['rgba(50,120,65,0.50)','rgba(160,130,20,0.60)','rgba(160,60,20,0.70)','rgba(150,30,30,0.80)'][worst]||'rgba(60,90,140,0.40)';
       ctx.lineWidth=U(1); ctx.setLineDash([U(4),U(4)]);
@@ -908,7 +1012,7 @@
       const comp=compKeys[ci]; const cx2=compXs[ci]; const cw=compWs[ci];
       const flood=dmg.flooding[comp]||0;
       const isFlooded=dmg.flooded[comp];
-      const sysList=DMG.SECTION_SYSTEMS[comp]||[];
+      const sysList=DMG.activeSystems(comp);
       let worstIdx=0;
       for(const s of sysList) worstIdx=Math.max(worstIdx,DMG.STATES.indexOf(DMG.effectiveState(s,dmg)));
       const worst=DMG.STATES[worstIdx];
@@ -1085,7 +1189,7 @@
     const stColText={'nominal':'rgba(80,200,100,0.80)','degraded':'rgba(230,170,20,0.90)','offline':'rgba(230,90,30,0.90)','destroyed':'rgba(200,50,50,0.95)'};
     for(let ci=0;ci<6;ci++){
       const comp=compKeys[ci]; const cx2=compXs[ci]; const cw=compWs[ci];
-      const sysList=DMG.SECTION_SYSTEMS[comp]||[];
+      const sysList=DMG.activeSystems(comp);
       let sy=cy;
       for(const sys of sysList){
         const st=DMG.effectiveState(sys,dmg);
@@ -1250,7 +1354,9 @@
 
     const COMP_LABELS={
       fore_ends:'TORPEDO ROOM', control_room:'CONTROL ROOM', aux_section:'AUX MACHINERY',
-      reactor_comp:'REACTOR COMP', engine_room:'MANEUVERING', aft_ends:'ENGINEERING',
+      reactor_comp:C.player.isDiesel?'ENGINE COMP':'REACTOR COMP',
+      engine_room:C.player.isDiesel?'MOTOR ROOM':'MANEUVERING',
+      aft_ends:'ENGINEERING',
     };
     // Support departments rendered in their own section, not mixed into compartments
     const SUPPORT_DEPTS=new Set(['medical','supply']);
@@ -1628,6 +1734,43 @@
     const pdY=panelY+U(110);
     const atPD=player.depthOrder<=C.player.periscopeDepth+10;
     btn('COME TO PD',x,pdY,w-pad,U(20),atPD,()=>PANEL.comeToPD(),'#1e3a5f');
+
+    // ── Battery bar ─────────────────────────────────────────────────────────
+    const batY=panelY+U(138);
+    const batFrac=clamp(player.battery??1.0, 0, 1);
+    const batPct=Math.round(batFrac*100);
+    const batBarW=w-pad;
+    const batBarH=U(7);
+    // Track
+    ctx.fillStyle='rgba(17,24,39,0.55)';
+    ctx.beginPath(); ctx.roundRect(x,batY,batBarW,batBarH,U(2)); ctx.fill();
+    // Fill — colour shifts red below 20%
+    const batR=batPct<20?200:batPct<50?180:60;
+    const batG=batPct<20?40:batPct<50?140:180;
+    ctx.fillStyle=`rgba(${batR},${batG},200,0.85)`;
+    ctx.beginPath(); ctx.roundRect(x,batY,batBarW*batFrac,batBarH,U(2)); ctx.fill();
+    // Label
+    ctx.fillStyle=TH.color.text.muted; ctx.font=`${U(TH.font.label)}px ${TH.FONT_FAMILY}`;
+    ctx.textAlign='left';
+    ctx.fillText('BATTERY',x,batY-U(3));
+    ctx.fillStyle=TH.color.text.primary; ctx.font=`${U(TH.font.label)}px ${TH.FONT_FAMILY}`;
+    ctx.textAlign='right';
+    const batStatus=player._battDead?'DEAD':player.snorkeling?'CHRG':(player.snorkelOrdered?'RISG':'');
+    ctx.fillText(batPct+'%'+(batStatus?' '+batStatus:''), x+batBarW, batY-U(3));
+
+    // ── Snorkel button (diesel only) ──────────────────────────────────────
+    const snkY=panelY+U(152);
+    const snkH=U(22);
+    if(C.player.isDiesel){
+      const ordered=player.snorkelOrdered||false;
+      btn(ordered?'CANCEL SNORKEL':'ORDER SNORKEL',x,snkY,w-pad,snkH,ordered,
+        ()=>{ player.snorkelOrdered=!player.snorkelOrdered; });
+    } else {
+      ctx.fillStyle='rgba(17,24,39,0.22)'; ctx.font=`${U(TH.font.label)}px ${TH.FONT_FAMILY}`;
+      ctx.textAlign='left';
+      ctx.fillText('NUCLEAR — NO SNORKEL',x,snkY+U(9));
+    }
+    ctx.textAlign='left';
     }
 
     function drawTrimSection(x, w) {
@@ -2022,6 +2165,7 @@
       ()=>PANEL.allStop());
 
     // ── Towed array button + status ───────────────────────────────────────────
+    if(C.player.hasTowedArray !== false){
     {
       const ta=player.towedArray;
       const taState=ta?.state||'stowed';
@@ -2052,6 +2196,11 @@
         btn(taActive?'RETRACT ARRAY':'DEPLOY ARRAY',x,panelY+U(119),pbW,pbH,
           taActive&&taState!=='deploying',()=>PANEL.toggleTowedArray(),taCol);
       }
+    }
+    } else {
+      // No towed array on this vessel
+      ctx.fillStyle='rgba(17,24,39,0.22)'; ctx.font=`${U(8)}px ui-monospace,monospace`; ctx.textAlign='left';
+      ctx.fillText('NO TOWED ARRAY',x,panelY+U(112));
     }
 
     }
@@ -2904,7 +3053,7 @@
     }
 
     // ── SCRAM status badge ────────────────────────────────────────────────────
-    if(player.scram){
+    if(player.scram && !C.player.isDiesel){
       const pulse=0.55+0.45*Math.sin(performance.now()*0.006);
       const restartPct = 1-(player.scramT/75);
       // Red warning badge
@@ -2981,7 +3130,7 @@
         ty+=U(12);
 
         const COMP_KEYS=DMG.COMPS;
-        const COMP_LABELS=['TORP RM','CONTROL','AUX MCH','REACTOR','MANEUVR','ENGINRG'];
+        const COMP_LABELS=['TORP RM','CONTROL','AUX MCH',C.player.isDiesel?'ENG CM':'REACTOR',C.player.isDiesel?'MOTOR RM':'MANEUVR','ENGINRG'];
         const colW=(W*0.7)/6;
         const colStartX=cx-W*0.35+colW/2;
         for(let ci=0;ci<6;ci++){
@@ -3343,6 +3492,29 @@
         {c:0,cs:3,d:2,ds:1,lbl:'STEER GEAR',  cap:18, rid:'aft_ends_d2'},
       ],
     };
+    // Diesel-specific layout overrides
+    const COMP_LAYOUT_DIESEL = {
+      reactor_comp: [
+        {c:0,cs:3,d:0,ds:1,lbl:'ENG PASSAGE',  cap:18, rid:'reactor_comp_d0'},
+        {c:0,cs:3,d:1,ds:2,lbl:'DIESEL ENGINE', cap:36, rid:['reactor_comp_d1','reactor_comp_d2']},
+      ],
+      engine_room: [
+        {c:0,cs:1,d:0,ds:1,lbl:'AFT PASS',    cap:6,  rid:'engine_room_d0'},
+        {c:1,cs:2,d:0,ds:1,lbl:'MOTOR CTRL',  cap:12, rid:'engine_room_d0b'},
+        {c:0,cs:3,d:1,ds:1,lbl:'BATT BANK 1', cap:18, rid:'engine_room_d1'},
+        {c:0,cs:3,d:2,ds:1,lbl:'BATT BANK 2', cap:18, rid:'engine_room_d2'},
+      ],
+      aux_section: [
+        {c:0,cs:1,d:0,ds:1,lbl:'JR MESS',    cap:6,  rid:'aux_section_d0'},
+        {c:1,cs:2,d:0,ds:1,lbl:'SR MESS',    cap:12, rid:'aux_section_d0b'},
+        {c:0,cs:2,d:1,ds:1,lbl:'BUNKS',      cap:12, rid:'aux_section_d1'},
+        {c:2,cs:1,d:1,ds:1,lbl:'VENT PLANT', cap:6,  rid:'aux_section_d1b'},
+        {c:0,cs:1,d:2,ds:1,lbl:'AMS 1',      cap:6,  rid:'aux_section_d2'},
+        {c:1,cs:1,d:2,ds:1,lbl:'BATT MON',   cap:6,  rid:'aux_section_d2b'},
+        {c:2,cs:1,d:2,ds:1,lbl:'SICKBAY',    cap:6,  rid:'aux_section_d2c'},
+      ],
+    };
+    function getCompLayout(comp){ return (C.player.isDiesel && COMP_LAYOUT_DIESEL[comp]) || COMP_LAYOUT[comp] || []; }
     // All sections total 9 grid units × 6 = 54 max occupancy
     const SECTION_CAP = 54;
     const stFill={nominal:'rgba(18,55,28,0.88)',degraded:'rgba(75,58,4,0.90)',offline:'rgba(75,22,4,0.92)',destroyed:'rgba(55,4,4,0.96)'};
@@ -3368,7 +3540,7 @@
     }
     // Precompute per-compartment state
     const cState=compKeys.map(comp=>{
-      const sysList=DMG.SECTION_SYSTEMS[comp]||[]; let wi=0;
+      const sysList=DMG.activeSystems(comp); let wi=0;
       for(const s of sysList) wi=Math.max(wi,DMG.STATES.indexOf(DMG.effectiveState(s,dmg)));
       const rooms=DMG.SECTION_ROOMS[comp]||[];
       const fires=[0,1,2].map(di=>Math.max(...rooms.filter(rid=>(DMG.ROOMS[rid]?.deck??-1)===di).map(rid=>dmg.fire?.[rid]||0),0));
@@ -3450,7 +3622,7 @@
       const comp=compKeys[ci]; const cs=cState[ci];
       const cx2=compXs[ci], cw=compWs[ci];
       const drenchLvl2=dmg._fireDrench?.[comp]?.level??0;
-      for(const b of (COMP_LAYOUT[comp]||[])){
+      for(const b of (getCompLayout(comp))){
         const rids=Array.isArray(b.rid)?b.rid:[b.rid];
         const fire=Math.max(...rids.map(rid=>dmg.fire?.[rid]||0));
         if(fire>0.02&&drenchLvl2<1){
@@ -3478,7 +3650,7 @@
         const comp=compKeys[ci];
         const x0=ci===0 ? compXs[0]-phR : compXs[ci];
         const x1=ci===5 ? compXs[5]+compWs[5]+phR : compXs[ci]+compWs[ci];
-        const spans=(COMP_LAYOUT[comp]||[]).some(b=>b.d<di && b.d+b.ds>di);
+        const spans=(getCompLayout(comp)).some(b=>b.d<di && b.d+b.ds>di);
         if(!spans){ ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke(); }
       }
     }
@@ -3488,8 +3660,8 @@
     ctx.save(); dsphPill(); ctx.clip();
     for(let ci=1;ci<6;ci++){
       const x=compXs[ci];
-      const stA=DMG.effectiveState((DMG.SECTION_SYSTEMS[compKeys[ci-1]]||[])[0],dmg)||'nominal';
-      const stB=DMG.effectiveState((DMG.SECTION_SYSTEMS[compKeys[ci]]||[])[0],dmg)||'nominal';
+      const stA=DMG.effectiveState(DMG.activeSystems(compKeys[ci-1])[0],dmg)||'nominal';
+      const stB=DMG.effectiveState(DMG.activeSystems(compKeys[ci])[0],dmg)||'nominal';
       const wDiv=Math.max(DMG.STATES.indexOf(stA),DMG.STATES.indexOf(stB));
       ctx.strokeStyle=['rgba(50,120,65,0.55)','rgba(160,130,20,0.65)','rgba(160,60,20,0.75)','rgba(150,30,30,0.85)'][wDiv]||'rgba(60,90,140,0.50)';
       ctx.lineWidth=U(1.5);
@@ -3502,7 +3674,7 @@
     ctx.strokeStyle='rgba(50,80,120,0.40)'; ctx.lineWidth=U(0.75);
     for(let ci=0;ci<6;ci++){
       const comp=compKeys[ci]; const cx2=compXs[ci], cw=compWs[ci];
-      for(const b of (COMP_LAYOUT[comp]||[])){
+      for(const b of (getCompLayout(comp))){
         if(b.c+b.cs>=3) continue;  // no right-edge divider at section boundary
         const x=cx2+cw*(b.c+b.cs)/3;
         const y0=deckTops[b.d]+U(1);
@@ -3563,7 +3735,7 @@
       ctx.fillStyle='rgba(200,220,255,0.92)'; ctx.font=`bold ${U(11)}px ui-monospace,monospace`; ctx.textAlign='center';
       ctx.fillText(compLabels[ci],cMid,d1Top+U(14));
       // Per-block labels
-      for(const b of (COMP_LAYOUT[comp]||[])){
+      for(const b of (getCompLayout(comp))){
         const bx=cx2+cw*(b.c/3);
         const by=deckTops[b.d];
         const bw=cw*(b.cs/3);
@@ -3665,7 +3837,7 @@
     let sysMaxY=cy;
     for(let ci=0;ci<6;ci++){
       const comp=compKeys[ci],cx2=compXs[ci],cw=compWs[ci];
-      const sysList=DMG.SECTION_SYSTEMS[comp]||[];
+      const sysList=DMG.activeSystems(comp);
       let sy=cy;
       for(const sys of sysList){
         const st=DMG.effectiveState(sys,dmg);

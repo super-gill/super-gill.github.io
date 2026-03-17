@@ -21,7 +21,7 @@
     const torpAng=Math.atan2(torp.vy, torp.vx);
 
     // FOV: wide passive search when hunting, narrow active cone when locked
-    const fov  = torp.target ? (torp.seekFOV??cfg.seekFOV) : (cfg.passiveFOV??2.4);
+    const fov  = torp.target ? (torp.seekFOV??cfg.seekFOV) : (torp.passiveFOV??cfg.passiveFOV??2.4);
     const range= torp.seekRange ?? cfg.seekRange;
 
     // Depth window: use config value. Active seeker (locked) is tighter — the
@@ -59,8 +59,8 @@
     // After seduction ends, a reacquisition delay gives the target time to escape.
     if(!torp.seducedBy){
       if(!torp._testedDecoys) torp._testedDecoys=[];
-      const seduceRange=cfg.seduceRange??300;
-      const seduceFOV  =cfg.seduceFOV??2.8;
+      const seduceRange=torp.seduceRange??cfg.seduceRange??300;
+      const seduceFOV  =torp.seduceFOV??cfg.seduceFOV??2.8;
       for(const d of decoys){
         if(d.kind!=='noisemaker' || d.life<=0) continue;
         if(torp.friendly && d.friendly) continue;
@@ -88,7 +88,7 @@
         }
 
         torp.seducedBy=d;
-        torp.seduceT=cfg.seduceTime??7.0;
+        torp.seduceT=torp.seduceTime??cfg.seduceTime??7.0;
         torp.target=null;
         best=null; // clear lock
         if(!torp.friendly){
@@ -217,7 +217,7 @@
       if(torp.seduceT<=0 || torp.seducedBy.life<=0){
         torp.seducedBy=null; torp.target=null;
         // Post-seduction confusion — seeker needs time to reacquire
-        torp._reacquireCd=cfg.reacquireDelay??3.0;
+        torp._reacquireCd=torp.reacquireDelay??cfg.reacquireDelay??3.0;
         // Flag for search pattern — triggers hook maneuver instead of straight snake
         torp._postCM=true;
         torp._search=null; // reset any existing search state

@@ -27,9 +27,18 @@
     }
 
     // ── End screens (game over / victory) ───────────────────────────────────
-    if(game.over || game.won){
+    if(game.over){
       drawEndScreen(W,H);
       return;
+    }
+    if(game.won){
+      // Hold victory screen while enemy torpedoes are still running — player may still need to evade
+      const enemyTorpsAlive = bullets.some(b => b.kind==='torpedo' && !b.friendly && b.life>0);
+      if(!enemyTorpsAlive){
+        drawEndScreen(W,H);
+        return;
+      }
+      // Fall through — world keeps rendering so the player can defend
     }
 
     const seaColour=window.MAPS?.getMap()?.seaColour||'#daeaf7';
@@ -940,6 +949,16 @@
       drawThreatBar(W);
 
       ctx.restore();
+    }
+
+    // ── Victory pending — enemy torps still running ───────────────────────────
+    if(game.won){
+      const enemyTorps = bullets.filter(b => b.kind==='torpedo' && !b.friendly && b.life>0);
+      const pulse = 0.65 + 0.35*Math.sin(performance.now()*0.004);
+      ctx.fillStyle=`rgba(20,200,120,${0.85*pulse})`;
+      ctx.font=`bold ${U(11)}px ui-monospace,monospace`;
+      ctx.textAlign='center';
+      ctx.fillText(`MISSION COMPLETE — ${enemyTorps.length} INBOUND — HOLD ON`,(W-STRIP_W)/2,U(48));
     }
 
     // ── UI Scale indicator (bottom-right of chart, above panel) ──────────────

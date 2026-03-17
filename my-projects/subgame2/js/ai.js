@@ -4,7 +4,8 @@
   const {world,player,enemies,game,addLog}=window.G;
 
   function inLayer(d){return d>=world.layerY1&&d<=world.layerY2;}
-  function layerPenalty(d1,d2){const a=inLayer(d1),b=inLayer(d2); return (a!==b)?0.70:1.0;}
+  // 40% signal loss crossing thermocline — NATO exploited this heavily in Cold War doctrine
+  function layerPenalty(d1,d2){const a=inLayer(d1),b=inLayer(d2); return (a!==b)?0.60:1.0;}
   function wrapDx(x1,x2){return x2-x1;}
   function wrapDy(y1,y2){return y2-y1;}
 
@@ -130,11 +131,14 @@
     e.tmaQuality=Math.min((e.tmaQuality||0) + 0.22, 0.38); // ping gives a start, not a solution
   }
 
-  // Enemy speed deafness — same physics as player
+  // Enemy speed deafness — Soviet hulls noisier, go deaf at lower speeds than NATO
+  // Uses C.enemy.deafStartKts/deafFullKts/deafnessCeil (Soviet) vs C.player.speedDeafness (NATO)
   function enemySpeedDeafness(e){
-    const sd=C.player.speedDeafness||{startKts:4,fullDeafKts:10};
-    const kts=Math.hypot(e.vx||0,e.vy||0); // already in wu/s ≈ kts
-    return 1.0-clamp((kts-sd.startKts)/(sd.fullDeafKts-sd.startKts),0,0.88);
+    const startKts = C.enemy.deafStartKts ?? 3;
+    const fullKts  = C.enemy.deafFullKts  ?? 8;
+    const ceil     = C.enemy.deafnessCeil ?? 0.92;
+    const kts=Math.hypot(e.vx||0,e.vy||0);
+    return 1.0-clamp((kts-startKts)/(fullKts-startKts),0,ceil);
   }
 
   function enemyMaybeHearPlayer(e,dt){
@@ -158,7 +162,9 @@
     if(signal<C.enemy.hearSignalMin) return;
 
     // Detection prob — deafness reduces it when enemy is sprinting; sensitivity scales hearing
-    const p=clamp((signal-C.enemy.hearPBase)*C.enemy.hearPScale*deafness*(e.sensitivity||1.0), 0, 0.80);
+    // _dmgSensorMult: sonar casualty from torpedo damage (set in damageEnemy in sim.js)
+    const sensorMult=e._dmgSensorMult??1.0;
+    const p=clamp((signal-C.enemy.hearPBase)*C.enemy.hearPScale*deafness*(e.sensitivity||1.0)*sensorMult, 0, 0.80);
     if(Math.random()<p){
       const susGain=clamp(0.05+signal*0.22, 0.05, 0.18);
       e.suspicion=Math.min(1, e.suspicion+susGain);
@@ -198,6 +204,11 @@
     const d=clamp((depth-world.seaLevel)/C.player.cavitationDepthRef, 0, 2.0);
     const cavThresh=(C.player.cavitationKtsRef+d*(C.player.cavitationDepthRef*C.player.cavitationSlope))*0.75;
     if(spd>cavThresh) n=clamp(n+C.player.cavitationSpike*0.8, 0, 1);
+    // Golf-class snorkel: diesel SSBN must surface-snorkel periodically — very loud
+    // _snorkeling flag set/cleared by sim.js tick; this is the noise injection point
+    if(e._snorkeling) n=clamp(n+0.52, 0, 1);
+    // Damage noise penalty: machinery casualties raise noise floor (set by casualty roll in sim.js)
+    if(e._dmgNoisePenalty) n=Math.min(1, n+e._dmgNoisePenalty);
     e.noise=n;
   }
 
@@ -224,14 +235,14 @@
         vx:Math.cos(toPlayer)*spd,vy:Math.sin(toPlayer)*spd,
         r:34,hp:80,sensitivity:rand(0.70,1.05),_noiseFloor:nf,noise:nf,
         flareCd:rand(2.2,4.5),cwis:{pKillPerSec:rand(0.55,0.9),range:rand(520,760)},
-        subClass:'IOTA'});
+        subClass:'KRIVAK'});
     } else {
-      const depth=rand(200,1100);
+      const depth=rand(200,450); // capped — no submarine operates below 450m (was incorrectly 1100m)
       const nf=rand(0.22,0.30);
       enemies.push({...common,type,x:ex,y:ey,depth,
         vx:Math.cos(toPlayer)*spd,vy:Math.sin(toPlayer)*spd,
         r:30,hp:90,sensitivity:rand(0.55,0.90),_noiseFloor:nf,noise:nf,
-        subClass:'BETA'});
+        subClass:'SIERRA'});
     }
     const e=enemies[enemies.length-1]; e.navX=e.x; e.navY=e.y;
   }
@@ -252,7 +263,9 @@
       : towardAng+rand(-0.52,0.52);          // ±30° toward player
     // Pingers run a little faster on patrol — they're not hiding
     const spd=role==='pinger'?rand(7,11):role==='interceptor'?rand(5,8):rand(4,6);
-    const depth=rand(200,600);
+    // Depth by class: Victor III (pinger) test depth ~380m; Alfa/Sierra (interceptor/hunter) ~500-600m
+    const maxClassDepth = role==='pinger' ? 350 : 500;
+    const depth=rand(200, maxClassDepth);
     const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
       playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
       fireCd:rand(4.0,8.0),cmCd:rand(2.2,5.5),cmStock:6,
@@ -267,19 +280,26 @@
       interceptState:'waiting',      // interceptor sub-state
       interceptTargetX:null, interceptTargetY:null,
     };
-    // Noise floor by role — Soviet-era acoustic characteristics at low speed
-    // Hunter: quiet stalker. Pinger: active sonar ops add machinery noise.
-    // Interceptor: ambush design, minimal running equipment.
-    const nf = role==='pinger' ? rand(0.28,0.36)
-              : role==='interceptor' ? rand(0.14,0.20)
-              : rand(0.20,0.26); // hunter / default
+    // Noise floor by role — Soviet SSNs (Victor III / Alfa / Sierra era)
+    // Significantly louder than NATO equivalents. Pinger: active ops add machinery noise.
+    // Interceptor: fast sprint design, high-power plant. Hunter: slow creep, still noisy.
+    const nf = role==='pinger' ? rand(0.38,0.52)     // Victor III pinging: very audible
+              : role==='interceptor' ? rand(0.22,0.32) // Alfa/Sierra: fast reactor, noisy
+              : rand(0.28,0.40); // hunter — slow but still much louder than NATO SSN
+    // Soviet sonar: capable but 5-10 years behind NATO processing
+    const sensitivity = role==='pinger' ? rand(0.50,0.72)
+                      : role==='interceptor' ? rand(0.60,0.80)
+                      : rand(0.55,0.75);
+    const subClass = role==='pinger' ? 'VICTOR'
+                   : role==='interceptor' ? 'ALFA'
+                   : 'SIERRA';
     enemies.push({...common,type:'sub',x:ex,y:ey,depth,
       vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
-      r:30,hitR:90,hp:90,sensitivity:rand(0.55,0.90),
+      r:30,hitR:90,hp:90,hpMax:90,sensitivity,
       _noiseFloor:nf, noise:nf,
       torpTubes:Array(C.enemy.subTubes).fill(0),
       torpStock:C.enemy.subTorpStock,
-      subClass:'BETA',
+      subClass,
     });
   }
 
@@ -290,7 +310,7 @@
     const patrolHeading=bearing+Math.PI+rand(-0.4,0.4); // generally moving away
     const spd=rand(3,5); // slow patrol creep
     const depth=rand(250,400); // deep bastion patrol
-    const nf=rand(0.16,0.22); // quiet at low speed but large hull
+    const nf=rand(0.22,0.30); // Typhoon: large hull, multiple reactors — louder than Delta
     const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
       playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
       fireCd:rand(8.0,14.0),cmCd:rand(2.0,4.0),cmStock:10,
@@ -304,12 +324,12 @@
     };
     enemies.push({...common,type:'sub',x:ex,y:ey,depth,
       vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
-      r:48, hitR:140, hp:160,             // massive hull — harder to kill
-      sensitivity:rand(0.65,0.85),        // decent sonar but passive-only doctrine
+      r:48, hitR:140, hp:160, hpMax:160,   // massive hull — harder to kill
+      sensitivity:rand(0.55,0.75),        // Typhoon sonar: passive-only doctrine, secondary to stealth
       _noiseFloor:nf, noise:nf,
       torpTubes:Array(2).fill(0),         // self-defence tubes only
       torpStock:4,                        // minimal loadout — missiles are the payload
-      subClass:'DELTA',
+      subClass:'TYPHOON',
     });
   }
 
@@ -324,7 +344,7 @@
     const patrolHeading=bearing+Math.PI+rand(-0.3,0.3);
     const spd=rand(6,8); // aggressive patrol — closing on datum
     const depth=rand(250,500);
-    const nf=rand(0.06,0.10); // whisper-quiet — near Western levels
+    const nf=rand(0.12,0.18); // Akula/Sierra — quietest Soviet SSN, still louder than NATO 688i
     const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
       playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
       fireCd:rand(4.0,7.0),cmCd:rand(1.8,3.5),cmStock:10,
@@ -348,12 +368,12 @@
     };
     enemies.push({...common,type:'sub',x:ex,y:ey,depth,
       vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
-      r:32, hitR:95, hp:130,             // tough hull — takes punishment
-      sensitivity:rand(0.90,1.0),        // top-tier sonar suite
+      r:32, hitR:95, hp:130, hpMax:130,   // tough hull — takes punishment
+      sensitivity:rand(0.72,0.88),        // top Soviet sonar — good, but not NATO-class processing
       _noiseFloor:nf, noise:nf,
       torpTubes:Array(4).fill(0),        // 4 tubes
       torpStock:10,                      // deep magazine
-      subClass:'ZETA',
+      subClass:'AKULA',
     });
   }
 
@@ -380,12 +400,12 @@
     };
     enemies.push({...common,type:'sub',x:ex,y:ey,depth,
       vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
-      r:24, hitR:72, hp:60,
+      r:24, hitR:72, hp:60, hpMax:60,
       sensitivity:rand(0.45,0.65), // old sonar suite
       _noiseFloor:nf, noise:nf,
       torpTubes:Array(4).fill(0),
       torpStock:8,
-      subClass:'GAMMA',
+      subClass:'FOXTROT',
     });
   }
 
@@ -412,12 +432,12 @@
     };
     enemies.push({...common,type:'sub',x:ex,y:ey,depth,
       vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
-      r:26, hitR:78, hp:70,
+      r:26, hitR:78, hp:70, hpMax:70,
       sensitivity:rand(0.70,0.90), // modern sonar
       _noiseFloor:nf, noise:nf,
       torpTubes:Array(4).fill(0),
       torpStock:10,
-      subClass:'ETA',
+      subClass:'KILO',
     });
   }
 
@@ -429,7 +449,7 @@
     const patrolHeading=bearing+Math.PI+rand(-0.4,0.4);
     const spd=rand(3,5);
     const depth=rand(250,450);
-    const nf=rand(0.12,0.18); // quieter than Delta
+    const nf=rand(0.18,0.26); // Delta IV / Epsilon: improved hull quieting, still Soviet-loud
     const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
       playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
       fireCd:rand(8.0,14.0),cmCd:rand(2.0,4.0),cmStock:8,
@@ -443,12 +463,12 @@
     };
     enemies.push({...common,type:'sub',x:ex,y:ey,depth,
       vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
-      r:42, hitR:120, hp:140,
-      sensitivity:rand(0.70,0.90),
+      r:42, hitR:120, hp:140, hpMax:140,
+      sensitivity:rand(0.60,0.78),  // SSBN sonar: passive-only, not hunter-grade
       _noiseFloor:nf, noise:nf,
       torpTubes:Array(2).fill(0),
       torpStock:4,
-      subClass:'EPSILON',
+      subClass:'DELTA',
     });
   }
 
@@ -462,7 +482,7 @@
     const patrolHeading=bearing+Math.PI+rand(-0.4,0.4);
     const spd=rand(5,8);
     const depth=rand(200,500);
-    const nf=rand(0.20,0.28); // big reactor, lots of equipment
+    const nf=rand(0.32,0.48); // Oscar SSGN: massive double hull, loud reactor plant
     const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
       playerBearings:[], tmaQuality:0, tmaX:null, tmaY:null,
       fireCd:rand(4.0,8.0),cmCd:rand(2.0,4.0),cmStock:8,
@@ -476,12 +496,178 @@
     };
     enemies.push({...common,type:'sub',x:ex,y:ey,depth,
       vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
-      r:44, hitR:130, hp:140,
-      sensitivity:rand(0.60,0.80),
+      r:44, hitR:130, hp:140, hpMax:140,
+      sensitivity:rand(0.55,0.72),  // SSGN sonar: functional but not optimised for sub-hunting
       _noiseFloor:nf, noise:nf,
       torpTubes:Array(4).fill(0),
       torpStock:8,
-      subClass:'THETA',
+      subClass:'OSCAR',
+    });
+  }
+
+  // ── November-class SSN (Project 627) — first Soviet nuclear submarine ───────
+  // Historically nicknamed "widow maker" — unreliable reactor, very loud, aggressive.
+  // Gameplay: easy early-wave SSN. Very detectable but still nuclear and fast.
+  function spawnNovember(bearing, dist, offsetDist=0){
+    const perpAng=bearing+Math.PI/2;
+    const ex=player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist;
+    const ey=player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist;
+    const patrolHeading=bearing+Math.PI+rand(-0.4,0.4);
+    const spd=rand(5,9);
+    const depth=rand(150,350); // shallow — old pressure hull
+    const nf=rand(0.55,0.70); // extremely loud — early reactor plant
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[],tmaQuality:0,tmaX:null,tmaY:null,
+      fireCd:rand(5.0,10.0),cmCd:rand(3.0,6.0),cmStock:4,
+      navT:rand(C.enemy.subNavT[0],C.enemy.subNavT[1]),
+      patrolHeading,heading:patrolHeading,
+      pingCd:rand(8,16),pingPulse:0,
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0,tmaManeuverDir:1,tmaPhase:'drift',
+      role:'hunter',
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:28,hitR:84,hp:70,hpMax:70,
+      sensitivity:rand(0.40,0.55), // old sonar, poor processing
+      _noiseFloor:nf,noise:nf,
+      torpTubes:Array(2).fill(0),
+      torpStock:4,
+      subClass:'NOVEMBER',
+    });
+  }
+
+  // ── Whiskey-class SSK (Project 613) — early Cold War diesel workhorse ────────
+  // 200+ built. Battery-quiet like Foxtrot but shallower, older, less capable.
+  // Gameplay: swarm/early-wave diesel. Good background threat in groups.
+  function spawnWhiskey(bearing, dist, offsetDist=0){
+    const perpAng=bearing+Math.PI/2;
+    const ex=player.wx+Math.cos(bearing)*dist+Math.cos(perpAng)*offsetDist;
+    const ey=player.wy+Math.sin(bearing)*dist+Math.sin(perpAng)*offsetDist;
+    const patrolHeading=bearing+Math.PI+rand(-0.5,0.5);
+    const spd=rand(2,4);
+    const depth=rand(50,180); // very shallow — WWII-era hull
+    const nf=rand(0.03,0.05); // quiet on battery
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[],tmaQuality:0,tmaX:null,tmaY:null,
+      fireCd:rand(6.0,12.0),cmCd:rand(3.5,7.0),cmStock:3,
+      navT:rand(C.enemy.subNavT[0],C.enemy.subNavT[1]),
+      patrolHeading,heading:patrolHeading,
+      pingCd:9999,pingPulse:0, // old diesel boats stay silent
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0,tmaManeuverDir:1,tmaPhase:'drift',
+      role:'hunter',
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:20,hitR:60,hp:45,hpMax:45,
+      sensitivity:rand(0.35,0.55), // old sonar, limited capability
+      _noiseFloor:nf,noise:nf,
+      torpTubes:Array(2).fill(0), // forward tubes only
+      torpStock:8,
+      subClass:'WHISKEY',
+    });
+  }
+
+  // ── Yankee-class SSBN (Project 667A) — early Soviet SSBN ─────────────────────
+  // 34 built. Shadowed US coasts. Noisier and shallower than Delta IV.
+  // Gameplay: SSBN tier 1 — progression step below Delta IV.
+  function spawnYankee(bearing, dist){
+    const ex=player.wx+Math.cos(bearing)*dist;
+    const ey=player.wy+Math.sin(bearing)*dist;
+    const patrolHeading=bearing+Math.PI+rand(-0.4,0.4);
+    const spd=rand(3,5);
+    const depth=rand(200,380);
+    const nf=rand(0.28,0.38); // noisier than Delta IV
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[],tmaQuality:0,tmaX:null,tmaY:null,
+      fireCd:rand(8.0,14.0),cmCd:rand(2.0,4.0),cmStock:6,
+      navT:rand(200,400),
+      patrolHeading,heading:patrolHeading,
+      pingCd:9999,pingPulse:0,
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0,tmaManeuverDir:1,tmaPhase:'drift',
+      role:'ssbn',
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:38,hitR:110,hp:120,hpMax:120,
+      sensitivity:rand(0.55,0.72), // passive-only doctrine
+      _noiseFloor:nf,noise:nf,
+      torpTubes:Array(2).fill(0),
+      torpStock:4,
+      subClass:'YANKEE',
+    });
+  }
+
+  // ── Papa-class SSGN (Project 661, K-222) — fastest submarine ever built ──────
+  // Only one ever built. ~44kt. Very loud. Technology demonstrator.
+  // Gameplay: rare encounter — player hears it from far away but it closes terrifyingly fast.
+  function spawnPapa(bearing, dist){
+    const ex=player.wx+Math.cos(bearing)*dist;
+    const ey=player.wy+Math.sin(bearing)*dist;
+    const patrolHeading=bearing+Math.PI+rand(-0.3,0.3);
+    const spd=rand(20,30); // K-222: ~44kt max — closes terrifyingly fast; patrol at high speed to reflect this
+    const depth=rand(200,500);
+    const nf=rand(0.65,0.80); // enormous reactor plant — extremely loud
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[],tmaQuality:0,tmaX:null,tmaY:null,
+      fireCd:rand(4.0,8.0),cmCd:rand(2.0,4.0),cmStock:8,
+      navT:rand(60,140),
+      patrolHeading,heading:patrolHeading,
+      pingCd:rand(C.enemy.subPingCd[0],C.enemy.subPingCd[1]),pingPulse:0,
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0,tmaManeuverDir:1,tmaPhase:'drift',
+      role:'hunter',
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:44,hitR:130,hp:130,hpMax:130,
+      sensitivity:rand(0.55,0.70),
+      _noiseFloor:nf,noise:nf,
+      torpTubes:Array(4).fill(0),
+      torpStock:8,
+      subClass:'PAPA',
+    });
+  }
+
+  // ── Golf-class SSB (Project 629) — diesel ballistic missile submarine ────────
+  // K-129 (Golf II) sank 1968. B-59 involved in Cuban Missile Crisis.
+  // Gameplay: whisper-quiet on battery but must snorkel periodically — goes very loud.
+  // Snorkel state managed in sim.js tick; noise hook in updateEnemyNoise().
+  function spawnGolf(bearing, dist){
+    const ex=player.wx+Math.cos(bearing)*dist;
+    const ey=player.wy+Math.sin(bearing)*dist;
+    const patrolHeading=bearing+Math.PI+rand(-0.4,0.4);
+    const spd=rand(2,4);
+    const depth=rand(80,200); // shallow — diesel hull
+    const nf=rand(0.03,0.06); // battery-quiet
+    const common={seen:0,detectedT:0,lastX:0,lastY:0,lastT:0,suspicion:0,contact:null,
+      playerBearings:[],tmaQuality:0,tmaX:null,tmaY:null,
+      fireCd:rand(8.0,14.0),cmCd:rand(2.0,4.0),cmStock:4,
+      navT:rand(200,400),
+      patrolHeading,heading:patrolHeading,
+      pingCd:9999,pingPulse:0,
+      evadeT:0,evadeFrom:null,evadeDecoy:null,
+      tmaManeuverT:0,tmaManeuverDir:1,tmaPhase:'drift',
+      role:'ssbn',
+      interceptState:'waiting',interceptTargetX:null,interceptTargetY:null,
+      // Snorkel cycle — managed in sim.js, noise hook in updateEnemyNoise()
+      _snorkeling:false,
+      _snorkelCd:rand(120,180), // seconds on battery before first snorkel
+    };
+    enemies.push({...common,type:'sub',x:ex,y:ey,depth,
+      vx:Math.cos(patrolHeading)*spd,vy:Math.sin(patrolHeading)*spd,
+      r:30,hitR:90,hp:80,hpMax:80,
+      sensitivity:rand(0.40,0.60), // old diesel sonar
+      _noiseFloor:nf,noise:nf,
+      torpTubes:Array(2).fill(0),
+      torpStock:4,
+      subClass:'GOLF',
     });
   }
 
@@ -518,18 +704,19 @@
     if(stats.helo) ent._heloCfg=stats.helo;
     if(stats.turnRate) ent._turnRate=stats.turnRate;
     if(stats.hasAsroc) ent._hasAsroc=true;
+    ent._torpStock = C.enemy.boatTorpStock ?? 6;
     enemies.push(ent);
   }
 
   function spawnIota(bearing, dist, offsetDist=0){
     _spawnWarship(bearing, dist, {
       r:30, hp:80,
-      sensitivity:rand(0.75,0.95),
+      sensitivity:rand(0.62,0.80),  // Krivak/Udaloy: capable ASW sonar, below NATO standard
       nf:rand(0.60,0.75),
       patrolSpd:rand(10,16),
       pingCd:rand(6,12),
       cwis:{pKillPerSec:rand(0.50,0.80),range:rand(480,680)},
-      subClass:'IOTA',
+      subClass:'KRIVAK',
       role:'pinger',
       turnRate:rand(0.055,0.075),  // ~3-4°/s — frigate
       vdsDepth:rand(300,380),
@@ -542,12 +729,12 @@
   function spawnKappa(bearing, dist, offsetDist=0){
     _spawnWarship(bearing, dist, {
       r:36, hp:100,
-      sensitivity:rand(0.80,1.0),
+      sensitivity:rand(0.68,0.84),  // Udaloy: best Soviet ASW surface sonar, still below NATO standard
       nf:rand(0.65,0.80),
       patrolSpd:rand(14,20),
       pingCd:rand(8,14),
       cwis:{pKillPerSec:rand(0.65,0.95),range:rand(580,800)},
-      subClass:'KAPPA',
+      subClass:'UDALOY',
       role:'pinger',
       turnRate:rand(0.040,0.060),  // ~2-3°/s — large destroyer
       vdsDepth:rand(280,340),
@@ -558,12 +745,12 @@
   function spawnLambda(bearing, dist, offsetDist=0){
     _spawnWarship(bearing, dist, {
       r:24, hp:50,
-      sensitivity:rand(0.50,0.75),
+      sensitivity:rand(0.44,0.66),  // Grisha corvette: basic hull sonar, limited processing
       nf:rand(0.55,0.70),
       patrolSpd:rand(8,14),
       pingCd:rand(10,20),
       cwis:{pKillPerSec:rand(0.40,0.65),range:rand(400,600)},
-      subClass:'LAMBDA',
+      subClass:'GRISHA',
       role:'pinger',
       turnRate:rand(0.090,0.120),  // ~5-7°/s — nimble corvette
     }, offsetDist);
@@ -572,12 +759,12 @@
   function spawnMu(bearing, dist, offsetDist=0){
     _spawnWarship(bearing, dist, {
       r:42, hp:140,
-      sensitivity:rand(0.55,0.75),
+      sensitivity:rand(0.48,0.68),  // Slava cruiser: ASW secondary role, loud/limited sonar
       nf:rand(0.70,0.85),
       patrolSpd:rand(12,18),
       pingCd:rand(14,26),
       cwis:{pKillPerSec:rand(0.70,0.95),range:rand(600,850)},
-      subClass:'MU',
+      subClass:'SLAVA',
       role:null,
       turnRate:rand(0.025,0.040),  // ~1-2°/s — heavy cruiser
     }, offsetDist);
@@ -659,5 +846,6 @@
   window.AI={wrapDx,wrapDy,layerPenalty,enemyHasFireSolution,enemyUpdateContactFromPing,
              enemyMaybeHearPlayer,enemyDecay,updateEnemyNoise,solveEnemyTMA,enemyRegisterBearing,
              spawnEnemy,spawnSub,spawnSSBN,spawnZeta,spawnGamma,spawnEta,spawnEpsilon,spawnTheta,
+             spawnNovember,spawnWhiskey,spawnYankee,spawnPapa,spawnGolf,
              spawnIota,spawnKappa,spawnLambda,spawnMu,spawnCivilian,wolfpackShareDatum,shipShareContact};
 })();

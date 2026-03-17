@@ -75,9 +75,15 @@
       turnRate:   statOverrides?.turnRate   ?? C.torpedo.turnRate,
       speed:      statOverrides?.speed      ?? C.torpedo.speed,
       approachSpeed: statOverrides?.approachSpeed ?? C.torpedo.approachSpeed ?? 15,
-      target:null, arming:C.torpedo.arming,
+      target:null, arming: statOverrides?.arming ?? C.torpedo.arming,
       enableDist, traveled:0, weaveT:rand(0,10),
       seducedBy:null, seduceT:0,
+      // Per-vessel seeker behaviour — torpedo.js reads these before falling back to C.torpedo
+      passiveFOV:   statOverrides?.passiveFOV   ?? C.torpedo.passiveFOV,
+      seduceFOV:    statOverrides?.seduceFOV    ?? C.torpedo.seduceFOV,
+      seduceRange:  statOverrides?.seduceRange  ?? C.torpedo.seduceRange,
+      seduceTime:   statOverrides?.seduceTime   ?? C.torpedo.seduceTime,
+      reacquireDelay: statOverrides?.reacquireDelay ?? C.torpedo.reacquireDelay,
       _circleSearch: statOverrides?.circleSearch ?? false,
       wire: wireGuided ? {
         live:wireLive, prevAng:launchAng, fromX, fromY,

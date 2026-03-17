@@ -65,7 +65,7 @@
     watchChangeT:0,          // countdown to new watch assuming
     _watchRelief80:false,    // comms gate: 80% fatigue reported
     _watchRelief100:false,   // comms gate: 100% fatigue / forced change
-    scenario:'waves', started:false,
+    scenario:'waves', started:false, vesselKey:'688i',
     tacticalState:'cruising',   // cruising | patrol | action
     casualtyState:'normal',     // normal | emergency | escape
     _prevTactical:'cruising',   // for transition detection

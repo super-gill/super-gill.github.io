@@ -12,8 +12,19 @@
     W.makeExplosion(player.wx, player.wy, 0.8, true);
   }
   function damageEnemy(e,amount){
+    const hpMax=e.hpMax??e.hp; // hpMax set at spawn; fallback to current hp if missing
     e.hp-=amount;
     W.makeExplosion(e.x,e.y,amount>=90?1.6:1.0,e.type==="boat");
+    // Enemy submarine casualty roll — performance degrades with damage, not just HP loss
+    // Modifiers read by updateEnemyNoise() and enemyMaybeHearPlayer() in ai.js,
+    // and by the speed cap in the sub movement block below
+    if(e.type==='sub' && e.hp>0){
+      const fracHit=amount/hpMax;
+      const fracTotal=1-(e.hp/hpMax);
+      e._dmgNoisePenalty=Math.min(0.40,(e._dmgNoisePenalty||0)+0.08); // machinery hit — louder
+      if(fracHit>0.30) e._dmgSpeedCapMult=Math.max(0.50,(e._dmgSpeedCapMult??1.0)-0.25); // propulsion hit
+      if(fracTotal>0.60) e._dmgSensorMult=Math.min((e._dmgSensorMult??1.0),0.65); // cumulative sonar damage
+    }
     if(e.hp<=0){
       if(e.civilian){
         game.score-=100; // penalty for destroying civilian shipping
@@ -133,6 +144,9 @@
     player.torpTubes=[];
     for(let i=0;i<nTubes;i++) player.torpTubes.push(0);
     player.torpStock=C.player.torpStock||12;
+    player.battery=1.0; player.snorkeling=false; player.snorkelOrdered=false; player._battDead=false;
+    player._snorkelOrderedFired=false; player._snorkelCancelledFired=false;
+    player._snorkelNoisyCautionFired=false; player._snorkelT=0; player._lastBatBand='ok';
     player.silent=false; player.emergTurnT=0; player.emergTurnCd=0; player.crashDiveT=0; player.crashDiveCd=0; player.passiveTick=0;
     player._coolantLeak=null; player._steamLeak=null; player._turbineTrip=null; player._flankDepthT=0; player._prevSpeed=0; player._movingDir=1;
     // Per-tube wire tracking — null=no wire, or reference to the live torpedo
@@ -283,7 +297,7 @@
           ddy=pf.ddx*sin+pf.ddy*cos;
         }
         if(pf.wire){
-          const wireSnapped=W.fireTorpedo(sx,sy,ddx,ddy,true,C.player.torpEnableDist,true,pf.launchOffset,player.depth,pf.fireDepth);
+          const wireSnapped=W.fireTorpedo(sx,sy,ddx,ddy,true,C.player.torpEnableDist,true,pf.launchOffset,player.depth,pf.fireDepth,C.player.torpConfig??null);
           const torp=bullets[bullets.length-1];
           if(!wireSnapped && torp?.wire?.live){
             if(!player.tubeWires) player.tubeWires=new Array(C.player.torpTubes||4).fill(null);
@@ -297,7 +311,7 @@
           COMMS.weapons.fired(pf.tubeIdx+1, !wireSnapped);
           if(wireSnapped) COMMS.weapons.wireParted(pf.tubeIdx+1, 'launch');
         } else {
-          W.fireTorpedo(sx,sy,ddx,ddy,true,C.player.torpEnableDist,false,0,player.depth,pf.fireDepth);
+          W.fireTorpedo(sx,sy,ddx,ddy,true,C.player.torpEnableDist,false,0,player.depth,pf.fireDepth,C.player.torpConfig??null);
           player.torpTubes[pf.tubeIdx]=Math.round((C.player.torpReloadTime||28)*(DMG.getEffects().reloadMult||1));
           COMMS.weapons.fired(pf.tubeIdx+1, false);
         }
@@ -312,7 +326,7 @@
     player.pendingLogs=player.pendingLogs.filter(pl=>!pl.done);
 
     // ── Reactor SCRAM tick ───────────────────────────────────────────────────
-    if(player.scram){
+    if(player.scram && !C.player.isDiesel){
       const wasT = player.scramT;
       player.scramT = Math.max(0, player.scramT - dt);
       const t = player.scramT;
@@ -380,6 +394,7 @@
     // ── Sustained flank at depth — coolant leak risk ─────────────────────────
     // Pushing the reactor hard at depth stresses coolant pipe joints.
     // Instead of instant SCRAM, this now triggers a coolant leak with a countdown.
+    if(!C.player.isDiesel){
     {
       const casCfg=C.player.casualties?.coolantLeak||{};
       if(!player.scram && !player._coolantLeak){
@@ -469,6 +484,7 @@
         }
       }
     }
+    } // end !isDiesel reactor casualty block
 
     player.cmCd=Math.max(0,player.cmCd-dt);
     player.invuln=Math.max(0,player.invuln-dt);
@@ -574,6 +590,15 @@
       if(e.detectedT>0) e.detectedT=Math.max(0,e.detectedT-dt);
       if(e.pingPulse>0) e.pingPulse=Math.max(0,e.pingPulse-dt);
       if(e.evadeT>0){e.evadeT=Math.max(0,e.evadeT-dt); if(e.evadeT<=0){e.evadeFrom=null;e.evadeDecoy=null;e._evadePhase=null;e._cfPhase=null;e._cfT=0;e._boldDone=false;}}
+      // Golf-class snorkel cycle — diesel SSBN must snorkel to recharge battery
+      // Noise spike injected in updateEnemyNoise() via e._snorkeling flag
+      if(e.subClass==='GOLF' && e._snorkelCd!==undefined){
+        e._snorkelCd-=dt;
+        if(e._snorkelCd<=0){
+          e._snorkeling=!e._snorkeling;
+          e._snorkelCd=e._snorkeling ? rand(60,90) : rand(120,180); // snorkel 60-90s, battery 120-180s
+        }
+      }
       // Fire adaptation reset — timeout or player course change
       if(e._missCount>0){
         const aCfg=C.enemy.adaptation||{};
@@ -889,7 +914,7 @@
         // Check if player is within buoy detection range
         const dxp=AI.wrapDx(player.wx,b.x), dyp=player.wy-b.y;
         const dp=Math.hypot(dxp,dyp);
-        const buoyRange=1800;
+        const buoyRange=1600; // Soviet sonobuoys (RGB series) — shorter range than NATO DIFAR
         // Buoy is below layer — no layer penalty against deep targets
         const sonarDepth=b.depth||300;
         const layer=AI.layerPenalty(player.depth,sonarDepth);
@@ -986,7 +1011,7 @@
           h.pingPulse=1.0;
           const dxp=AI.wrapDx(player.wx,h.x), dyp=player.wy-h.y;
           const dp=Math.hypot(dxp,dyp);
-          const dipRange=2200;
+          const dipRange=1900; // Ka-27 dipping sonar (VGS-3) — shorter range than NATO LAMPS
           const dipDepth=cfg.dipDepth||340;
           const layer=AI.layerPenalty(player.depth,dipDepth);
           if(dp<dipRange && layer>=0.85){
@@ -1192,8 +1217,12 @@
           e.fireCd=rand(t[0],t[1]);
           const dx=AI.wrapDx(e.x,e.contact.x);
           const d=Math.hypot(dx,e.contact.y-e.y);
-          if(d<1650 && AI.enemyHasFireSolution(e)){
-            W.fireTorpedo(e.x,e.y,dx,e.contact.y-e.y,false,260);
+          if(d<1650 && AI.enemyHasFireSolution(e) && (e._torpStock??0)>0){
+            W.fireTorpedo(e.x,e.y,dx,e.contact.y-e.y,false,260,false,0,0,null,{
+              speed:C.enemy.boatTorpSpeed??38, life:C.enemy.boatTorpLife??90,
+              dmg:C.enemy.boatTorpDmg??28, seekRange:C.enemy.boatTorpSeek??380,
+            });
+            e._torpStock--;
           }
         }
 
@@ -1477,10 +1506,12 @@
           :state==='investigate'?5
           :7;
         const curSpd=Math.hypot(e.vx,e.vy);
+        // Damage speed cap — propulsion casualty from torpedo hit (set in damageEnemy)
+        const cappedTargetSpd = targetSpd * (e._dmgSpeedCapMult ?? 1.0);
         // Tau-based acceleration — matches realistic SSN build/decay rates
         // Subs accelerate slower than they decelerate (prop drag)
-        const eTau = curSpd < targetSpd ? 40 : 25;
-        const newSpd = curSpd + (targetSpd - curSpd) / eTau * dt;
+        const eTau = curSpd < cappedTargetSpd ? 40 : 25;
+        const newSpd = curSpd + (cappedTargetSpd - curSpd) / eTau * dt;
         e.vx=Math.cos(e.heading)*newSpd;
         e.vy=Math.sin(e.heading)*newSpd;
 

@@ -173,7 +173,7 @@
         <button class="dev-btn danger" id="dev-btn-kill">Kill All</button>
       </div>
 
-      <div class="dev-section-label">Spawn Sub</div>
+      <div class="dev-section-label">Spawn Sub (Role)</div>
       <div class="dev-row">
         <button class="dev-btn" id="dev-btn-hunter">Hunter</button>
         <button class="dev-btn" id="dev-btn-pinger">Pinger</button>
@@ -185,12 +185,33 @@
         <button class="dev-btn" id="dev-btn-cz-pinger">CZ Pinger</button>
       </div>
 
-      <div class="dev-section-label">Spawn Ship</div>
+      <div class="dev-section-label">Spawn Sub (Class)</div>
       <div class="dev-row">
-        <button class="dev-btn" id="dev-btn-iota">IOTA</button>
-        <button class="dev-btn" id="dev-btn-kappa">KAPPA</button>
-        <button class="dev-btn" id="dev-btn-lambda">LAMBDA</button>
-        <button class="dev-btn" id="dev-btn-mu">MU</button>
+        <button class="dev-btn" id="dev-btn-november">NOVEMBER</button>
+        <button class="dev-btn" id="dev-btn-whiskey">WHISKEY</button>
+        <button class="dev-btn" id="dev-btn-golf">GOLF</button>
+      </div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-foxtrot">FOXTROT</button>
+        <button class="dev-btn" id="dev-btn-kilo">KILO</button>
+        <button class="dev-btn" id="dev-btn-yankee">YANKEE</button>
+      </div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-delta">DELTA</button>
+        <button class="dev-btn" id="dev-btn-typhoon">TYPHOON</button>
+      </div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-papa">PAPA</button>
+        <button class="dev-btn" id="dev-btn-oscar">OSCAR</button>
+        <button class="dev-btn" id="dev-btn-akula">AKULA</button>
+      </div>
+
+      <div class="dev-section-label">Spawn Ship (Class)</div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-krivak">KRIVAK</button>
+        <button class="dev-btn" id="dev-btn-udaloy">UDALOY</button>
+        <button class="dev-btn" id="dev-btn-grisha">GRISHA</button>
+        <button class="dev-btn" id="dev-btn-slava">SLAVA</button>
       </div>
 
       <div class="dev-status" id="dev-status"></div>
@@ -603,9 +624,23 @@
     spawnFn(brg, dist);
     status(`Spawned ${label}`);
   }
-  btn('dev-btn-iota',   ()=>spawnShip(window.AI.spawnIota,   'IOTA (frigate)'));
-  btn('dev-btn-kappa',  ()=>spawnShip(window.AI.spawnKappa,  'KAPPA (destroyer)'));
-  btn('dev-btn-lambda', ()=>spawnShip(window.AI.spawnLambda, 'LAMBDA (corvette)'));
-  btn('dev-btn-mu',     ()=>spawnShip(window.AI.spawnMu,     'MU (cruiser)'));
+  // Soviet sub classes
+  btn('dev-btn-november', ()=>spawnShip(window.AI.spawnNovember, 'NOVEMBER (SSN)'));
+  btn('dev-btn-whiskey',  ()=>spawnShip(window.AI.spawnWhiskey,  'WHISKEY (SSK)'));
+  btn('dev-btn-golf',     ()=>spawnShip(window.AI.spawnGolf,     'GOLF (SSB)'));
+  btn('dev-btn-foxtrot',  ()=>spawnShip(window.AI.spawnGamma,    'FOXTROT (SSK)'));
+  btn('dev-btn-kilo',     ()=>spawnShip(window.AI.spawnEta,      'KILO (SSK)'));
+  btn('dev-btn-yankee',   ()=>spawnShip(window.AI.spawnYankee,   'YANKEE (SSBN)'));
+  btn('dev-btn-delta',    ()=>spawnShip(window.AI.spawnEpsilon,  'DELTA (SSBN)'));
+  btn('dev-btn-typhoon',  ()=>spawnShip(window.AI.spawnSSBN,     'TYPHOON (SSBN)'));
+  btn('dev-btn-papa',     ()=>spawnShip(window.AI.spawnPapa,     'PAPA (SSGN)'));
+  btn('dev-btn-oscar',    ()=>spawnShip(window.AI.spawnTheta,    'OSCAR (SSGN)'));
+  btn('dev-btn-akula',    ()=>spawnShip(window.AI.spawnZeta,     'AKULA (SSN)'));
+
+  // Surface ships (renamed)
+  btn('dev-btn-krivak', ()=>spawnShip(window.AI.spawnIota,   'KRIVAK (frigate)'));
+  btn('dev-btn-udaloy', ()=>spawnShip(window.AI.spawnKappa,  'UDALOY (destroyer)'));
+  btn('dev-btn-grisha', ()=>spawnShip(window.AI.spawnLambda, 'GRISHA (corvette)'));
+  btn('dev-btn-slava',  ()=>spawnShip(window.AI.spawnMu,     'SLAVA (cruiser)'));
 
 })();

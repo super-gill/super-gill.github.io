@@ -359,7 +359,7 @@
 
     // ── Readouts — heading, speed, depth in the gap below compass ─────────
     // Draw a dark backing strip behind the readouts for contrast
-    const readoutH=U(52);
+    const readoutH=U(66);
     const readoutY0=cy+radius+U(8);
     ctx.fillStyle='rgba(6,14,30,0.65)';
     ctx.beginPath();
@@ -393,6 +393,17 @@
     const dNow=Math.round(player.depth||0);
     const dOrd=Math.round(player.depthOrder??player.depth??0);
     ctx.fillText('DEP '+dNow+'m  \u2192  '+dOrd+'m', cx, ry);
+    ry+=lineH;
+
+    // Battery line
+    const batPct=Math.round((player.battery??1.0)*100);
+    const isDiesel=C.player.isDiesel||false;
+    const batCol=batPct<20?'rgba(220,60,60,0.90)':batPct<50?'rgba(220,160,60,0.90)':'rgba(200,225,255,0.75)';
+    ctx.fillStyle=batCol;
+    ctx.font=`${U(10)}px ui-monospace,monospace`;
+    const snrkSuffix=player.snorkeling?' SNKL':isDiesel&&player.snorkelOrdered?' RISG':'';
+    const battLabel=isDiesel?`BATT ${batPct}%${snrkSuffix}`:`BATT ${batPct}%${player.scram?' SCRAM':''}`;
+    ctx.fillText(battLabel, cx, ry);
 
     // Down depth button below readouts
     const belowY=readoutY0+readoutH+U(4);

@@ -44,16 +44,22 @@
     co2_scrubbers:  { label:'CO2 SCRUBBERS',     room:'aux_section_d1'   },
     o2_gen:         { label:'O2 GENERATOR',      room:'aux_section_d2'   },
     aux_power:      { label:'AUX POWER PANEL',   room:'aux_section_d0'   },
-    // ── WT Section 4 — Reactor Comp ──────────────────────────────────────
-    reactor:        { label:'REACTOR',           room:'reactor_comp_d1'  },
-    primary_coolant:{ label:'PRIMARY COOLANT',   room:'reactor_comp_d2'  },
-    pressuriser:    { label:'PRESSURISER',       room:'reactor_comp_d1'  },
-    rad_monitor:    { label:'RAD MONITORING',    room:'reactor_comp_d0'  },
+    // ── WT Section 4 — Reactor Comp (nuclear) ────────────────────────────
+    reactor:        { label:'REACTOR',           room:'reactor_comp_d1',  nuclearOnly:true },
+    primary_coolant:{ label:'PRIMARY COOLANT',   room:'reactor_comp_d2',  nuclearOnly:true },
+    pressuriser:    { label:'PRESSURISER',       room:'reactor_comp_d1',  nuclearOnly:true },
+    rad_monitor:    { label:'RAD MONITORING',    room:'reactor_comp_d0',  nuclearOnly:true },
+    // ── WT Section 4 (diesel) — Engine Compartment ───────────────────────
+    diesel_engine:  { label:'DIESEL ENGINE',     room:'reactor_comp_d1',  dieselOnly:true  },
+    alternator:     { label:'ALTERNATOR',        room:'reactor_comp_d2',  dieselOnly:true  },
     // ── WT Section 5 — Engine Room ───────────────────────────────────────
     propulsion:     { label:'PROPULSION',        room:'engine_room_d0b'  },
-    main_turbines:  { label:'MAIN TURBINES',     room:'engine_room_d2'   },
+    main_turbines:  { label:'MAIN TURBINES',     room:'engine_room_d2',   nuclearOnly:true },
     elec_dist:      { label:'ELEC DISTRIBUTION', room:'engine_room_d1'   },
-    emerg_diesel:   { label:'EMERGENCY DIESEL',  room:'engine_room_d2'   },
+    emerg_diesel:   { label:'EMERGENCY DIESEL',  room:'engine_room_d2',   nuclearOnly:true },
+    // ── WT Section 5 (diesel) — Motor Room ───────────────────────────────
+    main_motor:     { label:'MAIN MOTOR',        room:'engine_room_d0b',  dieselOnly:true  },
+    battery_bank:   { label:'BATTERY BANK',      room:'engine_room_d1',   dieselOnly:true  },
     // ── WT Section 6 — Aft Ends ──────────────────────────────────────────
     towed_array:    { label:'TOWED ARRAY',       room:'aft_ends_d2'      },
     steering:       { label:'STEERING',          room:'aft_ends_d2'      },
@@ -183,17 +189,36 @@
   }
 
   // ── Derived system lookups (from SYS_DEF + ROOMS) ─────────────────────
-  // Systems per section (replaces COMP_DEF[comp].systems)
+  // Systems per section for nuclear vessels (excludes dieselOnly)
   const SECTION_SYSTEMS = {};
+  // Systems per section for diesel vessels (excludes nuclearOnly)
+  const DIESEL_SECTION_SYSTEMS = {};
   // Systems per room
   const ROOM_SYSTEMS = {};
   for(const [sys, def] of Object.entries(SYS_DEF)){
     const sec = ROOMS[def.room]?.section;
     if(!sec) continue;
-    if(!SECTION_SYSTEMS[sec]) SECTION_SYSTEMS[sec] = [];
-    SECTION_SYSTEMS[sec].push(sys);
+    if(!def.dieselOnly){
+      if(!SECTION_SYSTEMS[sec]) SECTION_SYSTEMS[sec] = [];
+      SECTION_SYSTEMS[sec].push(sys);
+    }
+    if(!def.nuclearOnly){
+      if(!DIESEL_SECTION_SYSTEMS[sec]) DIESEL_SECTION_SYSTEMS[sec] = [];
+      DIESEL_SECTION_SYSTEMS[sec].push(sys);
+    }
     if(!ROOM_SYSTEMS[def.room]) ROOM_SYSTEMS[def.room] = [];
     ROOM_SYSTEMS[def.room].push(sys);
+  }
+
+  // Helper: returns system list for the current vessel type
+  function activeSystems(comp){
+    return (C.player.isDiesel ? DIESEL_SECTION_SYSTEMS : SECTION_SYSTEMS)[comp] || [];
+  }
+
+  // Helper: returns section display label for the current vessel type
+  const _DIESEL_COMP_LABEL = { reactor_comp:'ENGINE COMP', engine_room:'MOTOR ROOM' };
+  function compLabel(comp){
+    return (C.player.isDiesel && _DIESEL_COMP_LABEL[comp]) || COMP_DEF[comp]?.label || comp;
   }
 
   // ── Room adjacency (fire spread / DC traversal within a section) ────────
@@ -634,8 +659,8 @@
     const next=cur==='open'?'closed':'open';
     d.wtd[key]=next;
     const isManual=(d.systems?.hyd_main||'nominal')==='offline';
-    const labA=COMP_DEF[sectionA]?.label||sectionA;
-    const labB=COMP_DEF[sectionB]?.label||sectionB;
+    const labA=compLabel(sectionA);
+    const labB=compLabel(sectionB);
     dcLog(`WTD ${labA}/${labB} — ${next.toUpperCase()}${isManual?' (MANUAL OP)':''}`);
   }
 
@@ -925,7 +950,7 @@
 
       // Only damage systems near the breach — torpedo hits the hull bottom,
       // so lower-deck systems are most vulnerable. Filter by deck proximity.
-      const allSys=[...(SECTION_SYSTEMS[comp]||[])].sort(()=>rand(-1,1));
+      const allSys=[...activeSystems(comp)].sort(()=>rand(-1,1));
       const maxDeck=severity>0.85?0:severity>0.5?1:2; // 0=all decks, 2=bottom only
       const sysList=allSys.filter(s=>(ROOMS[SYS_DEF[s].room]?.deck??1)>=maxDeck);
       const numHit=severity>0.7?Math.min(3,sysList.length):1;
@@ -1051,7 +1076,7 @@
     d.floodRate[comp]=0;
     d.flooding[comp]=0;
     if(d._floodDeckDmg?.[comp]) d._floodDeckDmg[comp]={};
-    for(const sys of (SECTION_SYSTEMS[comp]||[])){
+    for(const sys of activeSystems(comp)){
       if(d.systems[sys]==='nominal') damageSystem(sys);
     }
     COMMS.flood.sealed(SECTION_LABEL[comp]||comp);
@@ -1101,7 +1126,7 @@
 
   // ── Next damaged system to repair in a compartment (auto-priority) ────────
   function _nextRepairTarget(comp,d){
-    const sysList=SECTION_SYSTEMS[comp]||[];
+    const sysList=activeSystems(comp);
     // Priority: worst state first, skip nominal only (destroyed is repairable post-blow)
     const repairable=sysList
       .filter(s=>d.systems[s]!=='nominal')
@@ -2257,13 +2282,13 @@
       const _ddmg=d._floodDeckDmg[comp];
       if(fl>=0.33&&!_ddmg[2]){                      // D3 (bottom) submerged
         _ddmg[2]=true;
-        for(const sys of (SECTION_SYSTEMS[comp]||[])){
+        for(const sys of activeSystems(comp)){
           if((ROOMS[SYS_DEF[sys].room]?.deck??1)===2){ const st=damageSystem(sys); COMMS.sys.damaged(SYS_LABEL[sys],st,0.5); }
         }
       }
       if(fl>=0.67&&!_ddmg[1]){                      // D2 (middle) submerged
         _ddmg[1]=true;
-        for(const sys of (SECTION_SYSTEMS[comp]||[])){
+        for(const sys of activeSystems(comp)){
           if((ROOMS[SYS_DEF[sys].room]?.deck??1)===1){ const st=damageSystem(sys); COMMS.sys.damaged(SYS_LABEL[sys],st,0.5); }
         }
       }
@@ -2307,7 +2332,7 @@
         if(!d._floodDeckDmg) d._floodDeckDmg={};
         if(!d._floodDeckDmg[comp]) d._floodDeckDmg[comp]={};
         const _ddFull=d._floodDeckDmg[comp];
-        for(const sys of (SECTION_SYSTEMS[comp]||[])){
+        for(const sys of activeSystems(comp)){
           // D1 systems: first damage event (deck just reached)
           if((ROOMS[SYS_DEF[sys].room]?.deck??1)===0 && !_ddFull[0]){ damageSystem(sys); }
           // All systems: one final step for full submersion
@@ -2413,17 +2438,28 @@
     if(sys.propulsion==='destroyed') speedCap=2;
     else if(sys.propulsion==='offline') speedCap=5;
     else if(sys.propulsion==='degraded') speedCap=15;
-    if(sys.reactor==='offline'||sys.reactor==='destroyed'){
-      // Emergency diesel provides limited propulsion when reactor down
-      if(sys.emerg_diesel==='offline'||sys.emerg_diesel==='destroyed') speedCap=Math.min(speedCap,2);
-      else speedCap=Math.min(speedCap,7);
+    if(!C.player.isDiesel){
+      if(sys.reactor==='offline'||sys.reactor==='destroyed'){
+        // Emergency diesel provides limited propulsion when reactor down
+        if(sys.emerg_diesel==='offline'||sys.emerg_diesel==='destroyed') speedCap=Math.min(speedCap,2);
+        else speedCap=Math.min(speedCap,7);
+      }
+      // Pressuriser limits reactor power output
+      if(sys.pressuriser==='destroyed') speedCap=Math.min(speedCap,8);
+      else if(sys.pressuriser==='offline') speedCap=Math.min(speedCap,12);
+      // Main turbines degrade speed ceiling
+      if(sys.main_turbines==='destroyed') speedCap=Math.min(speedCap,5);
+      else if(sys.main_turbines==='offline') speedCap=Math.min(speedCap,10);
+    } else {
+      // Diesel: main motor and battery bank determine propulsion
+      if(sys.main_motor==='destroyed') speedCap=Math.min(speedCap,2);
+      else if(sys.main_motor==='offline') speedCap=Math.min(speedCap,4);
+      if(sys.battery_bank==='destroyed') speedCap=Math.min(speedCap,4);
+      else if(sys.battery_bank==='offline') speedCap=Math.min(speedCap,8);
+      // Diesel engine damaged — limits recharge and sustained speed
+      if(sys.diesel_engine==='destroyed') speedCap=Math.min(speedCap,8);
+      else if(sys.diesel_engine==='offline') speedCap=Math.min(speedCap,10);
     }
-    // Pressuriser limits reactor power output
-    if(sys.pressuriser==='destroyed') speedCap=Math.min(speedCap,8);
-    else if(sys.pressuriser==='offline') speedCap=Math.min(speedCap,12);
-    // Main turbines degrade speed ceiling
-    if(sys.main_turbines==='destroyed') speedCap=Math.min(speedCap,5);
-    else if(sys.main_turbines==='offline') speedCap=Math.min(speedCap,10);
     let sonarRangeMult=1.0;
     if(sys.sonar_hull==='offline'||sys.sonar_hull==='destroyed') sonarRangeMult=0.0;
     else if(sys.sonar_hull==='degraded') sonarRangeMult=0.55;
@@ -2481,7 +2517,9 @@
     const steeringOk=sys.steering==='nominal'||sys.steering==='degraded';
     const fit=totalFit(),total=totalCrew();
     const integ=total>0?fit/total:1;
-    const maxDepth=integ<0.35?120:integ<0.55?250:(C.world?.maxDepth||500);
+    // Collapse depth scales with vessel class — Type 209 collapses far shallower than Seawolf
+    const vesselMaxD = C.player?.maxDepth ?? C.world?.maxDepth ?? 500;
+    const maxDepth = integ<0.35 ? Math.round(vesselMaxD*0.24) : integ<0.55 ? Math.round(vesselMaxD*0.50) : vesselMaxD;
     // ── Control room status ────────────────────────────────────────────────
     // Evacuated (≥65% flood) OR fully flooded OR fire present = conn room lost
     const connRoomLost = !!(d._evacuated?.control_room || d.flooded?.control_room || _sectionHasFire('control_room',d));
@@ -2614,7 +2652,7 @@
     getTrimState,drawHPA,
     toggleWTD,
     relocateCrewForWatch:(watch)=>_relocateCrewForWatch(player.damage,watch),
-    COMP_DEF,COMPS,STATES,SYS_LABEL,SYS_DEF,ROOMS,ROOM_IDS,SECTION_ROOMS,ROOM_ADJ,SECTION_SYSTEMS,ROOM_SYSTEMS,WTD_PAIRS,WTD_RC_KEYS,
+    COMP_DEF,COMPS,STATES,SYS_LABEL,SYS_DEF,ROOMS,ROOM_IDS,SECTION_ROOMS,ROOM_ADJ,SECTION_SYSTEMS,DIESEL_SECTION_SYSTEMS,activeSystems,ROOM_SYSTEMS,WTD_PAIRS,WTD_RC_KEYS,
     SECTION_LABEL,SECTION_SHORT,roomSection,effectiveState,
     COMPARTMENTS:COMPS,
     CREW_MANIFEST,

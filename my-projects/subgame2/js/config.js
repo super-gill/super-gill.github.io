@@ -25,7 +25,7 @@
       speedTau:45,            // seconds to close speed gap — realistic SSN acceleration
       turnRateDeg:2.2,        // °/s at flank — ~8.9km turning radius at 28kt
       turnRateMinDeg:0.5,     // °/s at creep
-      periscopeDepth:140,
+      periscopeDepth:18,             // m — max depth to use periscope (~60ft, standard SSN PD)
       depthStep:60, depthHoldRepeat:0.10,
       depthTau:8.0, depthRateMax:1.8,   // 1.8 m/s normal (~108m/min) — SSN realistic
       buoyancyScale:3.6,   // m/s per fill-unit deviation; neutralFill=0.50 → max ±1.8 m/s
@@ -110,6 +110,147 @@
         },
       },
     },
+    // ── NATO vessel presets — one complete object per playable submarine ──────
+    // Selecting a vessel at the start screen sets window.CONFIG.player to one of these.
+    // Every field that any code reads from C.player must appear in every preset.
+    // No inheritance — if a field is missing it will be immediately obvious as undefined.
+    playerPresets:(()=>{
+      // Fields shared across all presets (physics constants, HPA, casualties, etc.)
+      const sh={
+        speedIncrementKts:1, speedTau:45, turnRateDeg:2.2, turnRateMinDeg:0.5,
+        periscopeDepth:18, depthStep:60, depthHoldRepeat:0.10,
+        depthTau:8.0, depthRateMax:1.8, buoyancyScale:3.6, fillRate:0.022, kFill:0.0016,
+        ballast:0.0, ballastRate:0.85, buoyAccel:210, buoyDamp:0.85, vyMax:190,
+        flankTransient:0.28,
+        silentRunning:{speedCap:8, noiseMult:0.55},
+        emergencyTurn:{dur:2.2, cd:8.0, rudderDeg:35, noiseSpike:0.28},
+        crashDive:{dur:3.5, cd:12.0, noiseSpike:0.35, tauOverride:0.4, rateMult:3.5},
+        flowNoiseDiv:32, turnNoise:0.07,
+        hpa:{maxPressure:207,reservePressure:207,ambientPerMetre:0.1,
+             controlMinRatio:1.2,ascentCostPerMetre:0.04,torpedoCost:2,
+             blowFlowRate:0.5,blowReferenceBar:50,blowFlowToVy:0.4,blowFlowToFillRate:0.025,
+             lpRechargeRate:0.4,hpRechargeRate:2.5,rechargeNoiseAdd:0.55},
+        cavitationDepthRef:380, cavitationSlope:0.018, cavitationSpike:0.22,
+        torpCd:0.45, cmCd:4.5, pingCd:9.0, pingPulse:1.25,
+        pingDazzle:{duration:1.5, range:1800},
+        torpArcDeg:55, torpEnableDist:300, fireDelay:4.5,
+        torpWireMaxRange:3000, torpWireBreakTurnDeg:90,
+        wireMaxLaunchKts:15, wireSafeKts:15, wireStressKts:20,
+        wireStressBreakTime:25, wireInstantBreakKts:22,
+        periscope:{cd:10.0,dur:4.5,revealR:3600,detectBoost:1.55,noiseSpike:0.10},
+        launchTransientRange:2000, launchTransientSus:0.35,
+        pingDatumRange:5000, pingDatumSus:0.75,
+        trimLevers:{fore_ends:-2.0,control_room:-0.8,aux_section:-0.2,reactor_comp:0.0,engine_room:0.8,aft_ends:2.0},
+        trimFullAuthority:2.0, planeMinSpeed:10.0, floodFillEquiv:0.28,
+        casualties:{
+          coolantLeak:{stressThreshold:15,riskPerSec:0.008,degradedRiskMult:3.0,
+                       countdown:45,fastMult:1.5,slowMult:0.5,fixChanceHigh:0.65,fixChanceLow:0.30},
+          steamLeak:{shockChance:0.12,repairTime:[30,60],speedCap:7},
+          turbineTrip:{shockChance:0.15,throttleSnapThreshold:10,throttleSnapChance:0.20,
+                       recoveryTime:[20,30],speedCap:12},
+          reactorRunaway:{hitChance:0.08,transientRange:3000,transientSus:0.60},
+        },
+        // ── Battery — nuclear defaults (always full except SCRAM) ─────────────
+        isDiesel: false,
+        battery:{ drainOnScram:0.0020, chargeRate:0.008 },
+        snorkelDepth:12, snorkelNoise:0, snorkelSpeedCap:100,
+        hasTowedArray: true,
+      };
+      return [
+        {...sh, key:'688i',      name:'USS DALLAS',       vesselClass:'LOS ANGELES CLASS', nation:'US', difficulty:'medium',
+                flavour:'Cold War workhorse. Balanced across all systems.',
+                lore:[
+                  'SSN-700 · Commissioned 1981 · 62 boats built — backbone of the Cold War US submarine fleet',
+                  'Conducted extensive intelligence patrols in Soviet home waters throughout the 1980s.',
+                  'Immortalised in The Hunt for Red October. Still on active service into the 2000s.',
+                ],
+                divingLimitM:400, sonarSuite:'AN/BQQ-5D', sonarQuality:0.85,
+                divingLimit:400, safeDivingDepth:300, designDepth:450, maxDepth:480, crushDepth:520,
+                torpType:'MK-48 ADCAP', towedArray:'TB-16 / TB-23',
+                r:28,hpMax:100,hitR:30, speedMaxKts:20,flankKts:28,
+                noiseFloor:0.040,flankNoiseBoost:0.42,
+                torpTubes:4,torpStock:32,torpReloadTime:28,cmStock:12,
+                cavitationKtsRef:18,speedDeafness:{startKts:4,fullDeafKts:10}},
+        {...sh, key:'trafalgar', name:'HMS TRAFALGAR',    vesselClass:'TRAFALGAR CLASS',   nation:'UK', difficulty:'medium',
+                flavour:'Pump-jet propulsor — dramatically quieter at speed.',
+                lore:[
+                  'S107 · Commissioned 1983 · Lead boat of class — 7 built',
+                  'First Royal Navy SSN with pump-jet propulsor, setting the standard for British SSN stealth.',
+                  'Deployed Gulf War 1991. Fired first British Tomahawks in anger, Kosovo 1999.',
+                ],
+                divingLimitM:400, sonarSuite:'TYPE 2076', sonarQuality:0.88,
+                divingLimit:400, safeDivingDepth:300, designDepth:450, maxDepth:480, crushDepth:520,
+                torpType:'SPEARFISH', towedArray:'TYPE 2026',
+                // SPEARFISH: ~80kt, excellent ECCM, harder to seduce, faster reacquisition than Mk-48 ADCAP
+                torpConfig:{speed:70, approachSpeed:20, life:280, dmg:60,
+                            seekRange:600, seekFOV:0.95, passiveFOV:2.5, turnRate:1.65,
+                            reacquireChance:0.020, arming:0.28, searchSnake:0.16,
+                            seduceFOV:2.80, seduceRange:300, seduceTime:8.0, reacquireDelay:4.0,
+                            depthRate:2, vertWindow:120, vertFuse:60},
+                r:26,hpMax:100,hitR:28, speedMaxKts:18,flankKts:26,
+                noiseFloor:0.032,flankNoiseBoost:0.30,
+                torpTubes:5,torpStock:25,torpReloadTime:30,cmStock:12,
+                cavitationKtsRef:20,speedDeafness:{startKts:5,fullDeafKts:12}},
+        {...sh, key:'swiftsure', name:'HMS SWIFTSURE',    vesselClass:'SWIFTSURE CLASS',   nation:'UK', difficulty:'medium',
+                flavour:'Older design, fewer weapons. Quieter than 688i at depth.',
+                lore:[
+                  'S126 · Commissioned 1973 · Lead boat of class — 6 built',
+                  'Deeper, faster and quieter than the preceding Valiant class. Conventional screw propulsion.',
+                  'Direct predecessor to the Trafalgar boats. Decommissioned 1992.',
+                ],
+                divingLimitM:350, sonarSuite:'TYPE 2020', sonarQuality:0.76,
+                divingLimit:350, safeDivingDepth:260, designDepth:400, maxDepth:430, crushDepth:465,
+                torpType:'TIGERFISH', towedArray:'TYPE 2026',
+                // TIGERFISH Mk 24: ~35kt, 1974 design, inferior ECCM — easier to seduce, slow to reacquire
+                torpConfig:{speed:35, approachSpeed:12, life:300, dmg:45,
+                            seekRange:340, seekFOV:0.75, passiveFOV:2.1, turnRate:1.25,
+                            reacquireChance:0.008, arming:0.35, searchSnake:0.22,
+                            seduceFOV:2.80, seduceRange:300, seduceTime:14.0, reacquireDelay:8.5,
+                            depthRate:2, vertWindow:120, vertFuse:60},
+                r:24,hpMax:90, hitR:26, speedMaxKts:18,flankKts:25,
+                noiseFloor:0.038,flankNoiseBoost:0.38,
+                torpTubes:5,torpStock:20,torpReloadTime:32,cmStock:10,
+                cavitationKtsRef:17,speedDeafness:{startKts:4,fullDeafKts:11}},
+        {...sh, key:'seawolf',   name:'USS CONNECTICUT',  vesselClass:'SEAWOLF CLASS',     nation:'US', difficulty:'easy',
+                flavour:'Post-Cold War overkill. Eight tubes, extreme depth, maximum firepower.',
+                lore:[
+                  'SSN-22 · Commissioned 1998 · Only 3 Seawolf class were ever built — budget cuts ended the programme',
+                  'Designed specifically to hunt Akula-class SSNs inside Soviet home waters.',
+                  'Fastest and deepest diving US SSN. A Cold War weapon that arrived after the war ended.',
+                ],
+                divingLimitM:480, sonarSuite:'AN/BQQ-5E', sonarQuality:0.95,
+                divingLimit:480, safeDivingDepth:365, designDepth:530, maxDepth:560, crushDepth:605,
+                torpType:'MK-48 ADCAP', towedArray:'TB-16 / TB-29A',
+                r:32,hpMax:120,hitR:35, speedMaxKts:20,flankKts:35,
+                noiseFloor:0.025,flankNoiseBoost:0.28,
+                torpTubes:8,torpStock:50,torpReloadTime:22,cmStock:16,
+                cavitationKtsRef:22,speedDeafness:{startKts:5,fullDeafKts:13}},
+        {...sh, key:'type209',   name:'U-36',             vesselClass:'TYPE 209',          nation:'DE', difficulty:'expert',
+                flavour:'Diesel-electric. Near-silent on battery. One wrong move and you are out of torpedoes.',
+                lore:[
+                  'U-36 · Commissioned 1997 · Deutsche Marine — Type 209/1400mod',
+                  'Diesel-electric: near-silent on battery, but snorkel ops broadcast your position.',
+                  'Most exported submarine design in history. Operated by 14+ navies worldwide.',
+                ],
+                divingLimitM:250, sonarSuite:'ATLAS DBQS-21', sonarQuality:0.65,
+                divingLimit:250, safeDivingDepth:190, designDepth:280, maxDepth:300, crushDepth:325,
+                torpType:'SST-4 / SUT', towedArray:'PRS-3 PASSIVE',
+                // SST-4 / SUT: ~35kt wire-guided, decent ECCM but not ADCAP-class
+                torpConfig:{speed:38, approachSpeed:13, life:260, dmg:50,
+                            seekRange:380, seekFOV:0.82, passiveFOV:2.2, turnRate:1.35,
+                            reacquireChance:0.010, arming:0.32, searchSnake:0.20,
+                            seduceFOV:2.80, seduceRange:300, seduceTime:12.0, reacquireDelay:7.0,
+                            depthRate:2, vertWindow:120, vertFuse:60},
+                r:18,hpMax:70, hitR:20, speedMaxKts:8, flankKts:12,
+                noiseFloor:0.018,flankNoiseBoost:0.55,
+                torpTubes:8,torpStock:14,torpReloadTime:35,cmStock:8,
+                cavitationKtsRef:11,speedDeafness:{startKts:6,fullDeafKts:14},
+                // Diesel-electric overrides
+                isDiesel:true, hasTowedArray:false,
+                battery:{ drainPerKt:0.00014, chargeRate:0.003, surfaceChargeRate:0.005 },
+                snorkelNoise:0.35, snorkelSpeedCap:5},
+      ];
+    })(),
     detection:{detectT:7.5, seenT:2.6, proximityR:180, pingDetectR:1800,
                cz:{min:4800, max:5500, boost:3.2}},  // convergence zone range band + signal multiplier
     tma:{
@@ -126,18 +267,22 @@
       qualityThresholdSolid: 0.70,  // SOLID tier — full lead-angle intercept, wire position updates
     },
     torpedo:{speed:50, approachSpeed:18, life:210, dmg:55,
-             seekRange:500, seekFOV:0.85,        // active homing — narrow cone
-             passiveFOV: 2.4,                    // passive search — ~137° half-angle, nearly omnidirectional
-             turnRate:1.55, reacquireChance:0.012, arming:0.30, searchSnake:0.18,
-             seduceFOV:2.80, seduceRange:300, seduceTime:12.0, reacquireDelay:5.5,  // noisemaker: wide pull, 12s chase, 5.5s reacquire
-             depthRate:12,          // m/s max depth change rate
+             // NATO Mk-48 ADCAP — superior seeker, strong ECCM, reliable reacquisition
+             seekRange:520, seekFOV:0.90,         // active homing — wider cone than Soviet equivalent
+             passiveFOV: 2.4,                     // passive search — ~137° half-angle, nearly omnidirectional
+             turnRate:1.55, reacquireChance:0.016, arming:0.30, searchSnake:0.18,
+             seduceFOV:2.80, seduceRange:300, seduceTime:9.5, reacquireDelay:5.5,  // ECCM: shorter CM chase (9.5s vs Soviet), harder to seduce
+             depthRate:2,           // m/s max depth change rate — Mk-48 ADCAP ~1.7-2.0 m/s (was incorrectly 12)
              vertWindow:120,        // m — seeker vertical acquisition window ±
              vertFuse:60,           // m — detonation vertical tolerance ±
             },
     decoy:{noisemakerLifeMin:14.0, noisemakerLifeMax:20.0, noisemakerR:22, sigPlayer:1.4, sigEnemy:1.0, flareLifeMin:1.8, flareLifeMax:2.6, flareR:12},
     enemy:{
       boatShare:0.35,
-      hearBoatRange:2200, hearSubRange:2500, hearSignalMin:0.04, hearPBase:0.025, hearPScale:1.5,
+      // Soviet passive sonar — effective range ~10% shorter than NATO equivalent
+      hearBoatRange:2000, hearSubRange:2200, hearSignalMin:0.04, hearPBase:0.025, hearPScale:1.5,
+      // Soviet speed deafness — own-hull noise degrades sonar at lower speeds than NATO
+      deafStartKts:3, deafFullKts:8, deafnessCeil:0.92,
       wolfpackDatumRange:3500,  // enemies share player datum within this radius
       fireTransientRange:1800, fireTransientSus:0.45,  // launch heard by player
 
@@ -145,21 +290,23 @@
       quietNoiseThreshold:0.14, susDecayBase:0.010, susDecayQuietExtra:0.015,
       contactMaxAge:10.0, contactMaxAgeQuiet:5.0,
       fireMinSus:0.62, fireMaxAge:14.0, fireMinStrength:0.45,
-      boatFireEngage:[1.2,2.0], boatFireOther:[3.5,5.5],
+      boatFireEngage:[22,35], boatFireOther:[50,80],
+      boatTorpStock:6,   // Mk-46 equivalent — finite loadout
+      boatTorpSpeed:38, boatTorpLife:90, boatTorpDmg:28, boatTorpSeek:380,
       subFireEngage:[1.2,2.2], subFireOther:[3.5,6.0],
       subNavT:[120,280], subPingCd:[14.0,26.0], subPingRange:2200,
-      subNoiseMin:0.58, subNoiseMax:0.82,  // enemy subs run louder than player
+      subNoiseMin:0.62, subNoiseMax:0.90,  // Soviet subs significantly louder than player (0.04)
       subSprintKtsMin:13, subSprintKtsMax:18,  // faster wolfpack sprints
 
       subTorpReactR:1600, boatTorpReactR:400,
       subTorpArcDeg:55,
       subTubes:2, subTorpStock:6, subReloadTime:40,
-      // Enemy torpedo parameters — Soviet-era: same model, slightly behind the curve
-      subTorpSpeed:45,          // slightly slower sprint
-      subTorpApproachSpeed:16,  // slower passive approach
-      subTorpSeekRange:400,     // shorter seeker range
-      subTorpReacquire:0.010,   // less reliable reacquisition
-      subTorpLife:220,          // slightly longer run (heavier fuel load, less efficient)
+      // Soviet torpedo (SET-65 / TEST-71) — meaningfully inferior to NATO Mk-48
+      subTorpSpeed:40,          // ~40kt vs Mk-48's ~55kt
+      subTorpApproachSpeed:14,  // slower passive approach
+      subTorpSeekRange:340,     // shorter seeker range (Soviet acoustics less refined)
+      subTorpReacquire:0.008,   // less reliable reacquisition after CM seduction
+      subTorpLife:180,          // shorter run — less fuel, shorter range than Mk-48
       // Counter-fire — degraded intercept under panic conditions
       counterFire:{
         reactionDelay:[2.0,4.0],  // seconds before first counter-shot

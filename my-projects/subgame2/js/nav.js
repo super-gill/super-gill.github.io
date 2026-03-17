@@ -149,6 +149,8 @@
     let orderKts=player.speedOrderKts??0;
     if(player.silent) orderKts=Math.min(orderKts,C.player.silentRunning.speedCap);
     if(player.scram)  orderKts=Math.min(orderKts, 3.0); // EPM only
+    if(player.snorkeling && C.player.isDiesel) orderKts=Math.min(orderKts, C.player.snorkelSpeedCap??5);
+    if(player._battDead && C.player.isDiesel) orderKts=0; // no propulsion on dead battery
     const dmgFx = window.DMG?.getEffects() || {};
     if(dmgFx.speedCap!=null) orderKts=Math.min(orderKts, dmgFx.speedCap);
     const maxKts=Math.min(C.player.flankKts, dmgFx.speedCap??Infinity);
@@ -682,6 +684,92 @@
     player.emergTurnCd=Math.max(0,player.emergTurnCd-dt);
     player.crashDiveT=Math.max(0,player.crashDiveT-dt);
     player.crashDiveCd=Math.max(0,player.crashDiveCd-dt);
+
+    // ── Battery ───────────────────────────────────────────────────────────────
+    {
+      const batC=C.player.battery||{};
+      const isDiesel=C.player.isDiesel||false;
+      if(player.battery==null) player.battery=1.0;
+      const atSurface=player.depth<=5;
+
+      if(isDiesel){
+        const COMMS=window.COMMS;
+        const snkDepth=C.player.snorkelDepth??12;
+
+        // ── Snorkel order / cancel transitions ────────────────────────────
+        // Fire ordered comms exactly once when snorkelOrdered first becomes true
+        if(player.snorkelOrdered && !player._snorkelOrderedFired){
+          player._snorkelOrderedFired=true;
+          player._snorkelCancelledFired=false;
+          COMMS?.snorkel?.ordered();
+        }
+        if(!player.snorkelOrdered && !player._snorkelCancelledFired && player._snorkelOrderedFired){
+          player._snorkelCancelledFired=true;
+          player._snorkelOrderedFired=false;
+          if(player.snorkeling) COMMS?.snorkel?.cancelled(); // only if was actually snorkeling
+        }
+
+        // ── Snorkel depth management ───────────────────────────────────────
+        if(player.snorkelOrdered && !player.snorkeling){
+          player.depthOrder=snkDepth;
+          if(player.depth<=snkDepth+5){
+            player.snorkeling=true;
+            player._snorkelNoisyCautionFired=false;
+            COMMS?.snorkel?.deployed();
+          }
+        } else if(!player.snorkelOrdered && player.snorkeling){
+          player.snorkeling=false;
+        }
+
+        // One-time ESM/noise caution after snorkelling for 10 seconds
+        if(player.snorkeling){
+          player._snorkelT=(player._snorkelT||0)+dt;
+          if(player._snorkelT>=10 && !player._snorkelNoisyCautionFired){
+            player._snorkelNoisyCautionFired=true;
+            COMMS?.snorkel?.noisyCaution();
+          }
+        } else {
+          player._snorkelT=0;
+        }
+
+        // ── Charge / drain ─────────────────────────────────────────────────
+        if(atSurface||player.snorkeling){
+          const rate=atSurface?(batC.surfaceChargeRate??0.005):(batC.chargeRate??0.003);
+          player.battery=Math.min(1.0, player.battery+rate*dt);
+          if(player._battDead && player.battery>0.05){
+            player._battDead=false;
+            COMMS?.snorkel?.recovered();
+          }
+        } else {
+          const drain=(player.speed*(batC.drainPerKt??0.00014))*dt;
+          player.battery=Math.max(0, player.battery-drain);
+        }
+
+        // ── Battery level warnings (once per band) ─────────────────────────
+        const batPct=Math.round(player.battery*100);
+        const batBand=batPct<=10?'crit':batPct<=20?'low':batPct<=30?'med':'ok';
+        if(batBand!=='ok' && batBand!==(player._lastBatBand||'ok') && !player.snorkeling && !atSurface){
+          player._lastBatBand=batBand;
+          COMMS?.snorkel?.batteryLow(batPct);
+        } else if(batBand==='ok'){
+          player._lastBatBand='ok';
+        }
+
+        // ── Dead battery — kill propulsion, alert once ─────────────────────
+        if(!player._battDead && player.battery<0.005 && !atSurface && !player.snorkeling){
+          player._battDead=true;
+          COMMS?.snorkel?.exhausted();
+        }
+
+      } else {
+        // Nuclear: drains only during SCRAM, charges when reactor is online
+        if(player.scram){
+          player.battery=Math.max(0, player.battery-(batC.drainOnScram??0.002)*dt);
+        } else {
+          player.battery=Math.min(1.0, player.battery+(batC.chargeRate??0.008)*dt);
+        }
+      }
+    }
   }
 
   window.NAV={ktsToWU,updateOrders,stepDynamics};

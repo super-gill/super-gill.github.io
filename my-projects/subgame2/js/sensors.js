@@ -243,10 +243,10 @@
             if(e.civilian){
               c.classification=e.civType||'MERCHANT';
             } else if(e.type==='boat'){
-              const shipTypes={IOTA:'FRIGATE',KAPPA:'DESTROYER',LAMBDA:'CORVETTE',MU:'CRUISER'};
+              const shipTypes={KRIVAK:'FRIGATE',UDALOY:'DESTROYER',GRISHA:'CORVETTE',SLAVA:'CRUISER'};
               c.classification=shipTypes[e.subClass]||'WARSHIP';
             } else {
-              const hullTypes={GAMMA:'SSK',ETA:'SSK',DELTA:'SSBN',EPSILON:'SSBN',THETA:'SSGN'};
+              const hullTypes={FOXTROT:'SSK',KILO:'SSK',WHISKEY:'SSK',GOLF:'SSB',TYPHOON:'SSBN',DELTA:'SSBN',YANKEE:'SSBN',OSCAR:'SSGN',PAPA:'SSGN'};
               c.classification=hullTypes[e.subClass]||(e.role==='ssbn'?'SSBN':'SSN');
             }
             c._classStage=2;
@@ -263,10 +263,10 @@
           const needed=c._classNeeded3;
           if(c._classAccumT>=needed){
             if(!e.civilian && e.type==='boat'){
-              const shipTypes={IOTA:'FRIGATE',KAPPA:'DESTROYER',LAMBDA:'CORVETTE',MU:'CRUISER'};
+              const shipTypes={KRIVAK:'FRIGATE',UDALOY:'DESTROYER',GRISHA:'CORVETTE',SLAVA:'CRUISER'};
               c.classification=(shipTypes[e.subClass]||'WARSHIP')+' '+e.subClass;
             } else if(!e.civilian){
-              const hullTypes={GAMMA:'SSK',ETA:'SSK',DELTA:'SSBN',EPSILON:'SSBN',THETA:'SSGN'};
+              const hullTypes={FOXTROT:'SSK',KILO:'SSK',WHISKEY:'SSK',GOLF:'SSB',TYPHOON:'SSBN',DELTA:'SSBN',YANKEE:'SSBN',OSCAR:'SSGN',PAPA:'SSGN'};
               const baseType=hullTypes[e.subClass]||(e.role==='ssbn'?'SSBN':'SSN');
               c.classification=baseType+' '+e.subClass;
             }
@@ -409,6 +409,7 @@
 
   // ── Towed array passive update ──────────────────────────────────────────────
   function towedArrayUpdate(dt){
+    if(C.player.hasTowedArray === false) return;
     const ta = player.towedArray;
     if(!ta) return;
 
