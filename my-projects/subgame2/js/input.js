@@ -24,6 +24,11 @@
     // Home — re-centre camera on player
     if(e.key==="Home"){ const cam=window.G?.cam; const p=window.G?.player; if(cam&&p){cam.free=false;cam.x=p.wx;cam.y=p.wy;} }
     if(k==='j'&&window.G?.game){ window.G.game.logTab = window.G.game.logTab==='dc'?'log':'dc'; }
+    // UI scale: +/= to increase, - to decrease, 0 to reset
+    if((k==='='||k==='+')&&window.UI){ window.UI.setScale(window.UI.getScale()+window.UI.SCALE_STEP); }
+    if(k==='-'&&window.UI){ window.UI.setScale(window.UI.getScale()-window.UI.SCALE_STEP); }
+    if(k==='0'&&window.UI){ window.UI.setScale(1.0); }
+    if(k==='`'){ const p=document.getElementById('dev-panel'); if(p) p.style.display=p.style.display==='none'?'block':'none'; }
     if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) e.preventDefault();
   });
   addEventListener("keyup",(e)=>{
@@ -43,31 +48,48 @@
     input.mouseY=(e.clientY-r.top)*getDPR();
   }
 
+  function getU(){ return window.UI?.U || ((px)=>Math.round(px*getDPR())); }
+
   // Is the click inside the command panel strip at the bottom?
   function inPanel(my){
     const canvas=getCanvas(); if(!canvas) return false;
-    const DPR=getDPR();
-    const panelH=window.CONFIG.layout.panelH*DPR;
-    return my >= canvas.height - panelH;
+    const U=getU();
+    return my >= canvas.height - U(window.CONFIG.layout.panelH);
   }
 
   // Is the click inside the depth strip on the right?
   function inDepthStrip(mx){
     const canvas=getCanvas(); if(!canvas) return false;
-    const DPR=getDPR();
-    return mx >= canvas.width - 56*DPR;
+    const U=getU();
+    return mx >= canvas.width - U(window.CONFIG.layout.depthStripW);
+  }
+
+  // Is the click inside the nav compass widget (top-right area)?
+  function inCompass(mx, my){
+    const canvas=getCanvas(); if(!canvas) return false;
+    const U=getU();
+    const stripW=U(window.CONFIG.layout.depthStripW);
+    const radius=U(65);
+    const cx=canvas.width-stripW-radius-U(50);
+    const cy=U(72)+radius+U(10);
+    // Check the full compass region including buttons and readouts
+    const left=cx-radius-U(8)-U(38);           // port buttons left edge
+    const right=cx+radius+U(8)+U(38);           // starboard buttons right edge
+    const top=cy-radius-U(30)-U(20);            // depth up button top
+    const bottom=cy+radius+U(8)+U(52)+U(4)+U(20); // depth down button bottom
+    return mx>=left && mx<=right && my>=top && my<=bottom;
   }
 
   // Log panel sits above the bottom panel, bottom-left corner
   // Must absorb clicks so they don't fall through to chart waypoints
   function inLogPanel(mx, my){
     const canvas=getCanvas(); if(!canvas) return false;
-    const DPR=getDPR();
-    const panelH=window.CONFIG.layout.panelH*DPR;
-    const boardW=560*DPR;
+    const U=getU();
+    const panelH=U(window.CONFIG.layout.panelH);
+    const boardW=U(560);
     // tabH=20, rowH=19, maxRows=28, padY=6*2, +4 → boardH=568
-    const boardH=568*DPR;
-    const by=canvas.height - panelH - boardH - 2*DPR;
+    const boardH=U(568);
+    const by=canvas.height - panelH - boardH - U(2);
     return mx >= 0 && mx <= boardW && my >= by && my <= canvas.height - panelH;
   }
 
@@ -78,9 +100,8 @@
       const Z=(window.CONFIG?.camera?.zoom||0.12)*(window.G?.DPR||1);
       const dx=(input.mouseX-input._camDragLastX)/Z;
       const dy=(input.mouseY-input._camDragLastY)/Z;
-      const w=window.G?.world?.w||12000, h=window.G?.world?.h||12000;
-      cam.x=(cam.x-dx+w)%w;
-      cam.y=(cam.y-dy+h)%h;
+      cam.x=cam.x-dx;
+      cam.y=cam.y-dy;
       input._camDragLastX=input.mouseX;
       input._camDragLastY=input.mouseY;
     }
@@ -90,13 +111,15 @@
     updateMouse(e);
     if(e.button===0){
       input.mouseDownL=true;
-      // Start screen — all clicks go to PANEL
+      // Start screen — offset click Y by scroll only on scenario screen (vessel screen elements are fixed)
       if(window.G?.game?.started===false){
-        window.PANEL?.handleClick(input.mouseX, input.mouseY);
+        const g=window.G.game;
+        const offsetY=(g.startPhase||'scenario')==='scenario'?(g.startScrollY||0):0;
+        window.PANEL?.handleClick(input.mouseX, input.mouseY+offsetY);
         return;
       }
       // Panel and depth strip absorb clicks — don't route to chart
-      if(inPanel(input.mouseY)||inDepthStrip(input.mouseX)||inLogPanel(input.mouseX,input.mouseY)){
+      if(inPanel(input.mouseY)||inDepthStrip(input.mouseX)||inLogPanel(input.mouseX,input.mouseY)||inCompass(input.mouseX,input.mouseY)){
         window.PANEL?.handleClick(input.mouseX, input.mouseY);
         return;
       }
@@ -128,6 +151,17 @@
   });
 
   addEventListener("wheel",(e)=>{
+    const game=window.G?.game;
+    if(game && !game.started){
+      e.preventDefault();
+      const delta=e.deltaMode===1?e.deltaY*24:e.deltaMode===2?e.deltaY*(window.innerHeight||800):e.deltaY;
+      if((game.startPhase||'scenario')==='vessel' && (game.vesselTab||'player')==='soviet'){
+        game.vesselScrollY=Math.max(0,(game.vesselScrollY||0)+delta);
+      } else {
+        game.startScrollY=Math.max(0,(game.startScrollY||0)+delta);
+      }
+      return;
+    }
     const canvas=getCanvas(); if(!canvas) return;
     if(inPanel(input.mouseY)) return; // don't zoom when hovering panel
     e.preventDefault();

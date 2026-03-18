@@ -20,7 +20,6 @@
     #dev-panel-header:hover{background:rgba(0,200,255,0.06);}
     #dev-panel-body{padding:8px 10px;display:flex;flex-direction:column;gap:6px;
       max-height:calc(100vh - 60px);overflow-y:auto;}
-    #dev-panel.collapsed #dev-panel-body{display:none;}
     .dev-section-label{
       font-size:10px;color:rgba(0,200,255,0.45);letter-spacing:.1em;
       text-transform:uppercase;margin-top:4px;border-top:1px solid rgba(0,200,255,0.10);
@@ -46,28 +45,55 @@
   `;
   document.head.appendChild(style);
 
-  // ── Compartment map ───────────────────────────────────────────────────────
+  // ── Watertight sections ──────────────────────────────────────────────────
   const COMPS=[
-    {key:'fore_ends',   short:'TRP', label:'Torpedo Room'},
-    {key:'control_room',short:'CON', label:'Control Room'},
-    {key:'aux_section', short:'AUX', label:'Aux Machinery'},
-    {key:'reactor_comp',short:'RCT', label:'Reactor Comp'},
-    {key:'engine_room', short:'MAN', label:'Maneuvering'},
-    {key:'aft_ends',    short:'ENG', label:'Engineering'},
+    {key:'fore_ends',   short:'WTS1', label:'WT Section 1'},
+    {key:'control_room',short:'WTS2', label:'WT Section 2'},
+    {key:'aux_section', short:'WTS3', label:'WT Section 3'},
+    {key:'reactor_comp',short:'WTS4', label:'WT Section 4'},
+    {key:'engine_room', short:'WTS5', label:'WT Section 5'},
+    {key:'aft_ends',    short:'WTS6', label:'WT Section 6'},
   ];
 
   const SYS_LIST=[
+    // Fore Ends
     {id:'tubes',          label:'Tubes',       comp:'fore_ends'},
-    {id:'sonar_hull',     label:'Sonar',        comp:'fore_ends'},
-    {id:'planes_fwd_hyd', label:'Fwd Planes',   comp:'fore_ends'},
-    {id:'periscope',      label:'Scope',        comp:'control_room'},
-    {id:'ballast',        label:'Ballast',      comp:'control_room'},
-    {id:'tdc_comp',       label:'TDC',          comp:'control_room'},
-    {id:'reactor',        label:'Reactor',      comp:'reactor_comp'},
-    {id:'propulsion',     label:'Prop',         comp:'engine_room'},
-    {id:'steering',       label:'Steering',     comp:'aft_ends'},
-    {id:'planes_aft_hyd', label:'Aft Planes',   comp:'aft_ends'},
-    {id:'towed_array',    label:'Towed Array',  comp:'aft_ends'},
+    {id:'sonar_hull',     label:'Sonar',       comp:'fore_ends'},
+    {id:'planes_fwd_hyd', label:'Fwd Planes',  comp:'fore_ends'},
+    {id:'weapon_stow',    label:'Wpn Stow',    comp:'fore_ends'},
+    {id:'fwd_trim',       label:'Fwd Trim',    comp:'fore_ends'},
+    {id:'fwd_escape',     label:'Fwd Esc',     comp:'fore_ends'},
+    {id:'tma',            label:'TMA',         comp:'fore_ends'},
+    {id:'tdc_comp',       label:'TDC',         comp:'fore_ends'},
+    // Control Room
+    {id:'periscope',      label:'Scope',       comp:'control_room'},
+    {id:'ballast',        label:'Ballast',     comp:'control_room'},
+    {id:'hyd_main',       label:'Hyd Main',    comp:'control_room'},
+    {id:'helm',           label:'Helm',        comp:'control_room'},
+    {id:'fire_ctrl',      label:'Fire Ctrl',   comp:'control_room'},
+    {id:'nav_sys',        label:'Nav',         comp:'control_room'},
+    {id:'comms_mast',     label:'Comms',       comp:'control_room'},
+    // Aux Section
+    {id:'co2_scrubbers',  label:'CO2 Scrub',   comp:'aux_section'},
+    {id:'o2_gen',         label:'O2 Gen',      comp:'aux_section'},
+    {id:'aux_power',      label:'Aux Power',   comp:'aux_section'},
+    // Reactor Comp
+    {id:'reactor',        label:'Reactor',     comp:'reactor_comp'},
+    {id:'primary_coolant',label:'Pri Cool',    comp:'reactor_comp'},
+    {id:'pressuriser',    label:'Press',       comp:'reactor_comp'},
+    {id:'rad_monitor',    label:'Rad Mon',     comp:'reactor_comp'},
+    // Engine Room
+    {id:'propulsion',     label:'Prop',        comp:'engine_room'},
+    {id:'main_turbines',  label:'Turbines',    comp:'engine_room'},
+    {id:'elec_dist',      label:'Elec Dist',   comp:'engine_room'},
+    {id:'emerg_diesel',   label:'Diesel',      comp:'engine_room'},
+    // Aft Ends
+    {id:'towed_array',    label:'Towed Arr',   comp:'aft_ends'},
+    {id:'steering',       label:'Steering',    comp:'aft_ends'},
+    {id:'planes_aft_hyd', label:'Aft Planes',  comp:'aft_ends'},
+    {id:'shaft_seals',    label:'Shaft Seal',  comp:'aft_ends'},
+    {id:'aft_trim',       label:'Aft Trim',    comp:'aft_ends'},
+    {id:'aft_escape',     label:'Aft Esc',     comp:'aft_ends'},
   ];
 
   // ── HTML ──────────────────────────────────────────────────────────────────
@@ -78,7 +104,7 @@
   panel.id='dev-panel';
   panel.innerHTML=`
     <div id="dev-panel-header">
-      <span>⚙ DEV PANEL</span><span id="dev-panel-chevron">▲</span>
+      <span>⚙ DEV PANEL</span><span style="font-size:10px;opacity:0.45;">[\`]</span>
     </div>
     <div id="dev-panel-body">
 
@@ -126,6 +152,14 @@
         <button class="dev-btn" id="dev-btn-skip-muster">Skip Muster</button>
       </div>
 
+      <div class="dev-section-label">Watertight Doors</div>
+      <div id="dev-wtd-row" class="dev-row" style="flex-direction:column;gap:3px;"></div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-wtd-open-all">Open All</button>
+        <button class="dev-btn warn" id="dev-btn-wtd-close-all">Close All</button>
+        <button class="dev-btn danger" id="dev-btn-wtd-kill-hyd">Kill HYD</button>
+      </div>
+
       <div class="dev-section-label">Damage State</div>
       <div id="dev-damage-state">—</div>
       <div class="dev-row">
@@ -138,7 +172,7 @@
         <button class="dev-btn danger" id="dev-btn-kill">Kill All</button>
       </div>
 
-      <div class="dev-section-label">Spawn Sub</div>
+      <div class="dev-section-label">Spawn Sub (Role)</div>
       <div class="dev-row">
         <button class="dev-btn" id="dev-btn-hunter">Hunter</button>
         <button class="dev-btn" id="dev-btn-pinger">Pinger</button>
@@ -150,9 +184,39 @@
         <button class="dev-btn" id="dev-btn-cz-pinger">CZ Pinger</button>
       </div>
 
+      <div class="dev-section-label">Spawn Sub (Class)</div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-november">NOVEMBER</button>
+        <button class="dev-btn" id="dev-btn-whiskey">WHISKEY</button>
+        <button class="dev-btn" id="dev-btn-golf">GOLF</button>
+      </div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-foxtrot">FOXTROT</button>
+        <button class="dev-btn" id="dev-btn-kilo">KILO</button>
+        <button class="dev-btn" id="dev-btn-yankee">YANKEE</button>
+      </div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-delta">DELTA</button>
+        <button class="dev-btn" id="dev-btn-typhoon">TYPHOON</button>
+      </div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-papa">PAPA</button>
+        <button class="dev-btn" id="dev-btn-oscar">OSCAR</button>
+        <button class="dev-btn" id="dev-btn-akula">AKULA</button>
+      </div>
+
+      <div class="dev-section-label">Spawn Ship (Class)</div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-krivak">KRIVAK</button>
+        <button class="dev-btn" id="dev-btn-udaloy">UDALOY</button>
+        <button class="dev-btn" id="dev-btn-grisha">GRISHA</button>
+        <button class="dev-btn" id="dev-btn-slava">SLAVA</button>
+      </div>
+
       <div class="dev-status" id="dev-status"></div>
     </div>
   `;
+  panel.style.display='none';
   document.body.appendChild(panel);
 
   // ── Build systems rows ────────────────────────────────────────────────────
@@ -169,14 +233,6 @@
     `;
     sysRowEl.appendChild(row);
   }
-
-  // ── Collapse toggle ───────────────────────────────────────────────────────
-  let collapsed=false;
-  document.getElementById('dev-panel-header').addEventListener('click',()=>{
-    collapsed=!collapsed;
-    panel.classList.toggle('collapsed',collapsed);
-    document.getElementById('dev-panel-chevron').textContent=collapsed?'▼':'▲';
-  });
 
   // ── Status helper ─────────────────────────────────────────────────────────
   let _statusT=null;
@@ -197,7 +253,8 @@
     for(const c of COMPS){
       const fl=d.flooding?.[c.key]??0;
       const fr=d.floodRate?.[c.key]??0;
-      const fi=Math.max(...[0,1,2].map(di=>d.fire?.[`${c.key}_d${di}`]||0));
+      const sRooms=window.DMG?.SECTION_ROOMS?.[c.key]||[`${c.key}_d0`,`${c.key}_d1`,`${c.key}_d2`];
+      const fi=Math.max(...sRooms.map(rid=>d.fire?.[rid]||0));
       const flooded=d.flooded?.[c.key];
       if(fl>0.005||fr>0||fi>0.01||flooded){
         const parts=[];
@@ -215,6 +272,14 @@
       const dest=team.destination?`→${COMPS.find(c=>c.key===team.destination)?.short??team.destination}`:'';
       lines.push(`${team.label}: ${team.state}${mstr} task=${team.task??'—'} ${dest}${lock}`);
     }
+    // WTD states
+    const WTD_SHORT=['T/C','C/A','A/R','R/M','M/E'];
+    const wtdLine=WTD_SHORT.map((lbl,i)=>{
+      const [sA,sB]=(window.DMG?.WTD_PAIRS||[])[i]||[];
+      const state=(sA&&sB)?d.wtd?.[sA+'|'+sB]||'?':'?';
+      return `${lbl}:${state==='open'?'O':'C'}`;
+    }).join(' ');
+    lines.push(`WTD: ${wtdLine} | hyd:${d.systems?.hyd_main??'?'}`);
     // Casualty state
     lines.push(`casualty: ${window.G.game?.casualtyState??'—'}`);
     el.textContent=lines.length?lines.join('\n'):'All clear';
@@ -297,28 +362,47 @@
     const container=document.getElementById('dev-fire-rooms');
     if(!container) return;
     const SECTION_LABELS={
-      fore_ends:'FORE ENDS', control_room:'CTRL ROOM', aux_section:'AUX',
-      reactor_comp:'REACTOR', engine_room:'ENGINE ROOM', aft_ends:'AFT ENDS',
+      fore_ends:'WT SECTION 1 — FORE ENDS', control_room:'WT SECTION 2 — CONTROL',
+      aux_section:'WT SECTION 3 — AUX', reactor_comp:'WT SECTION 4 — REACTOR',
+      engine_room:'WT SECTION 5 — ENGINE', aft_ends:'WT SECTION 6 — AFT',
     };
     const ROOM_DEFS=[
-      {id:'fore_ends_d0',    sec:'fore_ends',    label:'FWD DOME',   unmanned:true,  detectionDelay:50},
-      {id:'fore_ends_d1',    sec:'fore_ends',    label:'ENG OFFICE', unmanned:true,  detectionDelay:60},
-      {id:'fore_ends_d2',    sec:'fore_ends',    label:'TRP ROOM',   unmanned:false, detectionDelay:0 },
-      {id:'control_room_d0', sec:'control_room', label:'COMMS',      unmanned:false, detectionDelay:0 },
-      {id:'control_room_d1', sec:'control_room', label:'CTRL ROOM',  unmanned:false, detectionDelay:0 },
-      {id:'control_room_d2', sec:'control_room', label:'MACH ROOM',  unmanned:false, detectionDelay:0 },
-      {id:'aux_section_d0',  sec:'aux_section',  label:'SNKL CTL',   unmanned:true,  detectionDelay:45},
-      {id:'aux_section_d1',  sec:'aux_section',  label:'VENT PLT',   unmanned:true,  detectionDelay:45},
-      {id:'aux_section_d2',  sec:'aux_section',  label:'RX E-COOL',  unmanned:true,  detectionDelay:90},
-      {id:'reactor_comp_d0', sec:'reactor_comp', label:'RC TUNNEL',  unmanned:false, detectionDelay:0 },
-      {id:'reactor_comp_d1', sec:'reactor_comp', label:'REACTOR',    unmanned:true,  detectionDelay:75},
-      {id:'reactor_comp_d2', sec:'reactor_comp', label:'RCT LOWER',  unmanned:true,  detectionDelay:75},
-      {id:'engine_room_d0',  sec:'engine_room',  label:'MANEUV',     unmanned:false, detectionDelay:0 },
-      {id:'engine_room_d1',  sec:'engine_room',  label:'ELEC DIST',  unmanned:false, detectionDelay:0 },
-      {id:'engine_room_d2',  sec:'engine_room',  label:'MACHINERY',  unmanned:false, detectionDelay:0 },
-      {id:'aft_ends_d0',     sec:'aft_ends',     label:'ENGINEER',   unmanned:false, detectionDelay:0 },
-      {id:'aft_ends_d1',     sec:'aft_ends',     label:'PROPULSN',   unmanned:false, detectionDelay:0 },
-      {id:'aft_ends_d2',     sec:'aft_ends',     label:'STEER/AFT',  unmanned:false, detectionDelay:0 },
+      // WT Section 1 — Fore Ends (5)
+      {id:'fore_ends_d0',     sec:'fore_ends',    label:'FWD DOME',     crew:0,  detectionDelay:40},
+      {id:'fore_ends_d0b',    sec:'fore_ends',    label:'COMMS',        crew:3,  detectionDelay:0 },
+      {id:'fore_ends_d1',     sec:'fore_ends',    label:'ENG OFFICE',   crew:1,  detectionDelay:20},
+      {id:'fore_ends_d1b',    sec:'fore_ends',    label:'COMPUTER RM',  crew:0,  detectionDelay:35},
+      {id:'fore_ends_d2',     sec:'fore_ends',    label:'TORPEDO ROOM', crew:4,  detectionDelay:0 },
+      // WT Section 2 — Control Room (6)
+      {id:'control_room_d0',  sec:'control_room', label:'NAV',          crew:1,  detectionDelay:0 },
+      {id:'control_room_d0b', sec:'control_room', label:'SCOPE WELL',   crew:2,  detectionDelay:0 },
+      {id:'control_room_d0c', sec:'control_room', label:'WARDROOM',     crew:3,  detectionDelay:0 },
+      {id:'control_room_d1',  sec:'control_room', label:'CTRL ROOM',    crew:6,  detectionDelay:0 },
+      {id:'control_room_d1b', sec:'control_room', label:'CO CABIN',     crew:0,  detectionDelay:30},
+      {id:'control_room_d2',  sec:'control_room', label:'MACH SPACE',   crew:0,  detectionDelay:40},
+      // WT Section 3 — Aux Section (7)
+      {id:'aux_section_d0',   sec:'aux_section',  label:'JR MESS',      crew:6,  detectionDelay:0 },
+      {id:'aux_section_d0b',  sec:'aux_section',  label:'SR MESS',      crew:4,  detectionDelay:0 },
+      {id:'aux_section_d1',   sec:'aux_section',  label:'BUNKS',        crew:2,  detectionDelay:20},
+      {id:'aux_section_d1b',  sec:'aux_section',  label:'VENT PLANT',   crew:0,  detectionDelay:45},
+      {id:'aux_section_d2',   sec:'aux_section',  label:'AMS 1',        crew:0,  detectionDelay:50},
+      {id:'aux_section_d2b',  sec:'aux_section',  label:'RX E-COOL',    crew:0,  detectionDelay:50},
+      {id:'aux_section_d2c',  sec:'aux_section',  label:'SICKBAY',      crew:1,  detectionDelay:0 },
+      // WT Section 4 — Reactor Comp (3)
+      {id:'reactor_comp_d0',  sec:'reactor_comp', label:'RC TUNNEL',    crew:0,  detectionDelay:30},
+      {id:'reactor_comp_d1',  sec:'reactor_comp', label:'REACTOR',      crew:3,  detectionDelay:0 },
+      {id:'reactor_comp_d2',  sec:'reactor_comp', label:'RCT LOWER',    crew:0,  detectionDelay:60},
+      // WT Section 5 — Engine Room (4)
+      {id:'engine_room_d0',   sec:'engine_room',  label:'AFT PASSAGE',  crew:0,  detectionDelay:0 },
+      {id:'engine_room_d0b',  sec:'engine_room',  label:'MANEUVERING',  crew:4,  detectionDelay:0 },
+      {id:'engine_room_d1',   sec:'engine_room',  label:'ELEC DIST',    crew:2,  detectionDelay:0 },
+      {id:'engine_room_d2',   sec:'engine_room',  label:'AFT ATMOS',    crew:0,  detectionDelay:45},
+      // WT Section 6 — Aft Ends (5)
+      {id:'aft_ends_d0',      sec:'aft_ends',     label:'ENGINEERING',  crew:2,  detectionDelay:0 },
+      {id:'aft_ends_d1',      sec:'aft_ends',     label:'PROPULSION',   crew:2,  detectionDelay:0 },
+      {id:'aft_ends_d1b',     sec:'aft_ends',     label:'SHAFT ALLEY',  crew:1,  detectionDelay:0 },
+      {id:'aft_ends_d2',      sec:'aft_ends',     label:'STEERING GEAR',crew:2,  detectionDelay:0 },
+      {id:'aft_ends_d2b',     sec:'aft_ends',     label:'AFT ESCAPE',   crew:0,  detectionDelay:50},
     ];
     // Group by section
     const bySec={};
@@ -338,12 +422,13 @@
         b.className='dev-btn danger';
         b.style.fontSize='10px';
         b.style.padding='2px 5px';
-        b.textContent=(r.unmanned?'\u26a0 ':'')+r.label;
-        b.title=`${r.id}${r.unmanned?' (UNMANNED — '+(r.detectionDelay??45)+'s detect delay)':''}`;
+        const isEmpty=(r.unmanned||!r.crew);
+        b.textContent=(isEmpty?'\u26a0 ':'')+r.label;
+        b.title=`${r.id}${isEmpty?' (EMPTY — '+(r.detectionDelay??45)+'s detect delay)':' (crew: '+(r.crew||0)+')'}`;
         b.addEventListener('click',()=>{
           if(typeof window.DMG?.igniteFire==='function'){
             window.DMG.igniteFire(r.id, 0.22);
-            status(`Fire: ${r.label}${r.unmanned?' (undetected)':''}`);
+            status(`Fire: ${r.label}${isEmpty?' (undetected)':''}`);
           } else { status('DMG not ready'); }
         });
         row.appendChild(b);
@@ -407,7 +492,7 @@
   function resetTeam(teamId){
     const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
     const team=d.teams?.[teamId]; if(!team){ status(`Team ${teamId} not found`); return; }
-    const homeDef={alpha:'fore_ends', bravo:'engine_room'};
+    const homeDef={alpha:'aux_section_d0b', bravo:'engine_room_d0'};
     team.state='ready';
     team.location=homeDef[teamId]||team.home;
     team.destination=null;
@@ -433,6 +518,58 @@
     const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
     for(const team of Object.values(d.teams||{})){ if(team._readyT>0) team._readyT=0; }
     status('Muster countdown skipped');
+  });
+
+  // ── Watertight Doors ──────────────────────────────────────────────────────
+  (function(){
+    const container=document.getElementById('dev-wtd-row');
+    if(!container) return;
+    const WTD_LABELS=[
+      {key:'fore_ends|control_room',    label:'TORP / CTRL'},
+      {key:'control_room|aux_section',  label:'CTRL / AUX'},
+      {key:'aux_section|reactor_comp',  label:'AUX / RX'},
+      {key:'reactor_comp|engine_room',  label:'RX / MAN'},
+      {key:'engine_room|aft_ends',      label:'MAN / AFT'},
+    ];
+    for(const wtdDef of WTD_LABELS){
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:6px;';
+      row.innerHTML=`
+        <span style="font-size:9px;color:rgba(0,200,255,0.55);width:78px;flex-shrink:0">${wtdDef.label}</span>
+        <button class="dev-btn" style="padding:2px 6px;font-size:10px;" data-wtd-key="${wtdDef.key}" data-wtd-action="toggle">TOGGLE</button>
+      `;
+      container.appendChild(row);
+    }
+    // Toggle click handler
+    container.addEventListener('click', e=>{
+      const btn2=e.target.closest('[data-wtd-key]'); if(!btn2) return;
+      const key=btn2.dataset.wtdKey;
+      const [sA,sB]=key.split('|');
+      const DMG=window.DMG; if(!DMG){ status('DMG not ready'); return; }
+      DMG.toggleWTD(sA,sB);
+      const d=window.G?.player?.damage;
+      status(`WTD ${btn2.closest('div').querySelector('span').textContent}: ${d?.wtd?.[key]||'?'}`);
+    });
+  })();
+  btn('dev-btn-wtd-open-all', ()=>{
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    for(const key of Object.keys(d.wtd||{})) d.wtd[key]='open';
+    status('All WTDs opened');
+  });
+  btn('dev-btn-wtd-close-all', ()=>{
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    const DMG=window.DMG; if(!DMG) return;
+    for(const [sA,sB] of DMG.WTD_PAIRS){
+      const key=sA+'|'+sB;
+      if((d.wtd?.[key]||'open')==='open') DMG.toggleWTD(sA,sB);
+    }
+    status('All WTDs closed');
+  });
+  btn('dev-btn-wtd-kill-hyd', ()=>{
+    const d=window.G?.player?.damage; if(!d){ status('No damage state'); return; }
+    const cur=d.systems?.hyd_main||'nominal';
+    d.systems.hyd_main=cur==='destroyed'?'nominal':'destroyed';
+    status(`hyd_main → ${d.systems.hyd_main}`);
   });
 
   // ── Damage state ──────────────────────────────────────────────────────────
@@ -471,5 +608,31 @@
   btn('dev-btn-boat',        ()=>spawnRole('boat'));
   btn('dev-btn-cz-hunter',   ()=>spawnCZ('hunter'));
   btn('dev-btn-cz-pinger',   ()=>spawnCZ('pinger'));
+
+  function spawnShip(spawnFn, label){
+    const g=window.G; if(!g){ status('G not ready'); return; }
+    const brg=Math.random()*Math.PI*2;
+    const dist=800+Math.random()*600;
+    spawnFn(brg, dist);
+    status(`Spawned ${label}`);
+  }
+  // Soviet sub classes
+  btn('dev-btn-november', ()=>spawnShip(window.AI.spawnNovember, 'NOVEMBER (SSN)'));
+  btn('dev-btn-whiskey',  ()=>spawnShip(window.AI.spawnWhiskey,  'WHISKEY (SSK)'));
+  btn('dev-btn-golf',     ()=>spawnShip(window.AI.spawnGolf,     'GOLF (SSB)'));
+  btn('dev-btn-foxtrot',  ()=>spawnShip(window.AI.spawnGamma,    'FOXTROT (SSK)'));
+  btn('dev-btn-kilo',     ()=>spawnShip(window.AI.spawnEta,      'KILO (SSK)'));
+  btn('dev-btn-yankee',   ()=>spawnShip(window.AI.spawnYankee,   'YANKEE (SSBN)'));
+  btn('dev-btn-delta',    ()=>spawnShip(window.AI.spawnEpsilon,  'DELTA (SSBN)'));
+  btn('dev-btn-typhoon',  ()=>spawnShip(window.AI.spawnSSBN,     'TYPHOON (SSBN)'));
+  btn('dev-btn-papa',     ()=>spawnShip(window.AI.spawnPapa,     'PAPA (SSGN)'));
+  btn('dev-btn-oscar',    ()=>spawnShip(window.AI.spawnTheta,    'OSCAR (SSGN)'));
+  btn('dev-btn-akula',    ()=>spawnShip(window.AI.spawnZeta,     'AKULA (SSN)'));
+
+  // Surface ships (renamed)
+  btn('dev-btn-krivak', ()=>spawnShip(window.AI.spawnIota,   'KRIVAK (frigate)'));
+  btn('dev-btn-udaloy', ()=>spawnShip(window.AI.spawnKappa,  'UDALOY (destroyer)'));
+  btn('dev-btn-grisha', ()=>spawnShip(window.AI.spawnLambda, 'GRISHA (corvette)'));
+  btn('dev-btn-slava',  ()=>spawnShip(window.AI.spawnMu,     'SLAVA (cruiser)'));
 
 })();

@@ -73,10 +73,70 @@
       COMMS.sensors.tmaDegrading(c.id);
     }
     if(!stuck) c._hintedManeuver=false;
+
+    // ── Bearing-cross triangulation for range ────────────────────────────────
+    // When we have good crossing geometry (qCross > 0.3), intersect the two
+    // most divergent bearing lines to estimate target position and range.
+    // Only updates _estRange if no recent active ping (active range is better).
+    const activeAge=T-(c._rangeT||0);
+    if(qCross>0.12 && obs.length>=3 && (c._rangeSource!=='active' || activeAge>15)){
+      // Find the pair with maximum crossing angle
+      let bestI=0, bestJ=1, bestCross=0;
+      for(let i=0;i<obs.length;i++)
+        for(let j=i+1;j<obs.length;j++){
+          const d=Math.abs(((obs[i].bearing-obs[j].bearing+3*Math.PI)%(Math.PI*2))-Math.PI);
+          const cr=Math.min(d,Math.PI-d);
+          if(cr>bestCross){ bestCross=cr; bestI=i; bestJ=j; }
+        }
+      const a=obs[bestI], b=obs[bestJ];
+      // Intersect two rays: P = a.from + t*dir(a.brg), P = b.from + s*dir(b.brg)
+      const ca=Math.cos(a.bearing), sa=Math.sin(a.bearing);
+      const cb=Math.cos(b.bearing), sb=Math.sin(b.bearing);
+      const det=ca*sb-sa*cb;
+      if(Math.abs(det)>0.01){
+        const ddx=b.fromX-a.fromX, ddy=b.fromY-a.fromY;
+        const t=(ddx*sb-ddy*cb)/det;
+        if(t>50){ // target must be ahead of observation point
+          const ix=a.fromX+ca*t, iy=a.fromY+sa*t;
+          const rng=Math.hypot(AI.wrapDx(player.wx,ix), iy-player.wy);
+          const clamped=clamp(rng, 200, 12000);
+          // Blend — faster than bearing-rate (0.7/0.3) since this is better geometry
+          c._estRange=c._estRange!=null ? c._estRange*0.6+clamped*0.4 : clamped;
+          c._rangeSource='tma';
+          c._rangeT=T;
+          // ── Range rate — sampled every ~10s to compute CLSNG/OPNG tag ────────
+          const rSampleAge=T-(c._rangeSampleT||0);
+          if(rSampleAge>=10){
+            if(c._rangeSample!=null) c._rangeRate=(c._estRange-c._rangeSample)/rSampleAge;
+            c._rangeSample=c._estRange; c._rangeSampleT=T;
+          }
+          // ── Contact heading estimation — diff successive triangle intersections ──
+          // Two estimates ≥12s apart give a displacement → estimated course
+          const prevEstT=c._tmaEstT;
+          if(prevEstT!=null && T-prevEstT>=12 && T-prevEstT<=90){
+            const hdgDx=ix-c._tmaEstX, hdgDy=iy-c._tmaEstY;
+            const moved=Math.hypot(hdgDx,hdgDy);
+            if(moved>30){ // suppress noise from tiny displacements
+              const rawHdg=Math.atan2(hdgDy,hdgDx);
+              // Angular interpolation via sin/cos blend — avoids wrap discontinuity
+              c._estHeading=c._estHeading!=null
+                ? Math.atan2(Math.sin(rawHdg)*0.35+Math.sin(c._estHeading)*0.65,
+                             Math.cos(rawHdg)*0.35+Math.cos(c._estHeading)*0.65)
+                : rawHdg;
+              c._estHeadingConf=clamp(qCross*qBase, 0, 1);
+              c._estHeadingT=T;
+            }
+          }
+          c._tmaEstX=ix; c._tmaEstY=iy; c._tmaEstT=T;
+        }
+      }
+    }
   }
 
 
-  function registerBearing(e, bearing, u_brg, source='hull'){
+  // fromPos: optional {x,y} — observation point. Defaults to player position.
+  // Wire-relayed torpedo contacts use the torpedo's position for TMA triangulation.
+  function registerBearing(e, bearing, u_brg, source='hull', fromPos=null){
     const T=game.missionT||0;
     const TMA=C.tma;
     if(sonarContacts.has(e)){
@@ -116,12 +176,14 @@
         }
       }
 
+      const obsX=fromPos?.x??player.wx;
+      const obsY=fromPos?.y??player.wy;
       if(c.bearings.length>=TMA.maxBearings) c.bearings.shift();
-      c.bearings.push({fromX:player.wx,fromY:player.wy,bearing,u_brg,t:T,source});
+      c.bearings.push({fromX:obsX,fromY:obsY,bearing,u_brg,t:T,source});
       c.lastObsT=T; c.lastT=window.M.now(); c.activeT=3.0;
       c.latestBrg=bearing;
       if(source==='hull'){ c.latestHullBrg=bearing; c.lastHullBrgT=T; }
-      c.latestFromX=player.wx; c.latestFromY=player.wy;
+      c.latestFromX=obsX; c.latestFromY=obsY;
 
       // Bearing rate: smooth derivative from last two hull bearings
       // Used for lead-angle at SOLID tier (only source of target motion estimate)
@@ -151,12 +213,17 @@
         if(sinTheta > 0.20){
           const rawR = (ownSpd * sinTheta) / Math.abs(c._brgRate);
           const clamped = clamp(rawR, 200, 12000);
-          // Smooth heavily — range estimates are noisy, 8s time constant
-          c._estRange = c._estRange != null
-            ? c._estRange * 0.92 + clamped * 0.08
-            : clamped;
+          // Only use bearing-rate range if no better source is recent
+          const betterAge=(game.missionT||0)-(c._rangeT||0);
+          const hasBetter=c._rangeSource==='active'&&betterAge<10 || c._rangeSource==='tma'&&betterAge<20;
+          if(!hasBetter){
+            // Moderate smoothing — faster convergence than before (was 0.92/0.08)
+            c._estRange = c._estRange != null
+              ? c._estRange * 0.82 + clamped * 0.18
+              : clamped;
+            if(!c._rangeSource) c._rangeSource='brgrate';
+          }
         }
-        // else: geometry too close to CBDR, don't update _estRange
       }
 
       const prevQ=c.tmaQuality??0;
@@ -170,6 +237,70 @@
         if(newTier===2){
           COMMS.sensors.tmaSolid(c.id);
         }
+      }
+      // Classification — staged buildup simulating sonar operator analysis.
+      // Stage 0: nothing — bearing only
+      // Stage 1 (TMA>=0.20): broadband hull type — SUBMERGED / SURFACE / MERCHANT
+      // Stage 2 (TMA>=0.35 + 15-25s): general type from tonals — SSN, SSK, SSBN, FRIGATE, etc.
+      // Stage 3 (TMA>=0.50 + 20-40s): specific class from machinery analysis — SSN BETA, SSK GAMMA, etc.
+      if(e && !c._classStage) c._classStage=0;
+      if(e && c._classStage<3){
+        // Stage 1: broadband hull type
+        if(c._classStage===0 && c.tmaQuality>=0.20){
+          if(e.civilian){
+            c.classification='MERCHANT';
+          } else if(e.type==='boat'){
+            c.classification='SURFACE';
+          } else {
+            c.classification='SUBMERGED';
+          }
+          c._classStage=1;
+          c._classAccumT=0;
+          COMMS.sensors.classified(c.id, c.classification);
+        }
+        // Stage 2: general type from narrowband tonals — requires time at DEGRADED+
+        if(c._classStage===1 && c.tmaQuality>=0.35){
+          c._classAccumT=(c._classAccumT||0)+(T-(c._lastClassTickT||T));
+          if(!c._classNeeded2) c._classNeeded2=e.civilian?5:e.type==='boat'?10:rand(15,25);
+          const needed=c._classNeeded2; // surface ships easier to classify
+          if(c._classAccumT>=needed){
+            if(e.civilian){
+              c.classification=e.civType||'MERCHANT';
+            } else if(e.type==='boat'){
+              const shipTypes={KRIVAK:'FRIGATE',UDALOY:'DESTROYER',GRISHA:'CORVETTE',SLAVA:'CRUISER'};
+              c.classification=shipTypes[e.subClass]||'WARSHIP';
+            } else {
+              const hullTypes={FOXTROT:'SSK',KILO:'SSK',WHISKEY:'SSK',GOLF:'SSB',TYPHOON:'SSBN',DELTA:'SSBN',YANKEE:'SSBN',OSCAR:'SSGN',PAPA:'SSGN'};
+              c.classification=hullTypes[e.subClass]||(e.role==='ssbn'?'SSBN':'SSN');
+            }
+            c._classStage=2;
+            c._classAccumT=0;
+            COMMS.sensors.classified(c.id, c.classification);
+          }
+        } else if(c._classStage===1){
+          c._classAccumT=0; // reset if quality drops below threshold
+        }
+        // Stage 3: specific class from machinery signature — requires time at solid-ish quality
+        if(c._classStage===2 && c.tmaQuality>=0.50 && e.subClass){
+          c._classAccumT=(c._classAccumT||0)+(T-(c._lastClassTickT||T));
+          if(!c._classNeeded3) c._classNeeded3=e.civilian?0:rand(20,40);
+          const needed=c._classNeeded3;
+          if(c._classAccumT>=needed){
+            if(!e.civilian && e.type==='boat'){
+              const shipTypes={KRIVAK:'FRIGATE',UDALOY:'DESTROYER',GRISHA:'CORVETTE',SLAVA:'CRUISER'};
+              c.classification=(shipTypes[e.subClass]||'WARSHIP')+' '+e.subClass;
+            } else if(!e.civilian){
+              const hullTypes={FOXTROT:'SSK',KILO:'SSK',WHISKEY:'SSK',GOLF:'SSB',TYPHOON:'SSBN',DELTA:'SSBN',YANKEE:'SSBN',OSCAR:'SSGN',PAPA:'SSGN'};
+              const baseType=hullTypes[e.subClass]||(e.role==='ssbn'?'SSBN':'SSN');
+              c.classification=baseType+' '+e.subClass;
+            }
+            c._classStage=3;
+            COMMS.sensors.classified(c.id, c.classification);
+          }
+        } else if(c._classStage===2 && c.tmaQuality<0.50){
+          c._classAccumT=0;
+        }
+        c._lastClassTickT=T;
       }
     } else {
       const id=assignId();
@@ -194,14 +325,23 @@
   }
 
   // Active ping or proximity — very tight bearing, boosts quality to SOLID directly.
-  // No position stored anywhere — bearing only, always.
+  // Also provides DIRECT RANGE — the primary payoff for going active.
   function registerFix(e, fx, fy, u, source){
     const brg=Math.atan2(fy-player.wy, AI.wrapDx(player.wx,fx));
     const dist=Math.hypot(AI.wrapDx(player.wx,fx), fy-player.wy);
     const u_brg=clamp(u/Math.max(dist,50), 0.01, 0.05);
     registerBearing(e, brg, u_brg, 'hull');
     const c=sonarContacts.get(e);
-    if(c){ c.tmaQuality=Math.max(c.tmaQuality, 0.90); c.activeT=source==='active'?5.0:3.0; }
+    if(c){
+      c.tmaQuality=Math.max(c.tmaQuality, 0.90);
+      c.activeT=source==='active'?5.0:3.0;
+      // Direct range from ping return — fast blend, small noise
+      const rangeNoise=dist*rand(-0.05,0.05); // ±5% measurement error
+      const pingRange=Math.max(100, dist+rangeNoise);
+      c._estRange=c._estRange!=null ? c._estRange*0.3+pingRange*0.7 : pingRange;
+      c._rangeSource='active';
+      c._rangeT=game.missionT||0;
+    }
   }
 
 
@@ -210,6 +350,7 @@
   // Contacts persist for living enemies — never deleted, quality decays when stale
   function tickContacts(dt){
     const T=game.missionT||0;
+    const TMA=C.tma;
     const STALE_GRACE=28;    // raised from 12 — 12s was too tight at 7kt tick interval
     const DECAY_RATE=0.012;  // slightly slower decay — SOLID should survive a layer dip
     for(const [e,c] of sonarContacts){
@@ -218,6 +359,24 @@
       const timeSinceObs=T-(c.lastObsT||0);
       if(timeSinceObs>STALE_GRACE && c.tmaQuality>0){
         c.tmaQuality=Math.max(0,c.tmaQuality-DECAY_RATE*dt);
+      }
+      // Estimated depth — noisy, gated by TMA quality. Updates every ~5s.
+      // Smoothed exponentially so the readout drifts rather than jumping.
+      c._depthTickT=(c._depthTickT||0)-dt;
+      if(c._depthTickT<=0){
+        c._depthTickT=rand(4.0,6.0);
+        const trueDepth=e.depth??200;
+        if(c.tmaQuality>=(TMA.qualityThresholdSolid||0.70)){
+          const noise=(Math.random()-0.5)*160;
+          const raw=Math.round((trueDepth+noise)/25)*25;
+          c._estDepth=c._estDepth!=null?Math.round(c._estDepth*0.7+raw*0.3):raw;
+        } else if(c.tmaQuality>=(TMA.qualityThresholdRange||0.35)){
+          const noise=(Math.random()-0.5)*400;
+          const raw=Math.round((trueDepth+noise)/50)*50;
+          c._estDepth=c._estDepth!=null?Math.round(c._estDepth*0.6+raw*0.4):raw;
+        } else {
+          c._estDepth=null;
+        }
       }
     }
   }
@@ -274,6 +433,7 @@
 
   // ── Towed array passive update ──────────────────────────────────────────────
   function towedArrayUpdate(dt){
+    if(C.player.hasTowedArray === false) return;
     const ta = player.towedArray;
     if(!ta) return;
 
@@ -376,11 +536,13 @@
       const detect = signal - selfMask;
       if(detect <= 0) continue;
 
-      const p = clamp(0.06 + detect*0.60 + (e.type==='boat'?0.12:0.06), 0, 0.80);
+      const fatigueT=game.watchFatigue||0;
+      const fatiguePenT=1-fatigueT*0.40;
+      const p = clamp((0.06 + detect*0.60 + (e.type==='boat'?0.12:0.06))*fatiguePenT, 0, 0.80);
       if(Math.random() < p){
         const layerMult = (layer<1) ? 1.4 : 1.0;
         const baseU = (60 + d*0.08) * noiseUMul;
-        const noiseU = baseU * layerMult * (1 + player.noise*0.4);
+        const noiseU = baseU * layerMult * (1 + player.noise*0.4) * (1+fatigueT*0.60);
         const u_brg = clamp(noiseU/Math.max(d,100), 0.01, 0.18);
         const noisyBrg = trueBrg + rand(-1,1)*u_brg;
         const mirrorBrg = mirrorBearing(noisyBrg, heading);
@@ -400,7 +562,6 @@
         const brgDegT=((noisyBrg*180/Math.PI)+360)%360;
         const sigTierT=detect>0.35?2:detect>0.15?1:0;
         addSonarLog(e,'TOWED',brgDegT,sigTierT,inCZt&&d>baseRange);
-        if(inCZt&&d>baseRange) COMMS.sensors.contactLabel?.('CZ — towed array');
       }
     }
   }
@@ -432,7 +593,7 @@
       // Good fix for active ping — estimated position
       const estDist=d*(0.85+rand(-1,1)*0.20);
       e.contact={
-        x:(srcX+world.w)%world.w, y:srcY,
+        x:srcX, y:srcY,
         u:clamp(d*0.10+80,60,400), t:performance.now()/1000,
         strength:clamp(sig*0.85,0.3,0.9)
       };
@@ -497,14 +658,33 @@
       }
       if(e.type==='boat') signal*=1.25;
       const selfMask=player.noise*0.55;
-      const detect=(signal-selfMask)*deafness;
+
+      // ── Bow array deaf arc — hull sonar cannot hear into own stern null ──────
+      // relAngle: 0 = dead ahead, π = dead astern
+      const trueBearing=Math.atan2(dy,dx);
+      const sg=C.player.sonar||{};
+      const baffleBase=(sg.baffleHalfAngleDegBase??15)*Math.PI/180;
+      const baffleMax =(sg.baffleHalfAngleDegMax ??45)*Math.PI/180;
+      const baffleHalf=clamp(baffleBase+(player.speed||0)*(sg.baffleHalfAngleDegPerKt??1.5)*Math.PI/180, baffleBase, baffleMax);
+      const rolloff   =(sg.baffleRolloffDeg??20)*Math.PI/180;
+      const relAngle  =Math.abs(((trueBearing-(player.heading||0)+3*Math.PI)%(Math.PI*2))-Math.PI);
+      const deadStart =Math.PI-baffleHalf;   // beyond this: fade out
+      const fullLimit =deadStart-rolloff;    // before this: full sensitivity
+      const geoMult   =relAngle<=fullLimit?1.0:relAngle>=deadStart?0.0:1.0-(relAngle-fullLimit)/rolloff;
+      // sonarQuality: vessel-specific sensitivity — was defined per preset but never read
+      const squal=C.player.sonarQuality??0.85;
+
+      const detect=(signal-selfMask)*deafness*geoMult*squal;
       if(detect<=0) continue;
-      const p=clamp(0.05+detect*0.55+(e.type==='boat'?0.10:0.05), 0, 0.75);
+      // Watch fatigue — tired operators miss contacts and bearings drift
+      const fatigue=game.watchFatigue||0;
+      const fatiguePenalty=1-fatigue*0.40;  // up to 40% detection loss at full fatigue
+      const p=clamp((0.05+detect*0.55+(e.type==='boat'?0.10:0.05))*fatiguePenalty, 0, 0.75);
       if(Math.random()<p){
-        const trueBearing=Math.atan2(dy,dx);
+        // trueBearing already computed above for deaf arc geometry
         const layerMult=(layer<1)?1.50:1.0;
         const baseU=80+d*0.10;
-        const noiseU=baseU*layerMult*(dmgFx.bearingNoiseMult??1.0)*(1+player.noise*0.8)*(1+(1-deafness)*0.6);
+        const noiseU=baseU*layerMult*(dmgFx.bearingNoiseMult??1.0)*(1+player.noise*0.8)*(1+(1-deafness)*0.6)*(1+fatigue*0.60);
         const u_brg=clamp(noiseU/Math.max(d,100),0.02,0.30);
         const noisyBearing=trueBearing+rand(-1,1)*u_brg;
         contacts.push({fromX:player.wx,fromY:player.wy,bearing:noisyBearing,u_brg,life:2.5,kind:e.type});
@@ -514,7 +694,6 @@
         const brgDeg=((noisyBearing*180/Math.PI)+360)%360;
         const sigTier=detect>0.35?2:detect>0.15?1:0;
         addSonarLog(e,'HULL',brgDeg,sigTier,inCZ&&d>baseRange);
-        if(inCZ&&d>baseRange) COMMS.sensors.contactLabel?.('Convergence zone contact');
       }
     }
   }
@@ -571,5 +750,5 @@
     return true;
   }
 
-  window.SENSE={setDetected,passiveUpdate,towedArrayUpdate,proximityDetect,activePing,clearContact,tickContacts};
+  window.SENSE={setDetected,passiveUpdate,towedArrayUpdate,proximityDetect,activePing,clearContact,tickContacts,registerBearing,registerFix};
 })();

@@ -44,6 +44,11 @@
       msg(`FLOODING — ${compLabel}`, 2.5);
       dcLog(`FLOODING — ${compLabel} | ${urgency} ~${t}s to loss without DC`, P.CRIT);
     },
+    secondBreach(compLabel, station) {
+      log(station, `Conn, ${station} — second breach! ${compLabel} flooding fast! Evacuate!`, P.CRIT);
+      qlog('CONN', `All stations, Conn — second breach in ${compLabel}. Flooding critical. All hands clear of ${compLabel}.`, 1.0, P.CRIT);
+      msg(`${compLabel} — SECOND BREACH`, 3.0);
+    },
     uncontrolled(compLabel, station, lost) {
       log(station, `Conn, ${station} — flooding uncontrolled! ${compLabel} lost!`, P.CRIT);
       qlog('CONN', `Conn — all hands, close all watertight doors. ${compLabel} lost${lost > 0 ? `. ${lost} hands` : ''}.`, 1.5, P.CRIT);
@@ -57,6 +62,18 @@
       log(station, `Conn, ${station} — evacuating ${compLabel}! Flooding critical!`, P.CRIT);
       if (trapped > 0) qlog('CONN', `All stations — ${compLabel} evacuating. ${out} clear, ${trapped} missing`, 1.5, P.CRIT);
       else             qlog('CONN', `All stations — ${compLabel} personnel clear. ${out} accounted for`, 1.5, P.MED);
+    },
+    closeWTDs(compLabel) {
+      qlog('CONN', `All stations, Conn — close all watertight doors. Flooding in ${compLabel}`, 2.5, P.CRIT);
+    },
+    wtdClosed(station, doorLabel, delay) {
+      qlog(station, `Conn, ${station} — WTD ${doorLabel} closed`, delay, P.MED);
+    },
+    openWTDs() {
+      qlog('CONN', 'All stations, Conn — casualty controlled. Open all watertight doors. Resume normal watch.', 2.0, P.MED);
+    },
+    wtdOpen(station, doorLabel, delay) {
+      qlog(station, `Conn, ${station} — WTD ${doorLabel} open`, delay, P.NORMAL);
     },
     crewReturn(compLabel, station, n) {
       log('CONN', `All stations, Conn — ${compLabel} secure. Watchkeepers close up.`);
@@ -189,6 +206,9 @@
       } else if (cause === 'fire') {
         log('MANV', 'Conn, Manoeuvring — fire in reactor compartment. SCRAM reactor. Rods in, switching to EPM', P.CRIT);
         qlog('ENG', 'Conn, Eng — reactor manually tripped. EPM in service. Holding restart pending casualty resolution', 2.0, P.CRIT);
+      } else if (cause === 'coolant') {
+        log('MANV', 'Conn, Manoeuvring — primary coolant failure. Automatic SCRAM. Rods in, switching to EPM', P.CRIT);
+        qlog('ENG', 'Conn, Eng — primary coolant loop integrity lost. Reactor tripped on low flow', 1.5, P.CRIT);
       } else {
         log('MANV', 'Conn, Manoeuvring — reactor SCRAM. Rods in. EPM', P.CRIT);
       }
@@ -196,6 +216,18 @@
     },
     fireScramLifted() {
       log('MANV', 'Conn, Manoeuvring — reactor compartment clear. Commencing fast recovery startup', P.MED);
+    },
+    scramHoldRepair() {
+      log('MANV', 'Conn, Manoeuvring — SCRAM cleared. Reactor fire damage confirmed. Holding restart pending DC repairs', P.MED);
+      qlog('ENG', 'Conn, Eng — reactor panels show multiple faults. Cannot restart until systems restored. DC teams to work', 2.0, P.MED);
+    },
+    repairReadyRestart(state) {
+      if(state==='nominal'){
+        log('MANV', 'Conn, Manoeuvring — reactor systems nominal. Ready to recommence startup procedure', P.MED);
+        qlog('ENG', 'Conn, Eng — commencing fast recovery startup. Standing by on rod withdrawal', 1.5, P.MED);
+      } else {
+        log('MANV', `Conn, Manoeuvring — reactor partially repaired (${state}). Reactor non-operational. Further repairs required`, P.MED);
+      }
     },
     epmon() {
       log('MANV', 'Conn, Manoeuvring — EPM on the line. Making three knots. That is all I have', P.MED);
@@ -217,6 +249,46 @@
       if (lines[step]) log(lines[step][0], lines[step][1], lines[step][2]||P.NORMAL);
     },
     online() { msg('REACTOR ONLINE', 1.5); },
+    // ── Reactor / propulsion casualties ──────────────────────────────────
+    coolantLeak() {
+      log('MANV', 'Conn, Manoeuvring — primary coolant pressure dropping. We have a leak in the primary loop', P.CRIT);
+      qlog('ENG', 'Conn, Eng — estimating automatic SCRAM in forty-five seconds. Recommend reducing speed to give DC a chance to isolate', 2.0, P.CRIT);
+      msg('COOLANT LEAK', 2.0);
+    },
+    coolantLeakProgress() {
+      log('ENG', 'Conn, Eng — DC working the leak. Coolant pressure still falling', P.MED);
+    },
+    coolantLeakIsolated() {
+      log('MANV', 'Conn, Manoeuvring — primary coolant leak isolated. Pressure stabilising', P.MED);
+      qlog('ENG', 'Conn, Eng — good work by DC. Reactor maintaining power. Resuming normal operations', 1.5, P.MED);
+      msg('LEAK ISOLATED', 1.5);
+    },
+    coolantLeakFailed() {
+      log('ENG', 'Conn, Eng — cannot isolate the leak. SCRAM is imminent', P.CRIT);
+    },
+    steamLeak() {
+      log('MANV', 'Conn, Manoeuvring — main steam isolation! Answering on the diesel', P.CRIT);
+      qlog('ENG', 'Conn, Eng — steam leak in the main loop. DC closing up. Diesel generator on the line, making seven knots', 2.0, P.CRIT);
+      msg('MAIN STEAM ISOLATION', 2.0);
+    },
+    steamRestored() {
+      log('MANV', 'Conn, Manoeuvring — main steam restored. Full propulsion available', P.MED);
+      qlog('ENG', 'Conn, Eng — steam leak repaired. Turbines answering ahead', 1.5, P.MED);
+      msg('STEAM RESTORED', 1.5);
+    },
+    turbineTrip() {
+      log('MANV', 'Conn, Manoeuvring — turbine trip! Max turns for twelve knots', P.CRIT);
+      msg('TURBINE TRIP', 1.5);
+    },
+    turbineRecovered() {
+      log('MANV', 'Conn, Manoeuvring — turbines back on the line. Full power available', P.MED);
+      msg('TURBINES ONLINE', 1.0);
+    },
+    reactorRunaway() {
+      log('MANV', 'Conn, Manoeuvring — positive scram! Uncontrolled rod withdrawal, automatic trip. Rods in, switching to EPM', P.CRIT);
+      qlog('ENG', 'Conn, Eng — reactor tripped on positive period. Loud transient on that one. Commencing fast recovery', 2.0, P.CRIT);
+      msg('REACTOR SCRAM', 2.0);
+    },
   };
 
   // ════════════════════════════════════════════════════════════════════════
@@ -299,8 +371,14 @@
       msg('WEAPON HAS ACQUISITION', 4.0);
     },
     targetDestroyed(contactType) {
-      log('SONAR', `Conn, Sonar — breaking-up noises. ${contactType === 'boat' ? 'Surface contact' : 'Submerged contact'} destroyed`, P.MED);
-      msg('TARGET DESTROYED', 2.5);
+      if(contactType === 'civilian'){
+        log('SONAR', `Conn, Sonar — breaking-up noises. Merchant vessel destroyed`, P.CRIT);
+        msg('CIVILIAN VESSEL DESTROYED', 3.5);
+        qlog('CONN', 'Conn — that was a civilian vessel. This will be reported.', 2.0, P.CRIT);
+      } else {
+        log('SONAR', `Conn, Sonar — breaking-up noises. ${contactType === 'boat' ? 'Surface contact' : 'Submerged contact'} destroyed`, P.MED);
+        msg('TARGET DESTROYED', 2.5);
+      }
     },
     counterShot(n, degStr) {
       log('SONAR', `Conn, Sonar — ${n} torpedo${n > 1 ? 's' : ''} in the water, bears ${degStr}, reciprocal`, P.CRIT);
@@ -355,10 +433,99 @@
     reloaded(tube) {
       log('WEPS', `Conn, Weps — tube ${tube} reloaded, ready in all respects`);
     },
-    firingProcedures(manual, track, tube) {
-      if (manual) log('CONN', `Weps, Conn — stand by, tube, tube ${tube}`);
-      else        log('CONN', `Weps, Conn — stand by, tube ${tube}${track}`);
+    // Tube load management — ordered by player, one op at a time in the torpedo room
+    loadOrder(tube, weaponLabel) {
+      log('WEPS', `Conn, Weps — aye. Loading tube ${tube} with ${weaponLabel}`);
+      msg(`LOADING T${tube}\u2026`, 0.7);
+    },
+    loadComplete(tube, weaponLabel) {
+      log('WEPS', `Conn, Weps — tube ${tube} loaded, ${weaponLabel} ready in all respects`);
+    },
+    unloadOrder(tube) {
+      log('WEPS', `Conn, Weps — aye. Unloading tube ${tube}, weapon coming back`);
+      msg(`UNLOADING T${tube}\u2026`, 0.7);
+    },
+    unloadComplete(tube) {
+      log('WEPS', `Conn, Weps — tube ${tube} unloaded, weapon secured in the rack`);
+    },
+    strikeReloadOrder(tube, weaponLabel) {
+      log('WEPS', `Conn, Weps — aye. Strike reload, tube ${tube} with ${weaponLabel}`);
+      msg(`STRIKE RELOAD T${tube}\u2026`, 0.7);
+    },
+    strikeReloadComplete(tube, weaponLabel) {
+      log('WEPS', `Conn, Weps — tube ${tube} reloaded, ${weaponLabel} ready in all respects`);
+    },
+    torpRoomBusy() {
+      log('WEPS', 'Conn, Weps — torpedo room busy, stand by');
+      msg('TORP ROOM BUSY', 0.7);
+    },
+    // Full firing point procedure — CONN opens the sequence
+    firingProcedures(tube, weaponLabel, contactId, manual) {
+      if (manual) {
+        log('CONN', `Weps, Conn — firing point procedures, tube ${tube}, ${weaponLabel}, manual bearing`);
+      } else {
+        const trk = contactId ? `, track ${contactId}` : '';
+        log('CONN', `Weps, Conn — firing point procedures, tube ${tube}, ${weaponLabel}${trk}`);
+      }
       msg('FIRING\u2026', 0.6);
+    },
+    // WEPS acknowledges and confirms readiness
+    fppAck(tube, weaponLabel, contactId) {
+      const trk = contactId ? `, ${contactId}` : '';
+      log('WEPS', `Tube ${tube}, ${weaponLabel}${trk} — aye. Prepare tube ${tube}`);
+    },
+    // NAV / ship confirms positional readiness
+    shipReady() {
+      log('NAV', 'Ship ready');
+    },
+    // WEPS confirms weapon is set and solution loaded
+    weaponReady() {
+      log('WEPS', 'Weapon ready');
+    },
+    // CONN gives the fire order
+    fireOrder(tube, weaponLabel, contactId, manual) {
+      if (manual) {
+        log('CONN', `Fire, tube ${tube}, ${weaponLabel}, manual bearing`);
+      } else {
+        const trk = contactId ? `, ${contactId}` : '';
+        log('CONN', `Fire, tube ${tube}, ${weaponLabel}${trk}`);
+      }
+    },
+    // SONAR — missile variant of away call
+    missileAway() {
+      msg('MISSILE AWAY', 1.4);
+      log('SONAR', 'Conn, Sonar — launch transient. Missile airborne');
+    },
+    missileHit(target) {
+      msg('TARGET HIT', 1.8);
+      log('SONAR', `Conn, Sonar — detonation. ${target} hit`);
+    },
+    missileMiss() {
+      msg('MISS', 1.2);
+      log('SONAR', 'Conn, Sonar — detonation in water. No target struck');
+    },
+    missileDefeat(target) {
+      msg('MISSILE DEFEATED', 1.5);
+      log('SONAR', `Conn, Sonar — ${target} CIWS active. Missile defeated`);
+    },
+    // VLS — streamlined fire sequence (no tube flood-down)
+    vlsFired(cell, weaponLabel, contactId) {
+      log('CONN', `Fire, VLS cell ${cell}, ${weaponLabel}, ${contactId}`);
+      qlog('WEPS', `VLS cell ${cell} fired electrically — ${weaponLabel} airborne`, 0.6);
+      msg('MISSILE AWAY', 1.2);
+    },
+    // Stadimeter — optical range observation at periscope depth
+    stadimeterObserve(contactId) {
+      log('CONN', `Weps, Conn — stadimeter observation, ${contactId}. Mark when ready`);
+      msg('STADIMETER\u2026', 3.5);
+    },
+    stadimeterComplete(classKnown) {
+      const acc = classKnown ? '\u00b118%' : '\u00b130%';
+      log('WEPS', `Conn, Weps — stadimeter complete. Range estimate locked, accuracy ${acc}`);
+    },
+    stadimeterInterrupted() {
+      log('WEPS', 'Conn, Weps — stadimeter interrupted. No range estimate');
+      msg('STADIMETER ABORTED', 0.8);
     },
     unableFiring() {
       msg('FIRING IN PROGRESS', 0.8);
@@ -373,6 +540,19 @@
     },
     fireControlOffline() {
       log('WEPS', 'Conn, Weps — fire control offline', P.MED);
+    },
+    missileDepthWarning(wl, depth, maxD) {
+      msg('DEPTH RISK — ATTEMPTING', 1.4);
+      log('WEPS', `Conn, Weps — ${wl} depth envelope is ${maxD}m. We are at ${Math.round(depth)}m. Attempting launch.`, P.MED);
+    },
+    missileLaunchFail(wl) {
+      msg('MISFIRE', 1.6);
+      log('WEPS', `Conn, Weps — misfire. ${wl} capsule failed to surface. Tube flooding — safe.`, P.CRIT);
+      qlog('WEPS', `Conn, Weps — weapon lost. Tube secure.`, 2.0, P.MED);
+    },
+    vlsLaunchFail(wl, cell) {
+      msg('VLS MISFIRE', 1.6);
+      log('WEPS', `Conn, Weps — VLS misfire, cell ${cell}. ${wl} eject failed. Cell intact — available for re-fire.`, P.CRIT);
     },
     away()       { msg('TORPEDO AWAY', 1.2); },
     countermeasures() {
@@ -466,6 +646,10 @@
       msg(`${action.toUpperCase()}: CONN EVACUATED`, 1.2);
       log('CO', `${label} unavailable — control room evacuated`, P.MED);
     },
+    ballastDamageWarning(state) {
+      const severity = state==='destroyed' ? 'destroyed' : state==='offline' ? 'offline' : 'degraded';
+      qlog('ENG', `Conn, Eng — ballast system ${severity}, depth recovery will be impaired`, 3.0);
+    },
     comeToPD() {
       msg('COME TO PD', 1.0);
       log('CONN', 'Helm, Conn — come to periscope depth');
@@ -540,6 +724,9 @@
       log('SONAR', `Conn, Sonar — ${id}, TMA solution solid. Ready to fire.`, P.MED);
       qlog('CONN', `Weps, Conn — weapons free on ${id}. Stand by to fire.`, 2.0);
     },
+    classified(id, type) {
+      log('SONAR', `Conn, Sonar — ${id}, classify ${type}`, P.MED);
+    },
     launchTransient(brgStr) {
       log('SONAR', `Conn, Sonar — launch transient, bears ${brgStr}. Torpedo in the water`, P.CRIT);
     },
@@ -583,6 +770,15 @@
                   ['CONN',  'Conn — all hands, action stations. Prepare to evade and engage.', P.MED]],
         patrol:  [['SONAR', 'Conn, Sonar — four-contact barrier, spread across track',     P.MED],
                   ['CONN',  'Helm, Conn — slow ahead. Ultra-quiet routine.',       P.MED]],
+        ssbn_hunt:[['CONN',  'Conn — intelligence brief: Typhoon-class SSBN on bastion patrol, one escort SSN screening.', P.MED],
+                   ['WEPS',  'Conn, Weps — weapons free on both contacts. Primary target is the boomer.', P.MED],
+                   ['CONN',  'Helm, Conn — slow ahead, rig for ultra-quiet. Find the boomer.', P.MED]],
+        boss_fight:[['CONN', 'Conn — flash traffic from SUBLANT. New hostile submarine class confirmed at sea. Designate: Zeta.', P.CRIT],
+                    ['CONN', 'Conn — intelligence reports Zeta-class is extremely quiet, highly capable. Expect a hard fight.', P.MED],
+                    ['WEPS', 'Conn, Weps — weapons free. This one won\'t go down easy — make every shot count.', P.MED]],
+        asw_taskforce:[['SONAR', 'Conn, Sonar — multiple surface contacts, active sonar transmissions. Classify ASW taskforce.', P.MED],
+                       ['CONN', 'Conn — surface group is prosecuting our datum. Rig for ultra-quiet, take her deep.', P.MED],
+                       ['WEPS', 'Conn, Weps — weapons free on all surface contacts. Use the layer — they\'ll be pinging hard.', P.MED]],
       };
       if (lines[scenario]) lines[scenario].forEach(([s, m, p]) => log(s, m, p||P.NORMAL));
     },
@@ -606,6 +802,26 @@
     },
     enemyTorpedo(brgStr) {
       log('SONAR', `Conn, Sonar — torpedo in the water, bears ${brgStr}`, P.CRIT);
+    },
+    buoySplash(brgStr) {
+      log('SONAR', `Conn, Sonar — splash transient, bears ${brgStr}. Sonobuoy in the water`);
+    },
+    heloContact(brgStr) {
+      log('SONAR', `Conn, Sonar — rotary wing contact, bears ${brgStr}. Classify helicopter, ASW`);
+    },
+    dipSonar(brgStr) {
+      log('SONAR', `Conn, Sonar — dipping sonar active, bears ${brgStr}`, P.MED);
+    },
+    heloDrop(brgStr) {
+      log('SONAR', `Conn, Sonar — torpedo in the water, bears ${brgStr}. Helo drop, classify ASW.`, P.CRIT);
+      msg('TORPEDO IN THE WATER', 3.0);
+    },
+    dcDetonation(brgStr) {
+      log('SONAR', `Conn, Sonar — depth charge detonation, bears ${brgStr}.`, P.MED);
+    },
+    asrocLaunch() {
+      log('SONAR', `Conn, Sonar — rocket launch transient, surface contact. ASROC inbound.`, P.CRIT);
+      msg('ASROC INBOUND', 3.0);
     },
   };
 
@@ -634,6 +850,7 @@
   // ════════════════════════════════════════════════════════════════════════
   const ui = {
     periscopeTooDeep()      { msg('PERISCOPE: TOO DEEP', 1.0); },
+    periscopeDamaged()      { msg('PERISCOPE: DAMAGED — UNAVAILABLE', 1.0); },
     scopeReport(shown)      { msg(shown > 0 ? `SCOPE: ${shown} ship(s)` : 'SCOPE: no ships', 1.2); },
     sonarOffline()          { msg('SONAR OFFLINE — SCRAM', 0.8); },
     ping()                  { msg('PING!', 0.8); },
@@ -735,6 +952,12 @@
       msg(`COLLAPSE DEPTH — ${Math.round(depthM)}m`, 3.0);
     },
 
+    hullDamageCreaking(depthM) {
+      log('ENG', `Conn, Eng — hull working hard at ${Math.round(depthM)}m. Structural damage is audible — creaking and stress pops heard throughout the boat. Recommend reducing depth.`, P.CRIT);
+      qlog('CONN', `Conn — understood. Watch your depth, watch your depth.`, 1.4, P.CRIT);
+      msg(`HULL STRESS — ${Math.round(depthM)}m`, 2.5);
+    },
+
   };
 
   // ════════════════════════════════════════════════════════════════════════
@@ -788,6 +1011,7 @@
 
     blowOpened(ambientBar, groupBar) {
       // Full RN emergency blow sequence — queued so lines play in order
+      // Used only when auto blow works (immediate venting)
       log('CONN', 'Conn — all hands — Emergency stations, emergency stations, emergency stations: Blow ballast. Prepare to surface the boat.', P.CRIT);
       msg('EMERGENCY STATIONS', 2.5);
       qlog('CONN', 'Conn — full ahead both. Full rise on the planes. Prepare to surface the boat.', 1.5, P.CRIT);
@@ -795,6 +1019,13 @@
       qlog('CONN', 'DC, Conn — prepare to operate main vents in hand control. Blow main ballast.', 4.0, P.CRIT);
       qlog('ENG',  `Conn, Eng — emergency blow open. Main ballast venting. Ambient ${ambientBar} bar, group pressure ${groupBar} bar.`, 5.5, P.CRIT);
       msg('EMERGENCY BLOW — VENTING', 5.5);
+    },
+    blowOrderedManual() {
+      // Emergency stations only — venting comms deferred until DC actually opens HPA
+      log('CONN', 'Conn — all hands — Emergency stations, emergency stations, emergency stations: Blow ballast. Prepare to surface the boat.', P.CRIT);
+      msg('EMERGENCY STATIONS', 2.5);
+      qlog('CONN', 'Conn — full ahead both. Full rise on the planes.', 1.5, P.CRIT);
+      qlog('HELM', 'Conn, Helm — full ahead, full rise. Aye. Attempting blow.', 2.8, P.MED);
     },
     blowProgress(depthM, differential) {
       if(differential > 20){
@@ -809,6 +1040,11 @@
     blowTanksClear(depthM) {
       log('ENG', `Conn, Eng — main ballast clear. Securing blow. Boat is positively buoyant at ${depthM}m. Rising.`, P.MED);
       msg('BALLAST CLEAR — RISING', 2.0);
+    },
+    blowOverwhelmed(depthM) {
+      log('ENG', `Conn, Eng — main ballast clear but flooding mass too great. Boat is negatively buoyant at ${depthM}m. Still sinking.`, P.CRIT);
+      qlog('CONN', `All stations, Conn — blown tanks cannot overcome flooding. DC priority: reduce flood load or prepare to abandon.`, 2.0, P.CRIT);
+      msg('BLOW INSUFFICIENT — SINKING', 3.0);
     },
     blowExhausted(depthM) {
       log('ENG',  `Conn, Eng — HP air equalised with ambient. Securing emergency blow. Depth ${depthM}m. No further blow available without surface recharge.`, P.CRIT);
@@ -859,10 +1095,22 @@
   // FIRE
   // ════════════════════════════════════════════════════════════════════════
   const fire = {
+    // Manned room: crew see it immediately
     ignited(compLabel, station) {
       msg(`FIRE — ${compLabel}`, 1.5);
       log(station, `Conn, ${station} — FIRE in ${compLabel}. Evacuating non-essential crew`, P.CRIT);
       qlog('CONN', `${station}, Conn — aye. DC teams, fire in ${compLabel}. Emergency stations`, 2.0, P.CRIT);
+    },
+    // Unmanned room: automated sensor alarm at 40% — triggers investigation
+    fireAlarm(roomLabel, station) {
+      msg(`FIRE ALARM — ${roomLabel}`, 1.5);
+      log('CONN', `All stations, Conn — fire detection alarm ${roomLabel}. Investigate and report`, P.CRIT);
+      qlog(station, `Conn, ${station} — aye. En route to investigate`, 2.5, P.MED);
+    },
+    // Called after investigation delay (~12s) when fire is physically confirmed
+    fireInvestigated(roomLabel, station) {
+      log(station, `Conn, ${station} — fire confirmed in ${roomLabel}. Request emergency stations`, P.CRIT);
+      qlog('CONN', `${station}, Conn — aye. DC teams, fire in ${roomLabel}. Emergency stations`, 2.0, P.CRIT);
     },
     watchkeeperResponse(compLabel, count) {
       const countStr = count === 1 ? 'one watchkeeper' : `${count} watchkeepers`;
@@ -906,8 +1154,21 @@
     },
     nitrogenDrench(compLabel, cas) {
       msg(`N2 DRENCH — ${compLabel}`, 1.6);
-      log('ENG', `${compLabel} — N2 drench complete. Fire out. Compartment uninhabitable`, P.CRIT);
+      log('ENG', `${compLabel} — N2 drench complete. Fire out. Compartment uninhabitable — DC team venting`, P.CRIT);
       if (cas > 0) qlog('ENG', `${compLabel} — ${cas} personnel overcome by drench`, 2.0, P.CRIT);
+    },
+    ventN2Required(compLabel) {
+      msg(`VENT REQUIRED — ${compLabel}`, 1.3);
+      log('CONN', `All stations, Conn — ${compLabel} drenched. DC team required to vent before securing`, P.CRIT);
+    },
+    ventN2Started(compLabel, teamLabel) {
+      msg(`VENT N2 — ${compLabel}`, 1.2);
+      log('ENG', `Conn, ${teamLabel} — commencing N2 vent ${compLabel}. Stand by 60 seconds`, P.MED);
+    },
+    ventN2Complete(compLabel) {
+      msg(`N2 CLEAR — ${compLabel}`, 1.2);
+      log('ENG', `Conn, ENG — N2 clear in ${compLabel}. Entering for inspection`, P.MED);
+      qlog('CONN', `ENG, Conn — aye. Enter ${compLabel} and report`, 1.5, P.MED);
     },
     cascade(fromLabel, toLabel) {
       msg('FIRE SPREADING', 1.4);
@@ -981,8 +1242,94 @@
   };
 
   // ════════════════════════════════════════════════════════════════════════
+  // SNORKEL PROCEDURES (diesel-electric boats only)
+  // ════════════════════════════════════════════════════════════════════════
+  const snorkel = {
+    // CO orders snorkel — crew prepares, boat rises to snorkel depth
+    ordered() {
+      log('CONN', 'Conn, aye — prepare to snorkel. Coming to snorkel depth.', P.MED);
+      msg('SNORKEL ORDERED', 1.5);
+      qlog('HELM', 'Helm, aye — coming to snorkel depth. Rate of rise normal.', 1.0);
+      qlog('ENG',  'Conn, Eng — snorkel induction system checked open. Standing by to raise mast.', 2.5);
+    },
+    // Snorkel depth reached — mast raised, diesels start
+    deployed() {
+      log('ENG',  'Conn, Eng — snorkel mast raised. Induction open. Starting diesels.', P.MED);
+      msg('SNORKEL — RAISING MAST', 1.5);
+      qlog('MANV', 'Conn, Manoeuvring — diesel generators on the line. Battery charging. Making ahead slow.', 2.0, P.MED);
+      qlog('ENG',  'Conn, Eng — diesels running normally. Exhaust confirmed outboard. Charging at full rate.', 4.0);
+      qlog('CONN', 'Manoeuvring, Conn — aye. All stations — we are snorkelling. ESM watch closed up.', 5.5, P.MED);
+    },
+    // CO cancels — mast comes down, diesels secured, back on battery
+    cancelled() {
+      log('CONN', 'Conn — cancel snorkel. Lowering mast. Take her back down.', P.MED);
+      msg('SNORKEL — RETRACTING', 1.2);
+      qlog('ENG',  'Conn, Eng — lowering snorkel mast. Induction sealed. Securing diesels.', 1.5);
+      qlog('MANV', 'Conn, Manoeuvring — diesels secured. Propulsion to battery. Hotel load normal.', 3.5, P.MED);
+      qlog('CONN', 'Manoeuvring, Conn — aye. Running on battery.', 5.0);
+    },
+    // Battery warnings — fired once per band crossing
+    batteryLow(pct) {
+      if(pct <= 10){
+        log('ENG',  `Conn, Eng — battery critical at ${pct}%. Must snorkel or reduce speed immediately.`, P.CRIT);
+        qlog('MANV', `Conn, Manoeuvring — at current load, propulsion offline in under two minutes.`, 1.5, P.CRIT);
+        msg(`BATTERY CRITICAL — ${pct}%`, 2.5);
+      } else if(pct <= 20){
+        log('ENG',  `Conn, Eng — battery low, ${pct}%. Request permission to snorkel.`, P.MED);
+        msg(`BATTERY LOW — ${pct}%`, 2.0);
+      } else {
+        log('ENG',  `Conn, Eng — battery at ${pct}%. Recommend snorkelling at earliest opportunity.`, P.NORMAL);
+      }
+    },
+    // Battery dead — propulsion lost
+    exhausted() {
+      log('MANV', 'Conn, Manoeuvring — battery exhausted. No propulsion. EPM not installed.', P.CRIT);
+      qlog('ENG',  'Conn, Eng — propulsion offline. Snorkel or surface to recover. Hotel load on reserve cells.', 1.5, P.CRIT);
+      qlog('CONN', 'All stations, Conn — loss of propulsion on battery exhaustion. Boat is dead in the water. Stand by.', 3.0, P.CRIT);
+      msg('PROPULSION LOST — BATTERY DEAD', 3.0);
+    },
+    // Battery recovered enough to move again
+    recovered() {
+      log('MANV', 'Conn, Manoeuvring — battery above minimum. Propulsion answering.', P.MED);
+      qlog('ENG',  'Conn, Eng — propulsion restored. Recommend maintaining snorkel until battery above fifty percent.', 2.0);
+      msg('PROPULSION RESTORED', 1.5);
+    },
+    // ESM / noise warnings while snorkelling
+    noisyCaution() {
+      log('CONN', 'Conn — all stations. Snorkelling creates a detectable signature. Maintain ESM watch. Be ready to lower mast on contact.', P.MED);
+    },
+  };
+
+  // ════════════════════════════════════════════════════════════════════════
   // EXPORT
   // ════════════════════════════════════════════════════════════════════════
-  window.COMMS = { P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons, nav, sensors, tactical, panel, ui, crewState, depth, trim, planes, fire, watch, medical };
+  const mast = {
+    raised(label)       { log('CONN', `${label} raised`); },
+    lowered(label)      { log('CONN', `${label} lowered`); },
+    floodWarning(label) {
+      log('CONN', `Conn — ${label} below safe depth. Flooding risk — lower immediately`, P.CRIT);
+      msg(`${label} FLOOD RISK`, 1.8);
+    },
+    crushed(label) {
+      log('CONN', `${label} crushed — hull flooding`, P.CRIT);
+      msg(`${label} CRUSHED`, 2.5);
+    },
+    esmContacts(contacts) {
+      for(const c of contacts.slice(0,3)){
+        log('ESM', `Conn, ESM — emitter bears ${String(c.brgDeg).padStart(3,'0')}, ${c.strength}`);
+      }
+      if(contacts.length>3) log('ESM', `ESM — ${contacts.length} emitters total`);
+    },
+    radarSweep(count) {
+      if(count>0){
+        log('CONN', `Radar — ${count} surface contact${count>1?'s':''}`);
+        log('SONAR', 'Conn, Sonar — own-ship radar emission. Escorts will go active', P.MED);
+      } else {
+        log('CONN', 'Radar — no contacts');
+      }
+    },
+  };
+
+  window.COMMS = { P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons, nav, sensors, tactical, panel, ui, crewState, depth, trim, planes, fire, watch, medical, snorkel, mast };
 
 })();

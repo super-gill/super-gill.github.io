@@ -21,7 +21,7 @@
     const torpAng=Math.atan2(torp.vy, torp.vx);
 
     // FOV: wide passive search when hunting, narrow active cone when locked
-    const fov  = torp.target ? (torp.seekFOV??cfg.seekFOV) : (cfg.passiveFOV??2.4);
+    const fov  = torp.target ? (torp.seekFOV??cfg.seekFOV) : (torp.passiveFOV??cfg.passiveFOV??2.4);
     const range= torp.seekRange ?? cfg.seekRange;
 
     // Depth window: use config value. Active seeker (locked) is tighter — the
@@ -53,39 +53,42 @@
       if(dist < bestDist){ bestDist=dist; best=t; }
     }
 
-    // Decoy seduction — can compete even post-lock if decoy is louder than target.
-    // A silent target running quiet can be out-competed by a noisemaker.
-    // A sprinting noisy target overwhelms the decoy — can't break lock that way.
+    // Decoy seduction — single roll per decoy-torpedo encounter.
+    // Each decoy gets ONE chance to seduce each torpedo when it first enters
+    // range/FOV. Going quiet before deploying improves odds significantly.
+    // After seduction ends, a reacquisition delay gives the target time to escape.
     if(!torp.seducedBy){
-      const seduceRange=cfg.seduceRange??300;
-      const seduceFOV  =cfg.seduceFOV??2.8;
+      if(!torp._testedDecoys) torp._testedDecoys=[];
+      const seduceRange=torp.seduceRange??cfg.seduceRange??300;
+      const seduceFOV  =torp.seduceFOV??cfg.seduceFOV??2.8;
       for(const d of decoys){
         if(d.kind!=='noisemaker' || d.life<=0) continue;
         if(torp.friendly && d.friendly) continue;
         if(!torp.friendly && !d.friendly) continue;
+        if(torp._testedDecoys.includes(d.id)) continue; // already rolled
         const dx=wrapDx(torp.x, d.x);
         const dy=d.y-torp.y;
         if(Math.hypot(dx,dy)>seduceRange) continue;
         const angTo=Math.atan2(dy,dx);
         if(Math.abs(angleNorm(angTo-torpAng)) > seduceFOV/2) continue;
 
-        // If already locked on a real target, decoy must out-compete acoustically.
-        // Decoy signature vs target noise (player.noise or enemy equivalent).
+        // First encounter with this decoy — single roll.
+        torp._testedDecoys.push(d.id);
+
+        // If locked on a real target, decoy must out-compete acoustically.
         if(best){
           const targetNoise = torp.friendly
             ? (best.noise??0.3)        // enemy sub noise
             : (G().player.noise??0.2); // player noise
           const decoySig = d.signature??1.0;
-          // Decoy wins if it's louder than the target's self-noise.
-          // Formula: 1 - (noise * 3 / decoySig) — maps noise onto decoy scale.
-          // Silent (noise~0.07) → 84% chance. Sprinting (noise~0.40) → 14%.
-          // Encourages players to go quiet BEFORE deploying countermeasures.
-          const seduceChance = clamp(1.0 - (targetNoise * 3.0) / decoySig, 0, 1);
+          // Quiet (noise~0.07) → 90%. Normal (~0.25) → 64%. Sprint (~0.40) → 43%.
+          // 15% floor: even a noisy deployment has some chance.
+          const seduceChance = clamp(1.0 - (targetNoise * 2.0) / decoySig, 0.15, 1);
           if(Math.random() > seduceChance) continue; // decoy fails to compete
         }
 
         torp.seducedBy=d;
-        torp.seduceT=cfg.seduceTime??7.0;
+        torp.seduceT=torp.seduceTime??cfg.seduceTime??7.0;
         torp.target=null;
         best=null; // clear lock
         if(!torp.friendly){
@@ -100,6 +103,99 @@
     }
 
     return best;
+  }
+
+  // ── Search pattern — counter-CM hook + snake ────────────────────────────────
+  // Activated when torpedo has no target, no wire, and no seduction.
+  //
+  // Two entry paths:
+  //   Post-CM (seduction just ended): hook maneuver — break 45° away from CM
+  //     noise cloud, then 125° back to cross original track, then snake.
+  //   Wire-cut / passive loss: immediate snake along last steered heading.
+  //
+  // Phases: 'break' → 'hook' → 'snake'   (post-CM)
+  //         'snake'                        (wire-cut)
+  function searchPattern(torp, dt, cfg){
+    const PI=Math.PI;
+    const curAng=Math.atan2(torp.vy, torp.vx);
+
+    // ── Circle/spiral datum search (ASROC-deployed torpedoes) ─────────────────
+    // Starts as a tight circle then gradually expands into a wider spiral.
+    // Turn rate fraction decreases from 100% → 12% over the torpedo's run time,
+    // so radius grows from ~19wu (190m) to ~160wu (1600m). Never falls back to snake.
+    if(torp._circleSearch){
+      if(!torp._search){
+        torp._search={circleDir:(Math.random()<0.5)?1:-1, phaseT:0};
+      }
+      const S=torp._search;
+      S.phaseT+=dt;
+      const maxTurn=(torp.turnRate??cfg.turnRate)*dt;
+      // Fraction: 1.0 at launch → 0.12 at 90s, giving an ever-widening spiral
+      const fraction=Math.max(0.12, 1.0 - S.phaseT/100);
+      torp.targetBrg=curAng + S.circleDir * maxTurn * fraction;
+      return;
+    }
+    const snakeAmp=cfg.searchSnake||0.18; // radians half-amplitude
+    const snakePeriod=4.0;               // seconds per half-cycle
+
+    if(!torp._search){
+      // First tick without target — initialise search
+      const postCM=torp._postCM||false;
+      torp._postCM=false;
+      if(postCM){
+        // Hook maneuver: break away from CM noise, then hook back across original track
+        // Pick a random side to break toward
+        const side=(Math.random()<0.5)?1:-1;
+        torp._search={
+          phase:'break',
+          side,
+          baseAng:curAng,             // heading when CM lost
+          breakAng:curAng+side*(45*PI/180),  // 45° away
+          hookAng:curAng+side*(45*PI/180) - side*(125*PI/180), // 125° back = net 80° toward original track
+          phaseT:0,
+          breakDur:2.5,               // seconds to hold break turn
+          hookDur:3.5,                // seconds to hold hook turn
+          snakeT:0,
+          snakeDir:1,
+        };
+      } else {
+        // Wire-cut or passive loss — snake immediately along last heading
+        torp._search={
+          phase:'snake',
+          baseAng:curAng,
+          snakeT:0,
+          snakeDir:(Math.random()<0.5)?1:-1,
+        };
+      }
+    }
+
+    const S=torp._search;
+    S.phaseT=(S.phaseT||0)+dt;
+
+    if(S.phase==='break'){
+      // Turn 45° away from CM cloud
+      torp.targetBrg=S.breakAng;
+      if(S.phaseT>=S.breakDur){
+        S.phase='hook';
+        S.phaseT=0;
+      }
+    } else if(S.phase==='hook'){
+      // Turn 125° back to cross the original target track
+      torp.targetBrg=S.hookAng;
+      if(S.phaseT>=S.hookDur){
+        S.phase='snake';
+        S.baseAng=S.hookAng; // snake along the hooked heading
+        S.snakeT=0;
+        S.snakeDir=1;
+        S.phaseT=0;
+      }
+    } else {
+      // Snake — S-pattern weave along base heading
+      S.snakeT=(S.snakeT||0)+dt;
+      const cycle=S.snakeT/snakePeriod;
+      const offset=Math.sin(cycle*PI*2)*snakeAmp;
+      torp.targetBrg=S.baseAng+offset;
+    }
   }
 
   // ── Main update ─────────────────────────────────────────────────────────────
@@ -120,10 +216,24 @@
       torp.seduceT=(torp.seduceT||0)-dt;
       if(torp.seduceT<=0 || torp.seducedBy.life<=0){
         torp.seducedBy=null; torp.target=null;
+        // Post-seduction confusion — seeker needs time to reacquire
+        torp._reacquireCd=torp.reacquireDelay??cfg.reacquireDelay??3.0;
+        // Flag for search pattern — triggers hook maneuver instead of straight snake
+        torp._postCM=true;
+        torp._search=null; // reset any existing search state
       }
     }
 
-    if(armed && !torp.seducedBy){
+    // Reacquisition cooldown after seduction ends
+    if(torp._reacquireCd>0) torp._reacquireCd-=dt;
+
+    // Ping dazzle — active sonar pulse temporarily blinds seeker
+    if(torp._dazzleT>0){
+      torp._dazzleT-=dt;
+      if(torp._dazzleT<=0) torp._wasDazzled=false; // reset for next dazzle
+    }
+
+    if(armed && !torp.seducedBy && (torp._reacquireCd||0)<=0 && (torp._dazzleT||0)<=0){
       const found=seekerScan(torp);
       if(found){
         if(found !== torp.target && torp.friendly){
@@ -141,7 +251,7 @@
     }
 
     // ── 3. targetBrg — the single steering command ───────────────────────────
-    // Priority: seducedBy > locked target > wire (already written) > hold
+    // Priority: seducedBy > locked target > wire (already written) > search pattern > hold
     if(torp.seducedBy){
       const dx=wrapDx(torp.x, torp.seducedBy.x);
       const dy=torp.seducedBy.y - torp.y;
@@ -161,9 +271,14 @@
       const ex=tx+tvx*tof, ey=ty+tvy*tof;
       torp.targetBrg=Math.atan2(ey-torp.y, wrapDx(torp.x,ex));
       // When homing, wire no longer writes targetBrg — seeker owns it
+      // Clear any active search state — we have a lock
+      torp._search=null;
+    } else if(armed && !(torp.wire?.live)){
+      // No target, no seduction, no wire — run search pattern
+      // This replaces the old "fly straight on last heading" behaviour.
+      searchPattern(torp, dt, cfg);
     }
     // If wire is live and no target/seduction: wire has already written targetBrg this tick.
-    // If no wire and no target: targetBrg holds its last value (fly straight).
 
     // ── 4. Steering — turn toward targetBrg ──────────────────────────────────
     if(armed && torp.targetBrg != null){
@@ -205,8 +320,8 @@
     }
 
     // ── 7. Position ───────────────────────────────────────────────────────────
-    torp.x=(torp.x+torp.vx*dt+world.w)%world.w;
-    torp.y=(torp.y+torp.vy*dt+world.h)%world.h;
+    torp.x=torp.x+torp.vx*dt;
+    torp.y=torp.y+torp.vy*dt;
 
     // ── 8. Collision ──────────────────────────────────────────────────────────
     const vertFuse=cfg.vertFuse||60;
@@ -218,7 +333,7 @@
           if(dz>vertFuse) continue;
           const dx=wrapDx(torp.x,e.x), dy=e.y-torp.y;
           if(Math.hypot(dx,dy)<(e.hitR||e.r||18)+torp.r){
-            G().damageEnemy(e,torp.dmg); torp.life=0; break;
+            G().damageEnemy(e,torp.dmg); torp._hit=true; torp.life=0; break;
           }
         }
       } else {
@@ -226,7 +341,7 @@
         if(dz<vertFuse){
           const dx=wrapDx(torp.x,player.wx), dy=player.wy-torp.y;
           if(Math.hypot(dx,dy)<(C().player.hitR??30)+torp.r){
-            G().damagePlayer(24, torp.x, torp.y); torp.life=0;
+            G().damagePlayer(24, torp.x, torp.y); torp._hit=true; torp.life=0;
           }
         }
       }

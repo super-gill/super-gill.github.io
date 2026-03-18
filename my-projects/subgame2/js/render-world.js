@@ -6,7 +6,7 @@
   'use strict';
   const {lerp}=window.M;
   const {ctx,canvas,DPR,world,cam,player}=window.G;
-  const {doodleLine,doodleCircle,doodleText,w2s,wScale}=window.R;
+  const {doodleLine,doodleCircle,doodleText,w2s,wScale,U}=window.R;
 
   // ── Land rendering ───────────────────────────────────────────────────────────
   function drawLand(){
@@ -82,7 +82,7 @@
       const [bx,by]=w2s(b.wx,b.wy);
       const mx=(ax+bx)/2, my=(ay+by)/2;
       ctx.fillStyle='rgba(17,24,39,0.50)';
-      doodleText(fmtDist(d),mx+4*DPR,my-4*DPR,8*DPR,'left');
+      doodleText(fmtDist(d),mx+U(4),my-U(4),U(8),'left');
     }
 
     // Waypoint circles + numbers
@@ -91,14 +91,14 @@
       ctx.strokeStyle='rgba(17,24,39,0.45)';
       doodleCircle(wx2,wy2,6,1.5);
       ctx.fillStyle='rgba(17,24,39,0.55)';
-      doodleText(`${i+1}`,wx2+9,wy2+4,9*DPR,'left');
+      doodleText(`${i+1}`,wx2+9,wy2+4,U(9),'left');
     }
 
     // Total distance under last waypoint
     if(route.length>=1){
       const [lx,ly]=w2s(route[route.length-1].wx,route[route.length-1].wy);
       ctx.fillStyle='rgba(17,24,39,0.32)';
-      doodleText(`TOTAL ${fmtDist(totalWU)}`,lx+9,ly+14*DPR,8*DPR,'left');
+      doodleText(`TOTAL ${fmtDist(totalWU)}`,lx+9,ly+U(14),U(8),'left');
     }
   }
 
@@ -231,9 +231,9 @@
     if(b.torpId){
       const labelCol=seduced?'rgba(160,40,40,0.85)':b.friendly?'rgba(15,23,42,0.80)':'rgba(100,30,200,0.80)';
       ctx.fillStyle=labelCol;
-      doodleText(b.torpId, sx+8*DPR, sy-6*DPR, 8*DPR, 'left');
+      doodleText(b.torpId, sx+U(8), sy-U(6), U(8), 'left');
       if(b.depth!=null)
-        doodleText(Math.round(b.depth)+'m', sx+8*DPR, sy+10*DPR, 7*DPR, 'left');
+        doodleText(Math.round(b.depth)+'m', sx+U(8), sy+U(10), U(7), 'left');
     }
   }
 

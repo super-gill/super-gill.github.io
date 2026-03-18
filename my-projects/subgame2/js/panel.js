@@ -43,6 +43,26 @@
     }
   }
 
+  function setSpeedKts(kts){
+    const p=window.G?.player; if(!p) return;
+    const C=window.CONFIG;
+    kts=Math.max(0, Math.min(kts, C.player.flankKts||28));
+    p.speedOrderKts=kts;
+    p.speedDir=kts>0?1:0;
+    // Find closest telegraph position for highlight
+    let bestIdx=5; // ALL STOP
+    let bestDiff=Infinity;
+    for(let i=0;i<SPEED_STATES.length;i++){
+      const s=SPEED_STATES[i];
+      if(s.dir>=0){
+        const diff=Math.abs(s.kts-kts);
+        if(diff<bestDiff){ bestDiff=diff; bestIdx=i; }
+      }
+    }
+    _telegraphIdx=bestIdx;
+    COMMS.panel.speedOrder(`${kts} KTS`, `Helm, Conn — make turns for ${kts} knots`, `Maneuvering aye, ${kts} knots`);
+  }
+
   function depthStep(delta){
     const p=window.G?.player;
     const ground=window.G?.world?.ground??1900;
@@ -55,6 +75,8 @@
       p._blowVy = 0;
       p._blowPending = false;
       p._blowManualT = 0;
+      const hpaR=p.damage?.hpa;
+      if(hpaR) hpaR._reserveCommitted = false;
       window.COMMS?.trim?.blowCancelledByOrder(Math.round(p.depth));
     }
     clearTimeout(p._depthLogTimer);
@@ -66,6 +88,27 @@
       } else {
         COMMS.nav.depthOrder(ordStr, delta>0?'down':'up');
       }
+    },1000);
+  }
+
+  function courseStep(degDelta){
+    const p=window.G?.player;
+    if(!p) return;
+    const route=window.ROUTE;
+    // If no ordered heading yet, initialise from current heading
+    if(p.orderedHeading==null){
+      const hdg=p.heading||0;
+      p.orderedHeading=((Math.atan2(Math.cos(hdg),-Math.sin(hdg))*180/Math.PI)+360)%360;
+    }
+    p.orderedHeading=((p.orderedHeading+degDelta)%360+360)%360;
+    p._orderedCourseReached=false;
+    // Clear route — manual course order overrides waypoints
+    if(route) route.length=0;
+    // Debounce COMMS — cancel pending, fire 1s after last press
+    clearTimeout(p._courseLogTimer);
+    p._courseLogTimer=setTimeout(()=>{
+      const ordStr=Math.round(p.orderedHeading).toString().padStart(3,'0');
+      window.COMMS?.nav?.courseChange(ordStr);
     },1000);
   }
 
@@ -121,13 +164,30 @@
     const COMMS=window.COMMS;
     const ground=window.G?.world?.ground??1900;
     if(!p||!C) return;
+    if(p.scram) return;
     const dmgFx=window.DMG?.getEffects()||{};
     if(dmgFx.crashDiveAvail===false){ COMMS.nav.connRoomUnavail('crash dive'); return; }
     if(p.crashDiveCd>0) return;
+    if(p.crashDiveT>0) return;
+    // SCRAM risk — combo with recent emergency turn
+    const emergRecent=(p.emergTurnCd||0) > (C.player.emergencyTurn?.cd||30)*0.7;
+    if(emergRecent && p.speed>20 && Math.random()<0.45){
+      if(typeof window.G.triggerScram==='function') window.G.triggerScram('combo');
+      COMMS.reactor.scram('turn');
+      return;
+    }
+    // Towed array stress
+    const ta=p.towedArray;
+    if(ta){
+      if(ta.state==='operational'){ ta.state='damaged'; COMMS.nav.towedArrayStress('crash dive','damaged'); }
+      else if(ta.state==='damaged'){ ta.state='destroyed'; COMMS.nav.towedArrayStress('crash dive','destroyed'); }
+    }
     p.crashDiveT=C.player.crashDive.dur;
     p.crashDiveCd=C.player.crashDive.cd;
     p.noiseTransient=Math.min(1,(p.noiseTransient||0)+C.player.crashDive.noiseSpike);
-    p.depthOrder=Math.min(ground-60,(p.depthOrder??p.depth)+420);
+    p.depthOrder=Math.min(ground-60,(p.depthOrder??p.depth)+600);
+    p._crashTauOverride=C.player.crashDive.tauOverride??0.4;
+    p._crashDepthCalled=new Set();
     // Ahead full — maximum speed drives plane authority
     const flankIdx = SPEED_STATES.findIndex(s=>s.label==='AHEAD FLANK');
     const fullIdx  = SPEED_STATES.findIndex(s=>s.label==='AHEAD FULL');
@@ -142,6 +202,11 @@
     p.planes.aft.angle = -15;
     p.planes.fwd.angle = -8;
     COMMS.nav.crashDive();
+    // Warn if ballast damage will impair depth control/recovery
+    const ballastState=p.damage?.systems?.ballast||'nominal';
+    if(ballastState==='degraded'||ballastState==='offline'||ballastState==='destroyed'){
+      COMMS.nav.ballastDamageWarning?.(ballastState);
+    }
     _partAllWires('dive');
   }
 
@@ -209,7 +274,8 @@
       p._blowManualT  = 0;
       p._blowAmbient  = Math.round(ambient);
       p._blowGroupP   = Math.round(hpa?.pressure??0);
-      COMMS.trim.blowOpened(Math.round(ambient), Math.round(hpa?.pressure??0));
+      // Don't announce venting yet — helm will discover the failure, then DC operates manually
+      COMMS.trim.blowOrderedManual();
       COMMS.trim.blowSystemFailed(ballastSys);
     }
   }
@@ -236,11 +302,25 @@
       COMMS.weapons.unableFiring();
       return;
     }
-    // Use reserveTube from sim context — call into sim module
+    // Use selected tube first, fall back to first available torpedo tube
     if(typeof window._reserveTube!=='function'){ COMMS.weapons.fireControlOffline(); return; }
-    const tubeIdx=window._reserveTube();
+    const sel=game.wirePanel?.selectedTube??-1;
+    let tubeIdx=-1;
+    if(sel>=0 && typeof window._reserveSpecificTube==='function'){
+      const r=window._reserveSpecificTube(sel);
+      if(r.reason==='missile'){ COMMS.weapons.error('Missile load — use ASCM panel'); return; }
+      if(r.reason==='wire'){    COMMS.weapons.error('Wire live on selected tube'); return; }
+      if(r.reason==='empty'){   COMMS.weapons.error('Selected tube empty'); return; }
+      if(r.reason==='damaged'){ COMMS.weapons.error('Tube damaged / unavailable'); return; }
+      if(r.reason==='reloading'){ COMMS.weapons.error('Selected tube reloading'); return; }
+      tubeIdx=r.idx;
+    }
+    if(tubeIdx<0) tubeIdx=window._reserveTube();
     if(tubeIdx<0){
-      const why=player.torpStock<=0?'No weapons remaining':'All tubes reloading';
+      const dmgFx=window.DMG?.getEffects()||{};
+      const why=player.torpStock<=0?'No weapons remaining'
+        :(dmgFx.tubesAvail||0)===0?'Torpedo room offline'
+        :'All tubes reloading';
       COMMS.weapons.error(why); return;
     }
     const ddx=Math.cos(wp.bearing), ddy=Math.sin(wp.bearing);
@@ -248,7 +328,6 @@
       const a=wp.bearing-player.heading;
       return ((a+Math.PI)%(2*Math.PI))-Math.PI;
     })());
-    const trackStr=game.tdc.targetId?`, track ${game.tdc.targetId}`:'';
     // Launch speed cap — cannot fire wire-guided shot above wireMaxLaunchKts
     const launchSpeedKts = player.speed ?? 0;
     const launchCap = C.player.wireMaxLaunchKts ?? 15;
@@ -263,9 +342,12 @@
     if(window.G.setTacticalState('action')){
       COMMS.crewState.actionStations('attack');
     }
-    COMMS.weapons.firingProcedures(false, trackStr, tubeIdx+1);
+    const tubeLoad=(player.tubeLoad||[])[tubeIdx];
+    const wlP=(!tubeLoad||tubeLoad==='torp')?(window.CONFIG?.weapons?.[window.CONFIG?.player?.torpWeapon]?.shortLabel||'TORPEDO'):(window.CONFIG?.weapons?.[tubeLoad]?.shortLabel||tubeLoad.toUpperCase());
+    const cidP=game.tdc.targetId||'';
+    COMMS.weapons.firingProcedures(tubeIdx+1, wlP, cidP, false);
     if(!player.pendingFires) player.pendingFires=[];
-    player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth:wp.depth, wire:true, lockedTarget:game.tdc.target});
+    player.pendingFires.push({t:C.player.fireDelay, tubeIdx, ddx, ddy, launchOffset, fireDepth:wp.depth, wire:true, lockedTarget:game.tdc.target, weaponLabel:wlP, contactId:cidP});
     // HPA cost for tube impulse air
     window.DMG?.drawHPA?.( (C.player.hpa?.torpedoCost||2), false );
   }
@@ -307,6 +389,7 @@
   function toggleTowedArray(){
     const p=window.G?.player;
     if(!p) return;
+    if(window.CONFIG?.player?.hasTowedArray === false) return;
     const ta=p.towedArray;
     if(!ta) return;
     if(ta.state==='destroyed'){
@@ -374,7 +457,7 @@
     setTelegraphIdx: (idx)=>{ _telegraphIdx=idx; },
     getTelegraph,
     clearBtns, registerBtn, handleClick,
-    setTelegraph, depthStep, comeToPD,
+    setTelegraph, setSpeedKts, depthStep, courseStep, comeToPD,
     toggleSilent, emergencyTurn, emergencyCrashDive, emergencyBlowBallast, toggleHPARecharge, allStop, snapToAllStop, toggleTowedArray, wepsShoot, callActionStations,
     btn2,
     initiateEscape(type){ window.DMG?.initiateEscape(type); },

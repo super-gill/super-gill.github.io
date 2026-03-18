@@ -13,7 +13,7 @@
   // cam.x/y = world position of screen centre
   const cam={x:0,y:0,zoom:C.camera.zoom};
 
-  const bullets=[],particles=[],enemies=[],decoys=[],contacts=[],cwisTracers=[],wireContacts=[],sonarContacts=new Map(),wrecks=[];
+  const bullets=[],particles=[],enemies=[],decoys=[],contacts=[],cwisTracers=[],wireContacts=[],sonarContacts=new Map(),wrecks=[],buoys=[],missiles=[];
   let _nextTorpId=1;
 
   const player={
@@ -65,7 +65,8 @@
     watchChangeT:0,          // countdown to new watch assuming
     _watchRelief80:false,    // comms gate: 80% fatigue reported
     _watchRelief100:false,   // comms gate: 100% fatigue / forced change
-    scenario:'waves', started:false,
+    scenario:'waves', started:false, vesselKey:'688i',
+    startPhase:'scenario', vesselTab:'player', startScrollY:0, vesselScrollY:0,
     tacticalState:'cruising',   // cruising | patrol | action
     casualtyState:'normal',     // normal | emergency | escape
     _prevTactical:'cruising',   // for transition detection
@@ -101,6 +102,10 @@
     player.scramT=75; // full restart window
     player.scramCause=cause||'unknown';
     player.scramEPM=false;
+    // SCRAM supersedes all propulsion casualties
+    player._coolantLeak=null;
+    player._steamLeak=null;
+    player._turbineTrip=null;
   }
-  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,queueLog,wrecks,triggerScram,setTacticalState,setCasualtyState};
+  window.G={canvas,ctx,DPR,world,cam,bullets,particles,enemies,decoys,contacts,cwisTracers,wireContacts,sonarContacts,player,game,resize,setMsg,nextTorpId,resetTorpIds,addLog,queueLog,wrecks,buoys,missiles,triggerScram,setTacticalState,setCasualtyState};
 })();

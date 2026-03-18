@@ -22,6 +22,7 @@
     player.cavitating=(player.speed>cavK);
     if(player.cavitating) n=clamp(n+C.player.cavitationSpike,0,1);
     if(player.silent) n*=C.player.silentRunning.noiseMult;
+    if(player.snorkeling && C.player.snorkelNoise) n=clamp(n+C.player.snorkelNoise,0,1);
     // Suppress natural decay while HP recharge compressor is running
     const _rechg = window.G?.player?.damage?.hpa?.recharging;
     if(!_rechg) player.noiseTransient=Math.max(0,player.noiseTransient-dt*0.35);

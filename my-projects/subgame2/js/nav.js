@@ -72,16 +72,18 @@
         const sc=best._isTorp?null:window.G?.sonarContacts?.get(best);
         COMMS.nav.tdcDesignated(bestId, !!sc);
       } else {
-        // Normal waypoint
+        // Normal waypoint — set ordered heading to waypoint bearing
         const snapped=window.MAPS.snapToSea(
-          (wx+world.w)%world.w,
-          (wy+world.h)%world.h
+          wx,
+          wy
         );
-        const firstWP = route.length===0;
         route.push(snapped);
-        if(firstWP){
-          const brgToWP = Math.atan2(snapped.wy-player.wy, snapped.wx-player.wx);
-          const crsStr = Math.round(((brgToWP*180/Math.PI)+360)%360).toString().padStart(3,'0');
+        // Always set orderedHeading so the boat keeps turning even if waypoint is cleared
+        const brgToWP = Math.atan2(snapped.wy-player.wy, snapped.wx-player.wx);
+        player.orderedHeading=((Math.atan2(Math.cos(brgToWP),-Math.sin(brgToWP))*180/Math.PI)+360)%360;
+        player._orderedCourseReached=false;
+        if(route.length===1){
+          const crsStr = Math.round(player.orderedHeading).toString().padStart(3,'0');
           COMMS.nav.courseChange(crsStr);
         }
       }
@@ -121,85 +123,50 @@
       player.depthHoldT=0;
     }
 
-    // ── Silent running ─────────────────────────────────────────────────────────
+    // ── Silent running (Z) — delegates to panel ──────────────────────────────
     if(I.keys.has("z")){
       I.keys.delete("z");
-      const dmgFxZ=window.DMG?.getEffects()||{};
-      if(dmgFxZ.silentRunAvail===false){ COMMS.nav.connRoomUnavail('silent running'); }
-      else { player.silent=!player.silent; COMMS.nav.silentRunning(player.silent); }
+      window.PANEL?.toggleSilent();
     }
 
-    // ── Emergency turn (Q) ────────────────────────────────────────────────────
-    if(I.keys.has("q")&&player.emergTurnCd<=0&&player.emergTurnT<=0){
-      {const ta=player.towedArray; if(ta.state==='operational'){ta.state='damaged';COMMS.nav.towedArrayStress('manoeuvre','damaged');}else if(ta.state==='damaged'){ta.state='destroyed';COMMS.nav.towedArrayStress('manoeuvre','destroyed');}}
+    // ── Emergency turn (Q) — delegates to panel ─────────────────────────────
+    if(I.keys.has("q")){
       I.keys.delete("q");
-      player.emergTurnT=C.player.emergencyTurn.dur;
-      player.emergTurnCd=C.player.emergencyTurn.cd;
-      player.noiseTransient=Math.min(1,player.noiseTransient+C.player.emergencyTurn.noiseSpike);
-      route.length=0;
-      COMMS.nav.emergencyTurn();
+      window.PANEL?.emergencyTurn();
     }
 
-    // ── Crash dive (C) ────────────────────────────────────────────────────────
-    // ── Probabilistic SCRAM — crash dive while emergency turn still active ──
-    if(I.keys.has("c")&&player.crashDiveCd<=0&&player.crashDiveT<=0&&!player.scram){
-      // If emergency turn just happened (still in cd window) — high stress combo
-      const emergRecent = player.emergTurnCd > (C.player.emergencyTurn?.cd||30) * 0.7;
-      if(emergRecent && player.speed > 20 && Math.random() < 0.45){
-        if(typeof window.G.triggerScram==='function') window.G.triggerScram('combo');
-        COMMS.reactor.scram('turn');
-      }
-    }
-    if(I.keys.has("c")&&player.crashDiveCd<=0&&player.crashDiveT<=0){
-      const dmgFxC=window.DMG?.getEffects()||{};
-      if(dmgFxC.crashDiveAvail===false){
-        I.keys.delete("c");
-        COMMS.nav.connRoomUnavail('crash dive');
-      } else {
-      {const ta=player.towedArray; if(ta.state==='operational'){ta.state='damaged';COMMS.nav.towedArrayStress('crash dive','damaged');}else if(ta.state==='damaged'){ta.state='destroyed';COMMS.nav.towedArrayStress('crash dive','destroyed');}}
+    // ── Crash dive (C) — delegates to panel ─────────────────────────────────
+    if(I.keys.has("c")){
       I.keys.delete("c");
-      player.crashDiveT=C.player.crashDive.dur;
-      player.crashDiveCd=C.player.crashDive.cd;
-      // Large noise spike — blowing tanks is very loud
-      player.noiseTransient=Math.min(1,player.noiseTransient+C.player.crashDive.noiseSpike);
-      // Dive 600m from current position — straight down
-      player.depthOrder=clamp((player.depthOrder??player.depth)+600,20,world.ground-60);
-      // Tau override — instant response, bypass normal sluggish depth control
-      player._crashTauOverride=C.player.crashDive.tauOverride??0.4;
-      // Ahead flank via keyboard crash dive
-      const ckStates=window.PANEL?.SPEED_STATES||[];
-      const ckFlank=ckStates.findIndex(s=>s.label==='AHEAD FLANK');
-      const ckFull =ckStates.findIndex(s=>s.label==='AHEAD FULL');
-      const ckUse  =ckFlank>=0?ckFlank:ckFull>=0?ckFull:-1;
-      if(ckUse>=0){
-        player.speedOrderKts=ckStates[ckUse].kts;
-        player.speedDir=ckStates[ckUse].dir;
-        window.PANEL?.setTelegraphIdx?.(ckUse);
-      }
-      // Slam planes to full dive
-      if(!player.planes) player.planes={fwd:{angle:0,mode:'hydraulic'},aft:{angle:0,mode:'hydraulic'}};
-      player.planes.aft.angle=-15;
-      player.planes.fwd.angle=-8;
-      COMMS.nav.crashDive();
-      player._crashDepthCalled=new Set();
-      } // end else (crashDiveAvail)
+      window.PANEL?.emergencyCrashDive();
     }
   }
 
   function stepDynamics(dt){
     // ── Speed ─────────────────────────────────────────────────────────────────
+    // Speed is converged as a signed value so direction changes obey momentum:
+    //   ahead full → back slow decelerates to zero, then accelerates astern.
     let orderKts=player.speedOrderKts??0;
     if(player.silent) orderKts=Math.min(orderKts,C.player.silentRunning.speedCap);
     if(player.scram)  orderKts=Math.min(orderKts, 3.0); // EPM only
+    if(player.snorkeling && C.player.isDiesel) orderKts=Math.min(orderKts, C.player.snorkelSpeedCap??5);
+    if(player._battDead && C.player.isDiesel) orderKts=0; // no propulsion on dead battery
     const dmgFx = window.DMG?.getEffects() || {};
     if(dmgFx.speedCap!=null) orderKts=Math.min(orderKts, dmgFx.speedCap);
-    const err=orderKts-player.speed;
+    const maxKts=Math.min(C.player.flankKts, dmgFx.speedCap??Infinity);
+    const orderDir=player.speedDir||1;
+    const orderSigned=orderKts*orderDir;
+    const movingDir=player._movingDir||1;
+    const currentSigned=player.speed*movingDir;
+    const err=orderSigned-currentSigned;
     // Conn room lost — engine orders relayed via internal comms; 4× slower response
-    const speedTauEff = dmgFx.connRoomLost ? C.player.speedTau * 4.0 : C.player.speedTau;
-    player.speed+=(err/Math.max(0.05, speedTauEff))*dt;
-    player.speed=clamp(player.speed,0,Math.min(C.player.flankKts, dmgFx.speedCap??Infinity));
+    // Flooding adds drag — acceleration degrades with water mass
+    const speedTauEff = (dmgFx.connRoomLost ? C.player.speedTau * 4.0 : C.player.speedTau) * (dmgFx.floodTauMult||1.0);
+    const newSigned=currentSigned+(err/Math.max(0.05, speedTauEff))*dt;
+    player.speed=clamp(Math.abs(newSigned),0,maxKts);
+    player._movingDir=player.speed<0.05?orderDir:(newSigned>=0?1:-1);
     // Helm speed report — fires once when actual speed settles within 0.8kt of order
-    if(Math.abs(player.speed-orderKts)<0.8 && Math.abs((player._lastReportedKts??-99)-orderKts)>1.0){
+    if(Math.abs(player.speed-orderKts)<0.8 && orderDir===player._movingDir && Math.abs((player._lastReportedKts??-99)-orderKts)>1.0){
       player._lastReportedKts=orderKts;
       if(orderKts>0){
         COMMS.nav.speedReport(player.speed);
@@ -217,9 +184,8 @@
 
     if(route.length>0){
       const wp=route[0];
-      // Wrap-aware delta
-      let dx=wp.wx-player.wx; if(dx>world.w/2) dx-=world.w; if(dx<-world.w/2) dx+=world.w;
-      let dy=wp.wy-player.wy; if(dy>world.h/2) dy-=world.h; if(dy<-world.h/2) dy+=world.h;
+      let dx=wp.wx-player.wx;
+      let dy=wp.wy-player.wy;
       const dist=Math.hypot(dx,dy);
 
       // Arrive threshold — pop waypoint when close enough
@@ -232,35 +198,61 @@
           const crsNext = Math.round(((brgToNext*180/Math.PI)+360)%360).toString().padStart(3,'0');
           COMMS.nav.waypointReached(crsNext);
         } else {
-          COMMS.nav.finalWaypoint(Math.round(((player.heading*180/Math.PI)+360)%360).toString().padStart(3,'0'));
+          // Keep orderedHeading so the boat continues turning toward the last waypoint bearing
+          COMMS.nav.finalWaypoint(Math.round(player.orderedHeading??((player.heading*180/Math.PI)+360)%360).toString().padStart(3,'0'));
         }
       } else {
         const desired=Math.atan2(dy,dx);
+        // Update orderedHeading to waypoint bearing so compass shows it
+        player.orderedHeading=((Math.atan2(Math.cos(desired),-Math.sin(desired))*180/Math.PI)+360)%360;
         let dAng=angleNorm(desired-player.heading);
         dAng=clamp(dAng,-maxTurn*dt,maxTurn*dt);
         player.heading=angleNorm(player.heading+dAng);
       }
       player.turnRate=0;
+    } else if(player.orderedHeading!=null){
+      // Steer toward ordered heading (compass degrees → math radians)
+      const ordDeg=player.orderedHeading;
+      // Convert compass bearing to math angle: compass 0=N(up), CW → math 0=E, CCW
+      const ordRad=(ordDeg-90)*Math.PI/180;
+      let dAng=angleNorm(ordRad-player.heading);
+      // Check if within snap threshold
+      const currentDeg=((Math.atan2(Math.cos(player.heading),-Math.sin(player.heading))*180/Math.PI)+360)%360;
+      const diff=Math.abs(((ordDeg-currentDeg+540)%360)-180);
+      if(diff<=0.5){
+        // Snap to ordered heading
+        player.heading=ordRad;
+        const hdgStr=Math.round(ordDeg).toString().padStart(3,'0');
+        if(!player._orderedCourseReached){
+          player._orderedCourseReached=true;
+          COMMS.nav.finalWaypoint(hdgStr);
+        }
+      } else {
+        player._orderedCourseReached=false;
+        dAng=clamp(dAng,-maxTurn*dt,maxTurn*dt);
+        player.heading=angleNorm(player.heading+dAng);
+      }
+      player.turnRate=0;
     } else {
-      // No waypoints — hold current heading
+      // No waypoints, no ordered heading — hold current heading
       player.turnRate=0;
     }
 
     // ── Move in top-down world ────────────────────────────────────────────────
-    const spWU=ktsToWU(player.speed);
+    const spWU=ktsToWU(player.speed) * (player._movingDir||1);
     let nx=player.wx+Math.cos(player.heading)*spWU*dt;
     let ny=player.wy+Math.sin(player.heading)*spWU*dt;
 
     // Land collision — don't enter land, clear route if stuck
-    if(window.MAPS.isLand((nx+world.w)%world.w, (ny+world.h)%world.h)){
+    if(window.MAPS.isLand(nx, ny)){
       route.length=0;
       // Bounce: just don't move this frame
       nx=player.wx; ny=player.wy;
       COMMS.nav.grounded();
     }
 
-    player.wx=(nx+world.w)%world.w;
-    player.wy=(ny+world.h)%world.h;
+    player.wx=nx;
+    player.wy=ny;
     // Horizontal velocity for TMA range estimation (sensors.js _estRange)
     player.vx=Math.cos(player.heading)*spWU;
     player.vxRaw=player.vx; // alias — vy is used for depth so keep separate
@@ -326,10 +318,21 @@
         const tanksClear = maxTankFill < 0.02;
 
         if(tanksClear){
-          // Tanks empty — seal the blow. Buoyancy carries us up from here.
+          // Tanks empty — seal the blow valves.
           player._blowVenting = false;
           player._blowVy = 0;
-          window.COMMS?.trim?.blowTanksClear?.(Math.round(player.depth));
+          if(hpa) hpa._reserveCommitted = false;
+          // Check if actually positively buoyant — flooding mass may overwhelm empty MBTs
+          const floodLoad = window.DMG?.getTrimState?.()?.buoyancy || 0;
+          const floodFE = C.player.floodFillEquiv ?? 1.0;
+          // Blown tanks: avgFill≈0. Effective fill = 0 + floodLoad * equiv.
+          // Positive buoyancy when effectiveFill < neutralFill (0.50)
+          const netBuoy = 0.50 - (floodLoad * floodFE);
+          if(netBuoy > 0){
+            window.COMMS?.trim?.blowTanksClear?.(Math.round(player.depth));
+          } else {
+            window.COMMS?.trim?.blowOverwhelmed?.(Math.round(player.depth));
+          }
         } else if(differential > 0){
           // Flow rate: blowFlowRate × differential / referenceBar
           const flowRate = (hpaC.blowFlowRate||0.5) * differential / (hpaC.blowReferenceBar||50);
@@ -355,6 +358,7 @@
           // Differential gone — pressure can no longer displace water, tanks not yet clear
           player._blowVy = 0;
           player._blowVenting = false;
+          if(hpa) hpa._reserveCommitted = false;
           window.COMMS?.trim?.blowExhausted(Math.round(player.depth));
         }
 
@@ -362,6 +366,7 @@
         if(player.depth <= 20){
           player._blowVenting = false;
           player._blowVy = 0;
+          if(hpa) hpa._reserveCommitted = false;
           window.COMMS?.trim?.blowSurfaced();
         }
       } else {
@@ -391,6 +396,8 @@
       // HP active recharge adds noise; both stop when submerged.
       const atSurface = player.depth <= 20;
       if(!player._blowVenting && atSurface){
+        // Surface recharge resets reserve commitment — full banks available for next emergency
+        if(hpa._reserveCommitted) hpa._reserveCommitted = false;
         const lpRate = hpaC.lpRechargeRate || 0.4;
         hpa.pressure = Math.min(maxP, hpa.pressure + lpRate * dt);
         hpa.reserve  = Math.min(maxR, hpa.reserve  + lpRate * 0.5 * dt);
@@ -444,11 +451,20 @@
     const avgFill = mbt ? mbt.tanks.reduce((a,b)=>a+b,0)/mbt.tanks.length : neutralFill;
 
     // ── Trim / buoyancy from flooding ─────────────────────────────────────────
+    // Flooding adds mass — modelled as equivalent MBT fill increase.
+    // floodFillEquiv 0.28 — each fully flooded section ≈ 0.28 fill units.
+    // With normal tanks (avgFill=0.50) and neutralFill=0.50:
+    //   2 flooded → effective fill 1.06 → ~2.0 m/s sink (planes fight it)
+    //   3 flooded → effective fill 1.34 → ~3.0 m/s sink (boat is lost)
+    // With blown tanks (avgFill≈0):
+    //   2 flooded → effective fill 0.56 → ~0.2 m/s (blow saves you)
+    //   3 flooded → effective fill 0.84 → ~1.2 m/s (marginal)
     const {trim:floodTrim, buoyancy:floodBuoy} = window.DMG?.getTrimState?.() || {trim:0,buoyancy:0};
+    const floodFillEquiv = C.player.floodFillEquiv ?? 1.0;
+    const effectiveFill  = avgFill + floodBuoy * floodFillEquiv;
     const trimDemand  = Math.abs(floodTrim) / (C.player.trimFullAuthority||2.0);
     const speedFactor = clamp(player.speed / (C.player.planeMinSpeed||10.0), 0, 1);
     const planeAuthority = clamp(1 - trimDemand*(1-speedFactor), 0, 1);
-    const sinkRate = floodBuoy * (C.player.sinkRatePerUnit||0.9);
 
     // ── Planes and pitch physics ──────────────────────────────────────────────
     if(!player.planes) player.planes = {
@@ -534,9 +550,16 @@
     const fillRate  = (C.player.fillRate || 0.022) * rateMult * (dmgFx.depthRateMult ?? 1.0);
 
     if(!blowing && mbt){
-      // Target fill = neutral + proportional correction from depth error
-      // errD>0 → too deep → need to flood more → targetFill > neutralFill
-      const targetFill = clamp(neutralFill + errD * kFill, 0.02, 0.98);
+      // Two-zone depth controller:
+      // Outside brake zone — full authority (constant max fill offset, fast approach)
+      // Inside brake zone  — proportional settle (avoids hanging near target)
+      const brakeZone      = C.player.depthBrakeZone      || 15;
+      const maxFillOffset  = C.player.depthMaxFillOffset   || 0.08;
+      const errAbs = Math.abs(errD);
+      const fillOffset = errAbs < brakeZone
+        ? errD * (maxFillOffset / brakeZone)     // proportional inside brake zone
+        : Math.sign(errD) * maxFillOffset;       // full authority outside brake zone
+      const targetFill = clamp(neutralFill + fillOffset, 0.02, 0.98);
       const wantDrain  = targetFill < avgFill; // need to vent water
       // Draining requires HPA authority; flooding is always free (sea pressure helps)
       const effectiveRate = wantDrain
@@ -548,8 +571,10 @@
       player._fillDrainRate = delta < 0 ? Math.abs(delta)/dt : 0;
     }
 
-    // Buoyancy velocity — fill below neutral → positive buoyancy → rise (negative vy)
-    const buoyancyVy = (avgFill - neutralFill) * (C.player.buoyancyScale || 3.6);
+    // Buoyancy velocity — effective fill includes flood mass.
+    // fill below neutral → positive buoyancy → rise (negative vy)
+    // fill above neutral → negative buoyancy → sink (positive vy)
+    const buoyancyVy = (effectiveFill - neutralFill) * (C.player.buoyancyScale || 3.6);
 
     // Plane-driven vy: speed × sin(pitch) — blended with buoyancy at speed
     const planeVy   = -(player.speed / 1.944) * Math.sin(deg2rad(pitchActual));
@@ -557,8 +582,8 @@
     // During blow — let buoyancy and blowVy do the work, planes just provide attitude
     const planeContrib = blowing ? 0 : planeVy * planeBlend * planeAuthority;
 
-    // Net velocity
-    const netVy = buoyancyVy + planeContrib + sinkRate + (player._blowVy||0);
+    // Net velocity — no hardcoded sink rate; flooding works through buoyancy
+    const netVy = buoyancyVy + planeContrib + (player._blowVy||0);
     player.depth = clamp(player.depth + netVy*dt, 0, world.ground-40);
 
     // ── Trim warnings (rate-limited) ─────────────────────────────────────────
@@ -610,13 +635,38 @@
     }
 
     // ── Collapse / crush depth ────────────────────────────────────────────
-    const crushD = C_p.crushDepth ?? (colD * 1.08);
-    if(player.depth >= crushD){
-      // Past crush depth — catastrophic implosion, instant kill
+    // Structural damage (HP loss) reduces the effective crush depth.
+    // Full HP → nominal crush depth. 30 HP (2 hits) → ~72% of nominal.
+    // The crew don't know the exact new limit — only the hull knows.
+    const crushD_base = C_p.crushDepth ?? (colD * 1.08);
+    const _hpFrac = Math.max(0.01, Math.min(1, (player.hp ?? 100) / 100));
+    const crushD = crushD_base * (0.60 + 0.40 * _hpFrac);
+
+    // Near-crush creaking warning — only relevant when structural damage is present
+    if((player.hp ?? 100) < 90 && player.depth > crushD * 0.90){
+      if(!player._nearCrushWarned){
+        player._nearCrushWarned = true;
+        COMMS.depth.hullDamageCreaking(Math.round(player.depth));
+      }
+    } else {
+      player._nearCrushWarned = false;
+    }
+
+    if(player.depth >= crushD && !window.G?.game?.godMode){
+      // Past crush depth — catastrophic hull failure, all hands lost
       if(!player._crushed){
         player._crushed = true;
+        player.hp = 0;
         COMMS.depth.crush(Math.round(player.depth));
-        if(window.DMG?._escapeHalt) window.DMG._escapeHalt();
+        // Kill all crew
+        const dmg = player.damage;
+        if(dmg){
+          for(const comp of ['fore_ends','control_room','aux_section','reactor_comp','engine_room','aft_ends']){
+            for(const cr of (dmg.crew[comp]||[])){ cr.status='killed'; }
+          }
+        }
+        window.G.game.over = true;
+        window.G.game.overCause = 'crush';
       }
     } else if(player.depth > colD){
       // Between collapse and crush — structural seep cascade
@@ -641,6 +691,94 @@
     player.emergTurnCd=Math.max(0,player.emergTurnCd-dt);
     player.crashDiveT=Math.max(0,player.crashDiveT-dt);
     player.crashDiveCd=Math.max(0,player.crashDiveCd-dt);
+
+    // ── Battery ───────────────────────────────────────────────────────────────
+    {
+      const batC=C.player.battery||{};
+      const isDiesel=C.player.isDiesel||false;
+      if(player.battery==null) player.battery=1.0;
+      const atSurface=player.depth<=5;
+
+      if(isDiesel){
+        const COMMS=window.COMMS;
+        const snkDepth=C.player.snorkelDepth??12;
+
+        // ── Snorkel order / cancel transitions ────────────────────────────
+        // Fire ordered comms exactly once when snorkelOrdered first becomes true
+        if(player.snorkelOrdered && !player._snorkelOrderedFired){
+          player._snorkelOrderedFired=true;
+          player._snorkelCancelledFired=false;
+          COMMS?.snorkel?.ordered();
+        }
+        if(!player.snorkelOrdered && !player._snorkelCancelledFired && player._snorkelOrderedFired){
+          player._snorkelCancelledFired=true;
+          player._snorkelOrderedFired=false;
+          if(player.snorkeling) COMMS?.snorkel?.cancelled(); // only if was actually snorkeling
+        }
+
+        // ── Snorkel depth management ───────────────────────────────────────
+        if(player.snorkelOrdered && !player.snorkeling){
+          player.depthOrder=snkDepth;
+          if(player.depth<=snkDepth+5){
+            player.snorkeling=true;
+            player._snorkelNoisyCautionFired=false;
+            COMMS?.snorkel?.deployed();
+          }
+        } else if(!player.snorkelOrdered && player.snorkeling){
+          player.snorkeling=false;
+        }
+
+        // One-time ESM/noise caution after snorkelling for 10 seconds
+        if(player.snorkeling){
+          player._snorkelT=(player._snorkelT||0)+dt;
+          if(player._snorkelT>=10 && !player._snorkelNoisyCautionFired){
+            player._snorkelNoisyCautionFired=true;
+            COMMS?.snorkel?.noisyCaution();
+          }
+        } else {
+          player._snorkelT=0;
+        }
+
+        // ── Charge / drain ─────────────────────────────────────────────────
+        if(atSurface||player.snorkeling){
+          const dmgFxBat=window.DMG?.getEffects()||{};
+          const baseRate=atSurface?(batC.surfaceChargeRate??0.005):(batC.chargeRate??0.003);
+          const rate=baseRate*(dmgFxBat.chargeRateMult??1.0);
+          player.battery=Math.min(1.0, player.battery+rate*dt);
+          if(player._battDead && player.battery>0.05){
+            player._battDead=false;
+            COMMS?.snorkel?.recovered();
+          }
+        } else {
+          const drain=(player.speed*(batC.drainPerKt??0.00014))*dt;
+          player.battery=Math.max(0, player.battery-drain);
+        }
+
+        // ── Battery level warnings (once per band) ─────────────────────────
+        const batPct=Math.round(player.battery*100);
+        const batBand=batPct<=10?'crit':batPct<=20?'low':batPct<=30?'med':'ok';
+        if(batBand!=='ok' && batBand!==(player._lastBatBand||'ok') && !player.snorkeling && !atSurface){
+          player._lastBatBand=batBand;
+          COMMS?.snorkel?.batteryLow(batPct);
+        } else if(batBand==='ok'){
+          player._lastBatBand='ok';
+        }
+
+        // ── Dead battery — kill propulsion, alert once ─────────────────────
+        if(!player._battDead && player.battery<0.005 && !atSurface && !player.snorkeling){
+          player._battDead=true;
+          COMMS?.snorkel?.exhausted();
+        }
+
+      } else {
+        // Nuclear: drains only during SCRAM, charges when reactor is online
+        if(player.scram){
+          player.battery=Math.max(0, player.battery-(batC.drainOnScram??0.002)*dt);
+        } else {
+          player.battery=Math.min(1.0, player.battery+(batC.chargeRate??0.008)*dt);
+        }
+      }
+    }
   }
 
   window.NAV={ktsToWU,updateOrders,stepDynamics};
