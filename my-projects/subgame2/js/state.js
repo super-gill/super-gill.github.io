@@ -17,8 +17,8 @@
   let _nextTorpId=1;
 
   const player={
-    // Position in top-down world (x,y). Depth is a separate scalar.
-    x:6000, y:6000,
+    // Top-down world position. Use player.wx / player.wy everywhere.
+    wx:6000, wy:6000,
     heading:0,           // radians, 0=east, PI/2=south (screen down)
     speed:0,
     speedOrderKts:0,
@@ -41,18 +41,7 @@
       progress:0,       // 0-1 during deploy/retract
       overspeedT:0,     // seconds spent above damage threshold
     },
-
-    // Legacy alias: ai.js and sensors.js read player.y expecting depth position.
-    // We override .y via a getter/setter so world-y and depth coexist cleanly.
-    // player._y = top-down world Y, player.y = depth (for sim compat)
   };
-
-  // Give sensors/ai/signature their expected player.y = depth
-  // while the renderer uses player.wx, player.wy for world position.
-  // Simplest approach: just keep both. player.wx/wy = top-down, player.y = depth.
-  player.wx = player.x;
-  player.wy = player.y;
-  player.y  = player.depth;  // sim/ai/sensors read player.y as depth
 
   const game={score:0,over:false,msg:"",msgT:0,lastT:performance.now(),contactsScroll:0,wepsProposal:null,
     tdc:{target:null, targetId:null, bearing:null, range:null, depth:null, course:null, speed:null, intercept:null},

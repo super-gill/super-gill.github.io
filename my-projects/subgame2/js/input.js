@@ -14,21 +14,36 @@
     torpAimClick:false,
     _camDragActive:false,
     _camDragLastX:0, _camDragLastY:0,
+
+    // Consume a one-shot action: returns true and removes the key if it was pressed.
+    // Use in sim.js instead of I.keys.has(k) + I.keys.delete(k).
+    // Looks up the key via window.KB so all bindings stay in keybindings.js.
+    justPressed(action){
+      const kb=window.KB?.[action]; if(!kb) return false;
+      const k=kb.key;
+      if(!this.keys.has(k)) return false;
+      this.keys.delete(k);
+      return true;
+    },
   };
 
   addEventListener("keydown",(e)=>{
     const k=e.key.toLowerCase();
-    input.keys.add(k);
+    // Key-repeat: update held-state flags but do NOT re-add to keys Set.
+    // sim.js consumes one-shot keys via I.justPressed() — repeat events must not re-trigger them.
+    if(!e.repeat) input.keys.add(k);
     if(e.key==="Shift") input.shiftHeld=true;
     if(e.key==="Control") input.ctrlHeld=true;
-    // Home — re-centre camera on player
-    if(e.key==="Home"){ const cam=window.G?.cam; const p=window.G?.player; if(cam&&p){cam.free=false;cam.x=p.wx;cam.y=p.wy;} }
-    if(k==='j'&&window.G?.game){ window.G.game.logTab = window.G.game.logTab==='dc'?'log':'dc'; }
-    // UI scale: +/= to increase, - to decrease, 0 to reset
-    if((k==='='||k==='+')&&window.UI){ window.UI.setScale(window.UI.getScale()+window.UI.SCALE_STEP); }
-    if(k==='-'&&window.UI){ window.UI.setScale(window.UI.getScale()-window.UI.SCALE_STEP); }
-    if(k==='0'&&window.UI){ window.UI.setScale(1.0); }
-    if(k==='`'){ const p=document.getElementById('dev-panel'); if(p) p.style.display=p.style.display==='none'?'block':'none'; }
+    // Discrete (inline) actions — guarded against key-repeat
+    if(!e.repeat){
+      const KB=window.KB;
+      if(k===KB?.cameraCentre?.key){ const cam=window.G?.cam; const p=window.G?.player; if(cam&&p){cam.free=false;cam.x=p.wx;cam.y=p.wy;} }
+      if(k===KB?.logTabToggle?.key&&window.G?.game){ window.G.game.logTab = window.G.game.logTab==='dc'?'log':'dc'; }
+      if((k===KB?.uiScaleUp?.key||k===KB?.uiScaleUpAlt?.key)&&window.UI){ window.UI.setScale(window.UI.getScale()+window.UI.SCALE_STEP); }
+      if(k===KB?.uiScaleDown?.key&&window.UI){ window.UI.setScale(window.UI.getScale()-window.UI.SCALE_STEP); }
+      if(k===KB?.uiScaleReset?.key&&window.UI){ window.UI.setScale(1.0); }
+      if(k===KB?.devPanel?.key){ const p=document.getElementById('dev-panel'); if(p) p.style.display=p.style.display==='none'?'block':'none'; }
+    }
     if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) e.preventDefault();
   });
   addEventListener("keyup",(e)=>{
@@ -169,5 +184,16 @@
   },{passive:false});
 
   addEventListener("contextmenu",(e)=>e.preventDefault());
+
+  // Focus loss — clear all held state so no keys/buttons ghost after alt-tab etc.
+  addEventListener("blur",()=>{
+    input.keys.clear();
+    input.shiftHeld=false;
+    input.ctrlHeld=false;
+    input.mouseDownL=false;
+    input.mouseDownR=false;
+    input._camDragActive=false;
+  });
+
   window.I=input;
 })();

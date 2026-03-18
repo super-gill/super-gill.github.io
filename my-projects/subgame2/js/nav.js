@@ -682,10 +682,6 @@
       window.DMG?.resetDepthCascade?.();
     }
 
-    // Sync aliases
-    player.y=player.depth;
-    player.x=player.wx;
-
     // ── Timers ────────────────────────────────────────────────────────────────
     player.emergTurnT=Math.max(0,player.emergTurnT-dt);
     player.emergTurnCd=Math.max(0,player.emergTurnCd-dt);
