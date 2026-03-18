@@ -25,7 +25,7 @@
   // If ref is present, bearing/range are computed directly from its current position
   // — most accurate, eliminates compass↔math-angle round-trip errors.
   function create(type, fromX, fromY, ascmSolution) {
-    const cfg = C.missiles?.[type];
+    const cfg = C.weapons?.[type];
     if (!cfg) return null;
 
     const speedWU = cfg.speed;   // kt == wu/s in this game's unit system

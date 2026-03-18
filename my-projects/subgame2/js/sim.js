@@ -293,8 +293,7 @@
 
   function update(dt){
     if(I.keys.has("r")){ I.keys.delete("r"); window.location.reload(); }
-    // ` (backtick) — toggle debug true-position overlay
-    if(I.keys.has("`")){ I.keys.delete("`"); game.debugOverlay=!game.debugOverlay; setMsg(game.debugOverlay?"[DEBUG] TRUE POS ON":"[DEBUG] TRUE POS OFF",1.2); }
+
     if(I.keys.has("h")){ I.keys.delete("h"); game.showDamageScreen=!game.showDamageScreen; }
     if(I.keys.has("y")){ I.keys.delete("y"); game.showDamageScreen=!game.showDamageScreen; }
     if(I.keys.has("w")){ I.keys.delete("w"); initiateWatchChange(); }
@@ -318,7 +317,7 @@
         player._tubeOpDone.add(op.tubeIdx);
         const t=op.tubeIdx;
         const isMissile=op.weaponKey&&op.weaponKey!=='torp';
-        const wl=isMissile?(C.missiles?.[op.weaponKey]?.shortLabel||op.weaponKey.toUpperCase()):'TORPEDO';
+        const wl=isMissile?(C.weapons?.[op.weaponKey]?.shortLabel||op.weaponKey.toUpperCase()):'TORPEDO';
         if(op.type==='load'){
           player.torpTubes[t]=0;
           player.tubeLoad[t]=op.weaponKey;
@@ -391,8 +390,8 @@
     // Returns the weapon label for a tube (for FPP comms)
     function tubeWeaponLabel(tubeIdx){
       const load=(player.tubeLoad||[])[tubeIdx];
-      if(!load||load==='torp') return 'TORPEDO';
-      return C.missiles?.[load]?.shortLabel||load.toUpperCase();
+      if(!load||load==='torp') return C.weapons?.[C.player.torpWeapon]?.shortLabel||'TORPEDO';
+      return C.weapons?.[load]?.shortLabel||load.toUpperCase();
     }
 
     // ── Tube load management ────────────────────────────────────────────────
@@ -416,8 +415,8 @@
         player.torpStock--;
       }
       const reloadTime=C.player.torpReloadTime||28;
-      const totalT=reloadTime*(isMissile?(C.missiles?.[weaponKey]?.reloadMult??1.5):1.0);
-      const wl=isMissile?(C.missiles?.[weaponKey]?.shortLabel||weaponKey.toUpperCase()):'TORPEDO';
+      const totalT=reloadTime*(isMissile?(C.weapons?.[weaponKey]?.reloadMult??1.5):1.0);
+      const wl=isMissile?(C.weapons?.[weaponKey]?.shortLabel||weaponKey.toUpperCase()):'TORPEDO';
       player.tubeOp={type:'load',tubeIdx:t,weaponKey:weaponKey||'torp',progress:0,totalT};
       player.torpTubes[t]=totalT;
       COMMS.weapons.loadOrder(t+1,wl);
@@ -459,7 +458,7 @@
       }
       const reloadTime=C.player.torpReloadTime||28;
       const totalT=reloadTime*2.15;
-      const wl=isMissile?(C.missiles?.[weaponKey]?.shortLabel||weaponKey.toUpperCase()):'TORPEDO';
+      const wl=isMissile?(C.weapons?.[weaponKey]?.shortLabel||weaponKey.toUpperCase()):'TORPEDO';
       player.tubeOp={type:'strike',tubeIdx:t,weaponKey:weaponKey||'torp',progress:0,totalT};
       player.torpTubes[t]=totalT;
       COMMS.weapons.strikeReloadOrder(t+1,wl);
@@ -477,10 +476,21 @@
       }
       if(tubeIdx<0){ COMMS.weapons.error('No missile ready in tube'); return; }
       const missileType=tubeLoad[tubeIdx];
-      const cfg=C.missiles?.[missileType];
+      const cfg=C.weapons?.[missileType];
       if(!cfg){ COMMS.weapons.error('Unknown missile type'); return; }
       const wl=cfg.shortLabel||missileType.toUpperCase();
       const cid=game.ascmSolution.contactId||'';
+      const maxD=cfg.maxLaunchDepth??25;
+      const overDepth=Math.max(0,player.depth-maxD);
+      const launchChance=overDepth===0?1.0:clamp(1-overDepth/(maxD*2),0,1);
+      if(overDepth>0) COMMS.weapons.missileDepthWarning(wl,player.depth,maxD);
+      if(Math.random()>launchChance){
+        // Capsule ejected but failed to surface — weapon lost, tube clear, reload starts
+        player.tubeLoad[tubeIdx]=null;
+        player.torpTubes[tubeIdx]=Math.round((C.player.torpReloadTime||28)*(DMG.getEffects().reloadMult||1));
+        COMMS.weapons.missileLaunchFail(wl);
+        return;
+      }
       COMMS.weapons.firingProcedures(tubeIdx+1,wl,cid,false);
       player.pendingFires.push({
         t:C.player.fireDelay||4.5,
@@ -502,10 +512,15 @@
       if(!game.ascmSolution){ COMMS.weapons.noSolution(); return; }
       const wType=C.player.vlsWeapon;
       if(!wType){ COMMS.weapons.error('No weapon assigned to VLS'); return; }
-      const cfg=C.missiles?.[wType];
+      const cfg=C.weapons?.[wType];
       if(!cfg){ COMMS.weapons.error('Unknown VLS weapon type'); return; }
       const wl=cfg.shortLabel||wType.toUpperCase();
       const cid=game.ascmSolution.contactId||'';
+      const maxD=cfg.maxLaunchDepth??30;
+      const overDepth=Math.max(0,player.depth-maxD);
+      const launchChance=overDepth===0?1.0:clamp(1-overDepth/(maxD*2),0,1);
+      if(overDepth>0) COMMS.weapons.missileDepthWarning(wl,player.depth,maxD);
+      if(Math.random()>launchChance){ COMMS.weapons.vlsLaunchFail(wl,cellIdx+1); return; }
       cell.state='expended';
       const m=window.MSL?.create(wType,player.wx,player.wy,{
         bearing:game.ascmSolution.bearing,
@@ -628,7 +643,7 @@
           player.torpTubes[pf.tubeIdx]=0;
           COMMS.weapons.missileAway();
         } else if(pf.wire){
-          const wireSnapped=W.fireTorpedo(sx,sy,ddx,ddy,true,C.player.torpEnableDist,true,pf.launchOffset,player.depth,pf.fireDepth,C.player.torpConfig??null);
+          const wireSnapped=W.fireTorpedo(sx,sy,ddx,ddy,true,C.player.torpEnableDist,true,pf.launchOffset,player.depth,pf.fireDepth,C.weapons?.[C.player.torpWeapon]??null);
           const torp=bullets[bullets.length-1];
           if(!wireSnapped && torp?.wire?.live){
             if(!player.tubeWires) player.tubeWires=new Array(C.player.torpTubes||4).fill(null);
@@ -642,7 +657,7 @@
           COMMS.weapons.fired(tn, !wireSnapped);
           if(wireSnapped) COMMS.weapons.wireParted(tn, 'launch');
         } else {
-          W.fireTorpedo(sx,sy,ddx,ddy,true,C.player.torpEnableDist,false,0,player.depth,pf.fireDepth,C.player.torpConfig??null);
+          W.fireTorpedo(sx,sy,ddx,ddy,true,C.player.torpEnableDist,false,0,player.depth,pf.fireDepth,C.weapons?.[C.player.torpWeapon]??null);
           player.torpTubes[pf.tubeIdx]=Math.round((C.player.torpReloadTime||28)*(DMG.getEffects().reloadMult||1));
           COMMS.weapons.fired(tn, false);
         }
@@ -663,10 +678,12 @@
       const t = player.scramT;
       const wT = wasT; // previous value
 
-      // Check whether reactor systems are fire-damaged — suppresses recovery sequence
-      // so we don't hear "all systems normal" while DC teams are still repairing the reactor.
-      const reactorDamaged = window.player?.damage?.systems?.reactor &&
-                             window.player.damage.systems.reactor !== 'nominal';
+      // Check whether reactor systems are damaged — suppresses recovery comms
+      // if reactor, primary coolant, or pressuriser are not nominal (can't sustain reaction).
+      const _rxSys = player.damage?.systems||{};
+      const reactorDamaged = _rxSys.reactor !== 'nominal' && _rxSys.reactor != null
+                          || _rxSys.primary_coolant === 'offline' || _rxSys.primary_coolant === 'destroyed'
+                          || _rxSys.pressuriser === 'offline' || _rxSys.pressuriser === 'destroyed';
 
       // T+0 — MANV immediate call (fired from triggerScram, not here)
       // T+3 — EPM online

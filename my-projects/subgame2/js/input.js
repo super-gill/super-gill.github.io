@@ -28,6 +28,7 @@
     if((k==='='||k==='+')&&window.UI){ window.UI.setScale(window.UI.getScale()+window.UI.SCALE_STEP); }
     if(k==='-'&&window.UI){ window.UI.setScale(window.UI.getScale()-window.UI.SCALE_STEP); }
     if(k==='0'&&window.UI){ window.UI.setScale(1.0); }
+    if(k==='`'){ const p=document.getElementById('dev-panel'); if(p) p.style.display=p.style.display==='none'?'block':'none'; }
     if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) e.preventDefault();
   });
   addEventListener("keyup",(e)=>{
@@ -110,9 +111,11 @@
     updateMouse(e);
     if(e.button===0){
       input.mouseDownL=true;
-      // Start screen — all clicks go to PANEL
+      // Start screen — offset click Y by scroll only on scenario screen (vessel screen elements are fixed)
       if(window.G?.game?.started===false){
-        window.PANEL?.handleClick(input.mouseX, input.mouseY);
+        const g=window.G.game;
+        const offsetY=(g.startPhase||'scenario')==='scenario'?(g.startScrollY||0):0;
+        window.PANEL?.handleClick(input.mouseX, input.mouseY+offsetY);
         return;
       }
       // Panel and depth strip absorb clicks — don't route to chart
@@ -148,6 +151,17 @@
   });
 
   addEventListener("wheel",(e)=>{
+    const game=window.G?.game;
+    if(game && !game.started){
+      e.preventDefault();
+      const delta=e.deltaMode===1?e.deltaY*24:e.deltaMode===2?e.deltaY*(window.innerHeight||800):e.deltaY;
+      if((game.startPhase||'scenario')==='vessel' && (game.vesselTab||'player')==='soviet'){
+        game.vesselScrollY=Math.max(0,(game.vesselScrollY||0)+delta);
+      } else {
+        game.startScrollY=Math.max(0,(game.startScrollY||0)+delta);
+      }
+      return;
+    }
     const canvas=getCanvas(); if(!canvas) return;
     if(inPanel(input.mouseY)) return; // don't zoom when hovering panel
     e.preventDefault();

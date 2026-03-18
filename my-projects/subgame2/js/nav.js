@@ -741,7 +741,9 @@
 
         // ── Charge / drain ─────────────────────────────────────────────────
         if(atSurface||player.snorkeling){
-          const rate=atSurface?(batC.surfaceChargeRate??0.005):(batC.chargeRate??0.003);
+          const dmgFxBat=window.DMG?.getEffects()||{};
+          const baseRate=atSurface?(batC.surfaceChargeRate??0.005):(batC.chargeRate??0.003);
+          const rate=baseRate*(dmgFxBat.chargeRateMult??1.0);
           player.battery=Math.min(1.0, player.battery+rate*dt);
           if(player._battDead && player.battery>0.05){
             player._battDead=false;

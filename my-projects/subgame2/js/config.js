@@ -166,7 +166,7 @@
           reactorRunaway:{hitChance:0.08,transientRange:3000,transientSus:0.60},
         },
         // ── ASCM — default no missiles (overridden per vessel) ───────────────
-        missileStock: 0, missileTypes: [], vlsCells: 0, vlsWeapon: null,
+        torpWeapon: 'mk48_adcap', missileStock: 0, missileTypes: [], vlsCells: 0, vlsWeapon: null,
         // ── Battery — nuclear defaults (always full except SCRAM) ─────────────
         isDiesel: false,
         battery:{ drainOnScram:0.0020, chargeRate:0.008 },
@@ -194,13 +194,16 @@
         {...sh, key:'688i',      name:'USS DALLAS',       vesselClass:'LOS ANGELES CLASS', nation:'US', difficulty:'medium',
                 flavour:'Cold War workhorse. Balanced across all systems.',
                 lore:[
-                  'SSN-700 · Commissioned 1981 · 62 boats built — backbone of the Cold War US submarine fleet',
+                  'SSN-700 · Commissioned 1981 · Los Angeles class — 62 boats built over 22 years',
+                  'The backbone of the Cold War US submarine fleet. Balanced and capable across all systems.',
                   'Conducted extensive intelligence patrols in Soviet home waters throughout the 1980s.',
-                  'Immortalised in The Hunt for Red October. Still on active service into the 2000s.',
+                  'Standard loadout: 26 MK-48 ADCAP torpedoes plus Harpoon anti-ship and TASM cruise missiles.',
+                  'Immortalised in The Hunt for Red October. Still in frontline service into the 2000s.',
+                  'Recommended for new players who want capable all-round performance with no major weaknesses.',
                 ],
                 divingLimitM:400, sonarSuite:'AN/BQQ-5D', sonarQuality:0.85,
                 divingLimit:400, safeDivingDepth:300, designDepth:450, maxDepth:480, crushDepth:520,
-                torpType:'MK-48 ADCAP', towedArray:'TB-16 / TB-23',
+                torpWeapon:'mk48_adcap', towedArray:'TB-16 / TB-23',
                 r:28,hpMax:100,hitR:30, speedMaxKts:20,flankKts:28,
                 noiseFloor:0.040,flankNoiseBoost:0.42,
                 torpTubes:4,torpStock:32,torpReloadTime:28,cmStock:12,
@@ -209,19 +212,16 @@
         {...sh, key:'trafalgar', name:'HMS TRAFALGAR',    vesselClass:'TRAFALGAR CLASS',   nation:'UK', difficulty:'medium', masts:mastsUK,
                 flavour:'Pump-jet propulsor — dramatically quieter at speed.',
                 lore:[
-                  'S107 · Commissioned 1983 · Lead boat of class — 7 built',
-                  'First Royal Navy SSN with pump-jet propulsor, setting the standard for British SSN stealth.',
-                  'Deployed Gulf War 1991. Fired first British Tomahawks in anger, Kosovo 1999.',
+                  'S107 · Commissioned 1983 · Trafalgar class — lead boat of 7',
+                  'First Royal Navy SSN fitted with a pump-jet propulsor instead of a conventional screw.',
+                  'The pump-jet delivers a marked acoustic advantage at speed — a critical tactical asset.',
+                  'Deployed throughout the Cold War and beyond. Gulf War 1991. Kosovo 1999.',
+                  'Armed with SPEARFISH — one of the fastest and hardest-hitting torpedoes ever deployed at 70+ knots.',
+                  'Recommended for players who favour aggressive high-speed tactics with superior stealth.',
                 ],
                 divingLimitM:400, sonarSuite:'TYPE 2076', sonarQuality:0.88,
                 divingLimit:400, safeDivingDepth:300, designDepth:450, maxDepth:480, crushDepth:520,
-                torpType:'SPEARFISH', towedArray:'TYPE 2026',
-                // SPEARFISH: ~80kt, excellent ECCM, harder to seduce, faster reacquisition than Mk-48 ADCAP
-                torpConfig:{speed:70, approachSpeed:20, life:280, dmg:60,
-                            seekRange:600, seekFOV:0.95, passiveFOV:2.5, turnRate:1.65,
-                            reacquireChance:0.020, arming:0.28, searchSnake:0.16,
-                            seduceFOV:2.80, seduceRange:300, seduceTime:8.0, reacquireDelay:4.0,
-                            depthRate:2, vertWindow:120, vertFuse:60},
+                torpWeapon:'spearfish', towedArray:'TYPE 2026',
                 r:26,hpMax:100,hitR:28, speedMaxKts:18,flankKts:26,
                 noiseFloor:0.032,flankNoiseBoost:0.30,
                 torpTubes:5,torpStock:25,torpReloadTime:30,cmStock:12,
@@ -232,19 +232,16 @@
         {...sh, key:'swiftsure', name:'HMS SWIFTSURE',    vesselClass:'SWIFTSURE CLASS',   nation:'UK', difficulty:'medium', masts:mastsUK,
                 flavour:'Older design, fewer weapons. Quieter than 688i at depth.',
                 lore:[
-                  'S126 · Commissioned 1973 · Lead boat of class — 6 built',
-                  'Deeper, faster and quieter than the preceding Valiant class. Conventional screw propulsion.',
-                  'Direct predecessor to the Trafalgar boats. Decommissioned 1992.',
+                  'S126 · Commissioned 1973 · Swiftsure class — lead boat of 6',
+                  'Direct predecessor to the Trafalgar boats. Conventional screw — noisier at speed.',
+                  'Deeper diving and faster than the preceding Valiant class. Good below-layer endurance.',
+                  'Armed with TIGERFISH — wire-guided and reliable but substantially slower than SPEARFISH.',
+                  'Smaller weapons magazine and older systems make this a harder boat to fight effectively.',
+                  'Recommended for experienced players who want a challenge with older British equipment.',
                 ],
                 divingLimitM:350, sonarSuite:'TYPE 2020', sonarQuality:0.76,
                 divingLimit:350, safeDivingDepth:260, designDepth:400, maxDepth:430, crushDepth:465,
-                torpType:'TIGERFISH', towedArray:'TYPE 2026',
-                // TIGERFISH Mk 24: ~35kt, 1974 design, inferior ECCM — easier to seduce, slow to reacquire
-                torpConfig:{speed:35, approachSpeed:12, life:300, dmg:45,
-                            seekRange:340, seekFOV:0.75, passiveFOV:2.1, turnRate:1.25,
-                            reacquireChance:0.008, arming:0.35, searchSnake:0.22,
-                            seduceFOV:2.80, seduceRange:300, seduceTime:14.0, reacquireDelay:8.5,
-                            depthRate:2, vertWindow:120, vertFuse:60},
+                torpWeapon:'tigerfish', towedArray:'TYPE 2026',
                 r:24,hpMax:90, hitR:26, speedMaxKts:18,flankKts:25,
                 noiseFloor:0.038,flankNoiseBoost:0.38,
                 torpTubes:5,torpStock:20,torpReloadTime:32,cmStock:10,
@@ -255,13 +252,16 @@
         {...sh, key:'seawolf',   name:'USS CONNECTICUT',  vesselClass:'SEAWOLF CLASS',     nation:'US', difficulty:'easy',
                 flavour:'Post-Cold War overkill. Eight tubes, extreme depth, maximum firepower.',
                 lore:[
-                  'SSN-22 · Commissioned 1998 · Only 3 Seawolf class were ever built — budget cuts ended the programme',
-                  'Designed specifically to hunt Akula-class SSNs inside Soviet home waters.',
-                  'Fastest and deepest diving US SSN. A Cold War weapon that arrived after the war ended.',
+                  'SSN-22 · Commissioned 1998 · Seawolf class — only 3 completed before cancellation',
+                  'Designed expressly to hunt Akula-class SSNs in Soviet home waters. Overbuilt for the task.',
+                  'Eight torpedo tubes, 50-weapon magazine, 480m depth limit. The best submarine ever built.',
+                  'AN/BQQ-5E sonar and TB-29A towed array — the most capable sensor suite in the fleet.',
+                  'Post-Cold War budget cuts killed the programme. The war it was designed for never came.',
+                  'Recommended for players who want maximum capability. The easy classification is by design.',
                 ],
                 divingLimitM:480, sonarSuite:'AN/BQQ-5E', sonarQuality:0.95,
                 divingLimit:480, safeDivingDepth:365, designDepth:530, maxDepth:560, crushDepth:605,
-                torpType:'MK-48 ADCAP', towedArray:'TB-16 / TB-29A',
+                torpWeapon:'mk48_adcap', towedArray:'TB-16 / TB-29A',
                 r:32,hpMax:120,hitR:35, speedMaxKts:20,flankKts:35,
                 noiseFloor:0.025,flankNoiseBoost:0.28,
                 torpTubes:8,torpStock:50,torpReloadTime:22,cmStock:16,
@@ -272,19 +272,16 @@
         {...sh, key:'type209',   name:'U-36',             vesselClass:'TYPE 209',          nation:'DE', difficulty:'expert',
                 flavour:'Diesel-electric. Near-silent on battery. One wrong move and you are out of torpedoes.',
                 lore:[
-                  'U-36 · Commissioned 1997 · Deutsche Marine — Type 209/1400mod',
-                  'Diesel-electric: near-silent on battery, but snorkel ops broadcast your position.',
-                  'Most exported submarine design in history. Operated by 14+ navies worldwide.',
+                  'U-36 · Commissioned 1997 · Deutsche Marine — Type 209/1400mod variant',
+                  'Diesel-electric propulsion: near-silent on battery, but snorkel ops broadcast your position.',
+                  'The most exported submarine design in history — operated by more than 14 navies worldwide.',
+                  'Armed with SST-4 and SUT wire-guided torpedoes. Reliable but slower than NATO designs.',
+                  'Maximum depth 250m. The thermal layer is your primary tactical tool — use it constantly.',
+                  'Expert rating. Battery management and snorkel exposure are unforgiving. One error is fatal.',
                 ],
                 divingLimitM:250, sonarSuite:'ATLAS DBQS-21', sonarQuality:0.65,
                 divingLimit:250, safeDivingDepth:190, designDepth:280, maxDepth:300, crushDepth:325,
-                torpType:'SST-4 / SUT', towedArray:'PRS-3 PASSIVE',
-                // SST-4 / SUT: ~35kt wire-guided, decent ECCM but not ADCAP-class
-                torpConfig:{speed:38, approachSpeed:13, life:260, dmg:50,
-                            seekRange:380, seekFOV:0.82, passiveFOV:2.2, turnRate:1.35,
-                            reacquireChance:0.010, arming:0.32, searchSnake:0.20,
-                            seduceFOV:2.80, seduceRange:300, seduceTime:12.0, reacquireDelay:7.0,
-                            depthRate:2, vertWindow:120, vertFuse:60},
+                torpWeapon:'sst4', towedArray:'PRS-3 PASSIVE',
                 r:18,hpMax:70, hitR:20, speedMaxKts:8, flankKts:12,
                 noiseFloor:0.018,flankNoiseBoost:0.55,
                 torpTubes:8,torpStock:14,torpReloadTime:35,cmStock:8,
@@ -428,43 +425,68 @@
         rolesEnabled: ['hunter','interceptor','zeta'],
       },
     },
-    // ── Anti-Ship Cruise Missiles ──────────────────────────────────────────────
-    missiles:{
+    // ── Weapon definitions — torpedoes and missiles ────────────────────────────
+    // Vessels reference torpedoes by torpWeapon key; missiles by missileTypes/vlsWeapon.
+    // kind:'torpedo' entries: all stats read by fireTorpedo() as statOverrides.
+    // kind:'missile' entries: maxLaunchDepth gates firing; other stats used by missile.js.
+    weapons:{
+      // ── Torpedoes ──────────────────────────────────────────────────────────
+      mk48_adcap:{
+        kind:'torpedo', label:'MK-48 ADCAP', shortLabel:'ADCAP',
+        speed:50, approachSpeed:18, life:210, dmg:55,
+        seekRange:520, seekFOV:0.90, passiveFOV:2.4,
+        turnRate:1.55, reacquireChance:0.016, arming:0.30, searchSnake:0.18,
+        seduceFOV:2.80, seduceRange:300, seduceTime:9.5, reacquireDelay:5.5,
+        depthRate:2, vertWindow:120, vertFuse:60,
+      },
+      spearfish:{
+        kind:'torpedo', label:'SPEARFISH', shortLabel:'SPEARFISH',
+        // ~80kt, excellent ECCM, harder to seduce, faster reacquisition
+        speed:70, approachSpeed:20, life:280, dmg:60,
+        seekRange:600, seekFOV:0.95, passiveFOV:2.5, turnRate:1.65,
+        reacquireChance:0.020, arming:0.28, searchSnake:0.16,
+        seduceFOV:2.80, seduceRange:300, seduceTime:8.0, reacquireDelay:4.0,
+        depthRate:2, vertWindow:120, vertFuse:60,
+      },
+      tigerfish:{
+        kind:'torpedo', label:'TIGERFISH Mk 24', shortLabel:'TIGERFISH',
+        // ~35kt, 1974 design — inferior ECCM, easier to seduce, slow to reacquire
+        speed:35, approachSpeed:12, life:300, dmg:45,
+        seekRange:340, seekFOV:0.75, passiveFOV:2.1, turnRate:1.25,
+        reacquireChance:0.008, arming:0.35, searchSnake:0.22,
+        seduceFOV:2.80, seduceRange:300, seduceTime:14.0, reacquireDelay:8.5,
+        depthRate:2, vertWindow:120, vertFuse:60,
+      },
+      sst4:{
+        kind:'torpedo', label:'SST-4 / SUT', shortLabel:'SST-4',
+        // ~35kt wire-guided, decent ECCM but not ADCAP-class
+        speed:38, approachSpeed:13, life:260, dmg:50,
+        seekRange:380, seekFOV:0.82, passiveFOV:2.2, turnRate:1.35,
+        reacquireChance:0.010, arming:0.32, searchSnake:0.20,
+        seduceFOV:2.80, seduceRange:300, seduceTime:12.0, reacquireDelay:7.0,
+        depthRate:2, vertWindow:120, vertFuse:60,
+      },
+      // ── Anti-Ship Cruise Missiles ──────────────────────────────────────────
+      // maxLaunchDepth: metres — must be at or shallower to fire
       harpoon:{
-        label:'UUM-84 HARPOON', shortLabel:'HARPOON',
-        speed:450,              // kt cruise speed
-        range:25000,            // wu (~140km operational range)
-        seekerFOV:0.698,        // rad (~40° half-angle acquisition cone)
-        warheadDmg:85,
-        reloadMult:1.5,         // × torpedo reload time (capsule handling)
-        vls:false,
+        kind:'missile', label:'UUM-84 HARPOON', shortLabel:'HARPOON',
+        speed:450, range:25000, seekerFOV:0.698, warheadDmg:85,
+        reloadMult:1.5, vls:false, maxLaunchDepth:25,  // capsule-launched, surfaces before ignition
       },
       sub_harpoon:{
-        label:'SUB-HARPOON', shortLabel:'S-HARPOON',
-        speed:450,
-        range:25000,
-        seekerFOV:0.698,
-        warheadDmg:85,
-        reloadMult:1.5,
-        vls:false,
+        kind:'missile', label:'UGM-84 SUB-HARPOON', shortLabel:'S-HARPOON',
+        speed:450, range:25000, seekerFOV:0.698, warheadDmg:85,
+        reloadMult:1.5, vls:false, maxLaunchDepth:25,  // same capsule system as UUM-84
       },
       tasm:{
-        label:'BGM-109C TASM', shortLabel:'TASM',
-        speed:400,              // kt cruise speed
-        range:999999,           // effectively unlimited within game world
-        seekerFOV:0.611,        // rad (~35° half-angle)
-        warheadDmg:120,
-        reloadMult:null,        // VLS only — no reload at sea
-        vls:true,
+        kind:'missile', label:'BGM-109C TASM', shortLabel:'TASM',
+        speed:400, range:999999, seekerFOV:0.611, warheadDmg:120,
+        reloadMult:null, vls:true, maxLaunchDepth:30,  // VLS gas-boost ejection, slight depth tolerance
       },
       sm39:{
-        label:'SM39 EXOCET', shortLabel:'EXOCET',
-        speed:370,
-        range:9000,             // wu (~50km — within tactical game range)
-        seekerFOV:0.524,        // rad (~30° — narrower, punishes poor solutions)
-        warheadDmg:65,
-        reloadMult:1.5,
-        vls:false,
+        kind:'missile', label:'SM39 EXOCET', shortLabel:'EXOCET',
+        speed:370, range:9000, seekerFOV:0.524, warheadDmg:65,
+        reloadMult:1.5, vls:false, maxLaunchDepth:55,  // purpose-designed deep launch canister
       },
     },
     ship:{

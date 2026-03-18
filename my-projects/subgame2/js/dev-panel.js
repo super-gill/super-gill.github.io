@@ -20,7 +20,6 @@
     #dev-panel-header:hover{background:rgba(0,200,255,0.06);}
     #dev-panel-body{padding:8px 10px;display:flex;flex-direction:column;gap:6px;
       max-height:calc(100vh - 60px);overflow-y:auto;}
-    #dev-panel.collapsed #dev-panel-body{display:none;}
     .dev-section-label{
       font-size:10px;color:rgba(0,200,255,0.45);letter-spacing:.1em;
       text-transform:uppercase;margin-top:4px;border-top:1px solid rgba(0,200,255,0.10);
@@ -105,7 +104,7 @@
   panel.id='dev-panel';
   panel.innerHTML=`
     <div id="dev-panel-header">
-      <span>⚙ DEV PANEL</span><span id="dev-panel-chevron">▲</span>
+      <span>⚙ DEV PANEL</span><span style="font-size:10px;opacity:0.45;">[\`]</span>
     </div>
     <div id="dev-panel-body">
 
@@ -217,6 +216,7 @@
       <div class="dev-status" id="dev-status"></div>
     </div>
   `;
+  panel.style.display='none';
   document.body.appendChild(panel);
 
   // ── Build systems rows ────────────────────────────────────────────────────
@@ -233,14 +233,6 @@
     `;
     sysRowEl.appendChild(row);
   }
-
-  // ── Collapse toggle ───────────────────────────────────────────────────────
-  let collapsed=false;
-  document.getElementById('dev-panel-header').addEventListener('click',()=>{
-    collapsed=!collapsed;
-    panel.classList.toggle('collapsed',collapsed);
-    document.getElementById('dev-panel-chevron').textContent=collapsed?'▼':'▲';
-  });
 
   // ── Status helper ─────────────────────────────────────────────────────────
   let _statusT=null;

@@ -2440,9 +2440,10 @@
     else if(sys.propulsion==='degraded') speedCap=15;
     if(!C.player.isDiesel){
       if(sys.reactor==='offline'||sys.reactor==='destroyed'){
-        // Emergency diesel provides limited propulsion when reactor down
-        if(sys.emerg_diesel==='offline'||sys.emerg_diesel==='destroyed') speedCap=Math.min(speedCap,2);
-        else speedCap=Math.min(speedCap,7);
+        // Nuclear boat — EPM only when reactor down. Emergency diesel is hotel power, not propulsion.
+        // EPM destroyed or emerg_diesel dead = no propulsion at all
+        if(sys.emerg_diesel==='offline'||sys.emerg_diesel==='destroyed') speedCap=Math.min(speedCap,0);
+        else speedCap=Math.min(speedCap,3); // EPM: ~3kt
       }
       // Pressuriser limits reactor power output
       if(sys.pressuriser==='destroyed') speedCap=Math.min(speedCap,8);
@@ -2451,14 +2452,12 @@
       if(sys.main_turbines==='destroyed') speedCap=Math.min(speedCap,5);
       else if(sys.main_turbines==='offline') speedCap=Math.min(speedCap,10);
     } else {
-      // Diesel: main motor and battery bank determine propulsion
-      if(sys.main_motor==='destroyed') speedCap=Math.min(speedCap,2);
+      // Diesel-electric: motor and battery determine propulsion — diesel never drives shaft directly
+      if(sys.main_motor==='destroyed') speedCap=Math.min(speedCap,0);
       else if(sys.main_motor==='offline') speedCap=Math.min(speedCap,4);
-      if(sys.battery_bank==='destroyed') speedCap=Math.min(speedCap,4);
-      else if(sys.battery_bank==='offline') speedCap=Math.min(speedCap,8);
-      // Diesel engine damaged — limits recharge and sustained speed
-      if(sys.diesel_engine==='destroyed') speedCap=Math.min(speedCap,8);
-      else if(sys.diesel_engine==='offline') speedCap=Math.min(speedCap,10);
+      if(sys.battery_bank==='destroyed') speedCap=Math.min(speedCap,0);
+      else if(sys.battery_bank==='offline') speedCap=Math.min(speedCap,5);
+      // diesel_engine state does NOT affect speed — only affects charge rate (see chargeRateMult)
     }
     let sonarRangeMult=1.0;
     if(sys.sonar_hull==='offline'||sys.sonar_hull==='destroyed') sonarRangeMult=0.0;
@@ -2554,16 +2553,23 @@
       speedCap=Math.min(speedCap, Math.max(5, (C.player.flankKts||28)-floodSpeedPenalty));
     }
     const floodTauMult=1+totalFlood*0.5;      // 50% slower acceleration per flooded section
+    // Diesel charge rate — diesel_engine and alternator damage reduce snorkel charge rate
+    let chargeRateMult=1.0;
+    if(C.player.isDiesel){
+      if(sys.diesel_engine==='destroyed'||sys.alternator==='destroyed') chargeRateMult=0.0;
+      else if(sys.diesel_engine==='offline'||sys.alternator==='offline') chargeRateMult=0.25;
+      else if(sys.diesel_engine==='degraded'||sys.alternator==='degraded') chargeRateMult=0.55;
+    }
     // Wire guidance degradation from fire control damage
     const eFireCtrl=effectiveState('fire_ctrl',d);
     let wireNoiseMult=1.0, wireUpdateRate=1.0, wireCutAll=false;
     if(eFireCtrl==='degraded')       { wireNoiseMult=3.0; wireUpdateRate=0.5; }
     else if(eFireCtrl==='offline')   { wireNoiseMult=8.0; wireUpdateRate=0.2; }
     else if(eFireCtrl==='destroyed') { wireCutAll=true; }
-    return {speedCap,sonarRangeMult,bearingNoiseMult,reloadMult,depthRateMult,noisePenalty,tdcErrDeg,tubesAvail,towedOk,periscopeOk,maxDepth,totalFlood,floodTauMult,fwdPlaneMode,aftPlaneMode,aftCtrlTransferred,connRoomLost,crashDiveAvail:!connRoomLost,silentRunAvail:!connRoomLost,steeringMult,steeringOk,fireLevel,anyFire,wireNoiseMult,wireUpdateRate,wireCutAll};
+    return {speedCap,sonarRangeMult,bearingNoiseMult,reloadMult,depthRateMult,noisePenalty,tdcErrDeg,tubesAvail,towedOk,periscopeOk,maxDepth,totalFlood,floodTauMult,fwdPlaneMode,aftPlaneMode,aftCtrlTransferred,connRoomLost,crashDiveAvail:!connRoomLost,silentRunAvail:!connRoomLost,steeringMult,steeringOk,fireLevel,anyFire,wireNoiseMult,wireUpdateRate,wireCutAll,chargeRateMult};
   }
   function _defaults(){
-    return {speedCap:Infinity,sonarRangeMult:1.0,bearingNoiseMult:1.0,reloadMult:1.0,depthRateMult:1.0,noisePenalty:0,tdcErrDeg:0,tubesAvail:C.player.torpTubes||4,towedOk:true,periscopeOk:true,maxDepth:C.world?.maxDepth||500,totalFlood:0,floodTauMult:1.0,fwdPlaneMode:'hydraulic',aftPlaneMode:'hydraulic',aftCtrlTransferred:false,connRoomLost:false,crashDiveAvail:true,silentRunAvail:true,steeringMult:1.0,steeringOk:true,wireNoiseMult:1.0,wireUpdateRate:1.0,wireCutAll:false};
+    return {speedCap:Infinity,sonarRangeMult:1.0,bearingNoiseMult:1.0,reloadMult:1.0,depthRateMult:1.0,noisePenalty:0,tdcErrDeg:0,tubesAvail:C.player.torpTubes||4,towedOk:true,periscopeOk:true,maxDepth:C.world?.maxDepth||500,totalFlood:0,floodTauMult:1.0,fwdPlaneMode:'hydraulic',aftPlaneMode:'hydraulic',aftCtrlTransferred:false,connRoomLost:false,crashDiveAvail:true,silentRunAvail:true,steeringMult:1.0,steeringOk:true,wireNoiseMult:1.0,wireUpdateRate:1.0,wireCutAll:false,chargeRateMult:1.0};
   }
 
   function _alert(text){ player.damage.alerts.push({text,t:5.0}); }

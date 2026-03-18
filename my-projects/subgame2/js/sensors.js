@@ -79,7 +79,7 @@
     // most divergent bearing lines to estimate target position and range.
     // Only updates _estRange if no recent active ping (active range is better).
     const activeAge=T-(c._rangeT||0);
-    if(qCross>0.3 && obs.length>=4 && (c._rangeSource!=='active' || activeAge>15)){
+    if(qCross>0.12 && obs.length>=3 && (c._rangeSource!=='active' || activeAge>15)){
       // Find the pair with maximum crossing angle
       let bestI=0, bestJ=1, bestCross=0;
       for(let i=0;i<obs.length;i++)
@@ -104,6 +104,12 @@
           c._estRange=c._estRange!=null ? c._estRange*0.6+clamped*0.4 : clamped;
           c._rangeSource='tma';
           c._rangeT=T;
+          // ── Range rate — sampled every ~10s to compute CLSNG/OPNG tag ────────
+          const rSampleAge=T-(c._rangeSampleT||0);
+          if(rSampleAge>=10){
+            if(c._rangeSample!=null) c._rangeRate=(c._estRange-c._rangeSample)/rSampleAge;
+            c._rangeSample=c._estRange; c._rangeSampleT=T;
+          }
           // ── Contact heading estimation — diff successive triangle intersections ──
           // Two estimates ≥12s apart give a displacement → estimated course
           const prevEstT=c._tmaEstT;
@@ -744,5 +750,5 @@
     return true;
   }
 
-  window.SENSE={setDetected,passiveUpdate,towedArrayUpdate,proximityDetect,activePing,clearContact,tickContacts,registerBearing};
+  window.SENSE={setDetected,passiveUpdate,towedArrayUpdate,proximityDetect,activePing,clearContact,tickContacts,registerBearing,registerFix};
 })();

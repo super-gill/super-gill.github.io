@@ -180,31 +180,30 @@
             else if(q<0.6){ ctx.fillStyle=`rgba(217,119,6,${alpha*0.75})`; doodleText('BLDG', lx+U(4), ly+U(5), U(6), 'left'); }
             else { ctx.fillStyle=`rgba(22,163,74,${alpha*0.75})`; doodleText('SOLID', lx+U(4), ly+U(5), U(6), 'left'); }
 
-            // ── Bearing-rate chevron — early-track enemy drift indicator ────
-            // Shows which way the contact is drifting across the bearing line.
-            // Works from first observations; no TMA geometry needed.
-            // perpX/perpY already computed above = right perpendicular (screen space).
-            if(c._brgRate!=null && Math.abs(c._brgRate)>0.0008){
-              const dir=c._brgRate>0?1:-1; // +1 = drifting right, -1 = drifting left
-              const rateStr=clamp(Math.abs(c._brgRate)*400,0,1);
-              const chA=alpha*clamp(0.30+rateStr*0.45,0,0.75);
-              // Place chevron at 35% along the bearing line
-              const chFrac=0.35;
-              const chx=lox+(ex-lox)*chFrac;
-              const chy=loy+(ey-loy)*chFrac;
-              // Unit forward along line
-              const fwdX=(ex-lox)/lineLen, fwdY=(ey-loy)/lineLen;
-              // Right perp (reusing perpX/perpY * dir for side selection)
-              const dpx=perpX*dir, dpy=perpY*dir;
-              const sz=U(5);
-              ctx.strokeStyle=`rgba(17,24,39,${chA})`;
-              ctx.lineWidth=1.5; ctx.setLineDash([]);
-              // V-chevron: apex offset in drift direction, tails along bearing line
-              ctx.beginPath();
-              ctx.moveTo(chx-fwdX*sz, chy-fwdY*sz);  // tail top
-              ctx.lineTo(chx+dpx*sz,  chy+dpy*sz);    // apex
-              ctx.lineTo(chx+fwdX*sz, chy+fwdY*sz);  // tail bottom
-              ctx.stroke();
+            // ── CLSNG / OPNG / CBDR tag ─────────────────────────────────────
+            // Range rate (from TMA triangle diff) → closing or opening classification.
+            // Falls back to bearing-rate direction if range not yet estimated.
+            {
+              const rr=c._rangeRate, br=c._brgRate;
+              let tag=null, tagCol=null;
+              if(rr!=null){
+                const cbdr=Math.abs(br??0)<0.0006 && rr<-8;
+                if(cbdr){
+                  tag='CBDR'; tagCol=`rgba(180,30,30,${alpha*0.90})`;
+                } else if(rr<-8){
+                  tag='CLSNG'; tagCol=`rgba(180,30,30,${alpha*0.72})`;
+                } else if(rr>8){
+                  tag='OPNG'; tagCol=`rgba(40,110,50,${alpha*0.72})`;
+                }
+              } else if(br!=null && Math.abs(br)>0.0008){
+                // No range yet — show drift direction as fallback
+                tag=br>0?'R DRIFT':'L DRIFT';
+                tagCol=`rgba(100,100,100,${alpha*0.55})`;
+              }
+              if(tag){
+                ctx.fillStyle=tagCol;
+                doodleText(tag, lx+U(4), ly+U(14), U(6), 'left');
+              }
             }
           }
         }
@@ -215,7 +214,7 @@
           const headingAge=T_game-(c._estHeadingT||0);
           if(headingAge<90){
             const conf=(c._estHeadingConf||0)*(1-Math.min(1,headingAge/90));
-            if(conf>0.15){
+            if(conf>0.06){
               // Project contact position: origin + bearing ray * estimated range
               const ox=c.latestFromX??player.wx, oy=c.latestFromY??player.wy;
               const cpx=ox+Math.cos(c.latestBrg??0)*c._estRange;
@@ -242,11 +241,30 @@
               ctx.moveTo(stx,sty);
               ctx.lineTo(stx+Math.cos(ang-2.6)*aw, sty+Math.sin(ang-2.6)*aw);
               ctx.stroke();
-              // Compass bearing label (only at reasonable confidence)
-              if(conf>0.35){
+              // Compass heading label
+              if(conf>0.25){
                 const hdgDeg=(((Math.atan2(Math.cos(c._estHeading),-Math.sin(c._estHeading))*180/Math.PI)+360)%360);
                 ctx.fillStyle=`rgba(17,24,39,${alpha*conf*0.65})`;
                 doodleText(Math.round(hdgDeg).toString().padStart(3,'0')+'°', scx+U(5), scy-U(8), U(7), 'left');
+              }
+              // ── Contact aspect — bow/beam/stern relative to player ──────────
+              // Target angle: angle between contact heading and its bearing toward player.
+              // 0° = bow-on (heading at us), 90° = beam, 180° = stern (we're in their baffles).
+              if(conf>0.30){
+                const brgToPlayer=(c.latestBrg??0)+Math.PI;
+                const aspectRad=Math.abs(((c._estHeading-brgToPlayer+3*Math.PI)%(Math.PI*2))-Math.PI);
+                let aspect;
+                if(aspectRad<Math.PI/6)       aspect='BOW';
+                else if(aspectRad<Math.PI/3)  aspect='F.QTR';
+                else if(aspectRad<2*Math.PI/3) aspect='BEAM';
+                else if(aspectRad<5*Math.PI/6) aspect='A.QTR';
+                else                           aspect='STERN';
+                // STERN = we may be in their baffles — highlight it
+                const aspectCol=aspect==='BOW'?`rgba(180,30,30,${alpha*conf*0.80})`
+                  :aspect==='STERN'?`rgba(40,110,50,${alpha*conf*0.80})`
+                  :`rgba(17,24,39,${alpha*conf*0.65})`;
+                ctx.fillStyle=aspectCol;
+                doodleText(aspect, scx+U(5), scy+U(5), U(7), 'left');
               }
             }
           }

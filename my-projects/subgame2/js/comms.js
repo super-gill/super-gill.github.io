@@ -541,6 +541,19 @@
     fireControlOffline() {
       log('WEPS', 'Conn, Weps — fire control offline', P.MED);
     },
+    missileDepthWarning(wl, depth, maxD) {
+      msg('DEPTH RISK — ATTEMPTING', 1.4);
+      log('WEPS', `Conn, Weps — ${wl} depth envelope is ${maxD}m. We are at ${Math.round(depth)}m. Attempting launch.`, P.MED);
+    },
+    missileLaunchFail(wl) {
+      msg('MISFIRE', 1.6);
+      log('WEPS', `Conn, Weps — misfire. ${wl} capsule failed to surface. Tube flooding — safe.`, P.CRIT);
+      qlog('WEPS', `Conn, Weps — weapon lost. Tube secure.`, 2.0, P.MED);
+    },
+    vlsLaunchFail(wl, cell) {
+      msg('VLS MISFIRE', 1.6);
+      log('WEPS', `Conn, Weps — VLS misfire, cell ${cell}. ${wl} eject failed. Cell intact — available for re-fire.`, P.CRIT);
+    },
     away()       { msg('TORPEDO AWAY', 1.2); },
     countermeasures() {
       msg('NOISEMAKER OUT', 0.9);

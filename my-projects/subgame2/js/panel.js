@@ -343,7 +343,7 @@
       COMMS.crewState.actionStations('attack');
     }
     const tubeLoad=(player.tubeLoad||[])[tubeIdx];
-    const wlP=(!tubeLoad||tubeLoad==='torp')?'TORPEDO':(window.CONFIG?.missiles?.[tubeLoad]?.shortLabel||tubeLoad.toUpperCase());
+    const wlP=(!tubeLoad||tubeLoad==='torp')?(window.CONFIG?.weapons?.[window.CONFIG?.player?.torpWeapon]?.shortLabel||'TORPEDO'):(window.CONFIG?.weapons?.[tubeLoad]?.shortLabel||tubeLoad.toUpperCase());
     const cidP=game.tdc.targetId||'';
     COMMS.weapons.firingProcedures(tubeIdx+1, wlP, cidP, false);
     if(!player.pendingFires) player.pendingFires=[];
