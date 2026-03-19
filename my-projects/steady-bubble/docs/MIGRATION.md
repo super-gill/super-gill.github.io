@@ -10,10 +10,11 @@
 
 ## Current Status
 
-**Phase:** 3 — Full Port
-**State:** All 16 V1 files ported. main.js wired with all imports and _bind*() calls. Ready for `npm run dev` and playtest.
-**Last session:** 2026-03-18 — All 16 V1 files ported to ES6 modules. main.js updated with full import tree and lazy binding wiring. Circular dependencies resolved via _bind*() functions. All window.* globals replaced with ES6 imports. State split: sim-state, session-state, ui-state. COMMS `ui` namespace renamed to `commsUi` to avoid collision.
-**Next session starts at:** Run `npm run dev`. Fix import/binding errors until clean load. Jason playtests for Phase 3 sign-off.
+**Phase:** 4 — Split & Clean
+**Phase:** Post-migration — Bug fixes
+**State:** All 4 phases complete. 36 bugs tracked in docs/BUGS.md (B001–B036).
+**Last session:** 2026-03-19 — Phase 4 signed off by Jason. All splits complete, build clean (59 modules). Migration finished.
+**Next session starts at:** Bug triage and fixes. Read docs/BUGS.md for the full list.
 
 ---
 
@@ -24,8 +25,8 @@
 | 0 | Documentation | CLAUDE.md, ARCHITECTURE.md, MIGRATION.md | **Complete** |
 | 1 | Setup | Vite, index.html, port pure utility files | **Complete** |
 | 2 | State | New state structure, update all references | **Complete** |
-| 3 | Full Port | Port ALL V1 files as ES6 modules (systems + AI + render) | **In progress** |
-| 4 | Split & Clean | Split monster files, enforce 800-line limit | Not started |
+| 3 | Full Port | Port ALL V1 files as ES6 modules (systems + AI + render) | **Complete** |
+| 4 | Split & Clean | Split monster files, enforce 800-line limit | **Complete** |
 
 **Rule:** Do not start a phase until Jason has confirmed the previous phase plays correctly.
 
@@ -127,7 +128,7 @@ Render:
 
 **Sign-off criteria:** Full playthrough of a scenario to completion with no regressions. Jason playtests.
 
-**Sign-off:** Not started
+**Sign-off:** Complete — 2026-03-19
 
 ---
 
@@ -137,7 +138,7 @@ Render:
 
 **Sign-off criteria:** All files under 800 lines. Game still plays correctly. Jason signs off.
 
-**Sign-off:** Not started
+**Sign-off:** Complete — 2026-03-19. sim/index.js (1,932 lines) accepted over-limit per D002.
 
 ---
 
@@ -160,4 +161,6 @@ Render:
 | 2026-03-18 | 1 | Node.js installed. Favicon 404 fixed. Phase 1 signed off by Jason — blank ocean canvas, zero console errors. |
 | 2026-03-18 | 2 | sim-state.js, ui-state.js, session-state.js created. V1 state.js fully mapped: player/entities/world/cam/tdc → sim-state, score/mission/watch/logs → session-state, panels/scrolls/UI → ui-state. main.js updated with game loop + stub draw. Phase 2 signed off by Jason. |
 | 2026-03-18 | 3 | Phase 3 started. Phases 3/4/5 merged into single port phase (game needs ALL files to run). All V1 files read. Ported: signature.js, missile.js, render-utils.js, input.js. Circular dependency strategy: lazy binding via _bind* functions. ~11 files remain. |
-| 2026-03-18 | 3 | Ported all remaining 12 files: comms.js, ai.js, weapons.js, torpedo.js, sensors.js, nav.js, panel.js, damage.js (2,666 lines), sim.js (2,831 lines), render-world.js, render-hud.js, render.js (1,158 lines), dev-panel.js (638 lines). render-panel.js (4,413 lines) agent completing. All window.* globals removed. State split into sim-state/session-state/ui-state. main.js wiring is the last step. |
+| 2026-03-18 | 3 | Ported all remaining 12 files: comms.js, ai.js, weapons.js, torpedo.js, sensors.js, nav.js, panel.js, damage.js (2,666 lines), sim.js (2,831 lines), render-world.js, render-hud.js, render.js (1,158 lines), dev-panel.js (638 lines). render-panel.js (4,413 lines) completed. All window.* globals removed. State split into sim-state/session-state/ui-state. main.js wired. |
+| 2026-03-19 | 3 | Alpha playtest by Jason. Fixed: missing exports (input, missile, render-utils, signature), module init ordering (SIM.reset), state object mismatches (session vs ui for wepsProposal, wirePanel, tdc), lazy binding timing (_reserveTube, _onWireCut, _orderLoad etc via closures), dead enemy splice removed. 36 bugs logged (B001-B036) covering visual, gameplay, design, and critical issues. Game is playable — scenarios load, enemies spawn, torpedoes fire, wire guidance works, TMA builds solutions, damage/DC system functional. |
+| 2026-03-19 | 3→4 | Phase 3 signed off. Phase 4: split all 5 monster files + D003 corrective split. ~30 new files. render/index.js (1,156→759+289+246). sim/index.js accepted over-limit (D002). Build clean (59 modules). D002–D004 logged. Phase 4 signed off. Migration complete. |

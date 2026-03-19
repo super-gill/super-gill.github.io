@@ -34,7 +34,7 @@ import { DMG, _bindDamage, _bindDamagePanel, _bindDamageBroadcast } from './syst
 import { AI, _bindComms as _bindAIComms } from './ai/index.js';
 
 // ── Simulation ────────────────────────────────────────────────────────────
-import { SIM, _bindSim, damagePlayer, damageEnemy } from './sim/index.js';
+import { SIM, _bindSim, damagePlayer, damageEnemy, _onWireCut } from './sim/index.js';
 
 // ── UI ────────────────────────────────────────────────────────────────────
 import { input as I, _bindInput } from './ui/input.js';
@@ -79,7 +79,7 @@ _bindSignature(
 _bindWeapons({
   AI, COMMS, DMG,
   SENSE,
-  onWireCut: SIM._onWireCut,
+  onWireCut: _onWireCut,
   broadcastTransient: SENSE.broadcastTransient,
 });
 
@@ -103,9 +103,9 @@ _bindDamageBroadcast({ broadcastTransient: SENSE.broadcastTransient });
 
 _bindPanel({
   W, COMMS, DMG, I, AI,
-  onWireCut: SIM._onWireCut,
-  reserveTube: SIM._reserveTube,
-  reserveSpecificTube: SIM._reserveSpecificTube,
+  onWireCut: _onWireCut,
+  reserveTube: (...args) => SIM._reserveTube?.(...args),
+  reserveSpecificTube: (...args) => SIM._reserveSpecificTube?.(...args),
   DPR, canvas,
 });
 _bindRoute(route);
@@ -125,6 +125,13 @@ _bindRenderPanel({
   ctx, canvas, DPR, R, COMMS, AI, DMG, PANEL,
   wirePanel,
   SENSE, W, I, SIM,
+  orderLoad: (...args) => SIM._orderLoad?.(...args),
+  orderUnload: (...args) => SIM._orderUnload?.(...args),
+  orderStrikeReload: (...args) => SIM._orderStrikeReload?.(...args),
+  toggleMast: (...args) => SIM._toggleMast?.(...args),
+  fireVLS: (...args) => SIM._fireVLS?.(...args),
+  fireMissile: (...args) => SIM._fireMissile?.(...args),
+  stadimeterStart: (...args) => SIM._stadimeterStart?.(...args),
 });
 _bindRender({
   ctx, canvas, DPR, R, RWORLD, RHUD, RPANEL, AI, MAPS, I,
