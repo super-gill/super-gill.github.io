@@ -223,10 +223,20 @@ export const reactor = {
     if (lines[step]) log(lines[step][0], lines[step][1], lines[step][2]||P.NORMAL);
   },
   online() { msg('REACTOR ONLINE', 1.5); },
-  coolantLeak() {
-    log('MANV', 'Conn, Manoeuvring — primary coolant pressure dropping. We have a leak in the primary loop', P.CRIT);
-    qlog('ENG', 'Conn, Eng — estimating automatic SCRAM in forty-five seconds. Recommend reducing speed to give DC a chance to isolate', 2.0, P.CRIT);
-    msg('COOLANT LEAK', 2.0);
+  coolantLeak(count=1) {
+    if(count <= 1){
+      log('MANV', 'Conn, Manoeuvring — primary coolant pressure dropping. We have a leak in the primary loop', P.CRIT);
+      qlog('ENG', 'Conn, Eng — estimating automatic SCRAM in forty-five seconds. Recommend reducing speed to give DC a chance to isolate', 2.0, P.CRIT);
+      msg('COOLANT LEAK', 2.0);
+    } else if(count === 2){
+      log('MANV', 'Conn, Manoeuvring — primary coolant pressure dropping again. Second leak', P.CRIT);
+      qlog('ENG', 'Conn, Eng — DC reports the patch is not holding. We need to slow down, sir', 1.5, P.CRIT);
+      msg('COOLANT LEAK — RECURRING', 2.0);
+    } else {
+      log('MANV', 'Conn, Manoeuvring — another primary coolant leak. System is failing', P.CRIT);
+      qlog('ENG', 'Conn, Eng — we cannot keep isolating these. SCRAM is inevitable if we maintain this speed and depth', 1.5, P.CRIT);
+      msg('COOLANT — CRITICAL', 2.5);
+    }
   },
   coolantLeakProgress() {
     log('ENG', 'Conn, Eng — DC working the leak. Coolant pressure still falling', P.MED);
@@ -469,6 +479,12 @@ export const weapons = {
   missileDefeat(target) {
     msg('MISSILE DEFEATED', 1.5);
     log('SONAR', `Conn, Sonar — ${target} CIWS active. Missile defeated`);
+  },
+  vlsLaunchSequence(cell, weaponLabel, contactId) {
+    log('CONN', `Weps, Conn — firing point procedures, VLS cell ${cell}, ${weaponLabel}, ${contactId}`);
+    qlog('WEPS', `Conn, Weps — VLS cell ${cell}, ${weaponLabel}, ${contactId}, aye. Preparing cell`, 1.0);
+    qlog('WEPS', `Conn, Weps — cell ${cell} pressurised. Solution set. Ready to fire`, 2.5);
+    msg('VLS READY', 2.5);
   },
   vlsFired(cell, weaponLabel, contactId) {
     log('CONN', `Fire, VLS cell ${cell}, ${weaponLabel}, ${contactId}`);

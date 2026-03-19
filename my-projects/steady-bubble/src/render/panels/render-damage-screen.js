@@ -48,7 +48,7 @@ import { clamp, player, session, ui, L, C } from './panel-context.js';
     ctx.fillStyle=canRelieve?'rgba(140,190,255,0.90)':'rgba(80,100,130,0.50)';
     ctx.font=`bold ${U(9)}px ui-monospace,monospace`; ctx.textAlign='center';
     ctx.fillText(changing?'CHANGING\u2026':'RELIEVE WATCH [W]',relBtnX+U(60),U(21));
-    if(canRelieve) PNL.btn2(ctx,'',relBtnX,U(6),U(120),U(22),'transparent',()=>{ session._pendingWatchChange=true; });
+    if(canRelieve) PNL.btn2(ctx,'',relBtnX,U(6),U(120),U(22),'transparent',()=>{ L.SIM?.initiateWatchChange?.(); });
 
     const closeBtnX=W-U(88)-P;
     PNL.btn2(ctx,'[H] CLOSE',closeBtnX,U(6),U(86),U(22),'rgba(30,40,70,0.80)',()=>{ ui.showDamageScreen=false; });
@@ -132,7 +132,7 @@ import { clamp, player, session, ui, L, C } from './panel-context.js';
     function dsphPill(){ ctx.beginPath(); ctx.arc(phX0,phMid,phR,Math.PI*0.5,-Math.PI*0.5,false); ctx.lineTo(phX1,phTop); ctx.arc(phX1,phMid,phR,-Math.PI*0.5,Math.PI*0.5,false); ctx.lineTo(phX0,phBot); ctx.closePath(); }
     function dsohPill(){ ctx.beginPath(); ctx.arc(phX0,phMid,ohR,Math.PI*0.5,-Math.PI*0.5,false); ctx.lineTo(phX1,ohTop); ctx.arc(phX1,phMid,ohR,-Math.PI*0.5,Math.PI*0.5,false); ctx.lineTo(phX0,ohBot); ctx.closePath(); }
     function deckFloodFrac(flood,isFlooded,di){ if(isFlooded) return 1; const t=flood*3; return di===2?Math.min(1,Math.max(0,t)):di===1?Math.min(1,Math.max(0,t-1)):Math.min(1,Math.max(0,t-2)); }
-    const cState=compKeys.map(comp=>{ const sysList=DMG.activeSystems(comp); let wi=0; for(const s of sysList) wi=Math.max(wi,DMG.STATES.indexOf(DMG.effectiveState(s,dmg))); const rooms=DMG.SECTION_ROOMS[comp]||[]; const fires=[0,1,2].map(di=>Math.max(...rooms.filter(rid=>(DMG.ROOMS[rid]?.deck??-1)===di).map(rid=>dmg.fire?.[rid]||0),0)); return {wi,worst:DMG.STATES[wi],flood:dmg.flooding[comp]||0,isFlooded:!!dmg.flooded[comp],fireLevel:Math.max(...fires),fires}; });
+    const cState=compKeys.map(comp=>{ const sysList=DMG.activeSystems(comp); let wi=0; for(const s of sysList) wi=Math.max(wi,DMG.STATES.indexOf(dmg.systems[s]||'nominal')); const rooms=DMG.SECTION_ROOMS[comp]||[]; const fires=[0,1,2].map(di=>Math.max(...rooms.filter(rid=>(DMG.ROOMS[rid]?.deck??-1)===di).map(rid=>dmg.fire?.[rid]||0),0)); return {wi,worst:DMG.STATES[wi],flood:dmg.flooding[comp]||0,isFlooded:!!dmg.flooded[comp],fireLevel:Math.max(...fires),fires}; });
 
     ctx.save(); dsohPill(); ctx.strokeStyle='rgba(100,130,180,0.35)'; ctx.lineWidth=U(1.5); ctx.setLineDash([U(3),U(4)]); ctx.stroke(); ctx.setLineDash([]);
     const sX0=sailCX-sailW2*0.5, sX1=sailCX+sailW2*0.5;

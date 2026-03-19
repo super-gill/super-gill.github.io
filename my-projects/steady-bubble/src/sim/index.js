@@ -233,12 +233,14 @@ function reset(){
   resetTorpIds();
   if(_ROUTE) _ROUTE.length=0;
   session.score=0;session.over=false;session.won=false;session._wonDelayT=0;session._victory=false;session.msg="";session.msgT=0;session.missionT=0;session.msgLog=[];session.sonarLog=[];
+  setCasualtyState('normal'); setTacticalState('cruising');
   session._ssbnVictory=false;session._bossVictory=false;session._aswVictory=false;session._enemiesKilled=0;
   player.pendingFires=[];
   const spawn=_MAPS?.getMap()?.playerSpawn||{wx:4000,wy:5000};
   player.wx=spawn.wx; player.wy=spawn.wy;
   player.heading=0; player.speed=0; player.speedOrderKts=0;
-  player.depth=260; player.depthOrder=260;
+  const spawnDepth=Math.min(260, C.player.divingLimit||260);
+  player.depth=spawnDepth; player.depthOrder=spawnDepth;
   player.vy=0; player.turnRate=0; player.hp=C.player.hpMax; player.invuln=0;
   player.noise=0; player.noiseTransient=0; player.cavitating=false;
   player.torpCd=0; player.pingCd=0; player.cmCd=0; player.cmStock=C.player.cmStock??12; player.sonarPulse=0; player.periscopeCd=0; player.periscopeT=0;
@@ -250,7 +252,7 @@ function reset(){
   player.battery=1.0; player.snorkeling=false; player.snorkelOrdered=false; player._battDead=false;
   player._snorkelOrderedFired=false; player._snorkelCancelledFired=false;
   player._snorkelNoisyCautionFired=false; player._snorkelT=0; player._lastBatBand='ok';
-  player.silent=false; player.emergTurnT=0; player.emergTurnCd=0; player.crashDiveT=0; player.crashDiveCd=0; player.passiveTick=0;
+  player.silent=false; player.emergTurnT=0; player.emergTurnCd=0; player._crashDiving=false; player.crashDiveCd=0; player._crashTanksFull=false; player.passiveTick=0;
   player._coolantLeak=null; player._steamLeak=null; player._turbineTrip=null; player._flankDepthT=0; player._prevSpeed=0; player._movingDir=1;
   // Per-tube wire tracking -- null=no wire, or reference to the live torpedo
   player.tubeWires = new Array(C.player.torpTubes||4).fill(null);

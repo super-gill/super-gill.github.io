@@ -228,17 +228,43 @@ function _fireVLS(cellIdx){
   const cid=session.ascmSolution.contactId||'';
   const maxD=cfg.maxLaunchDepth??30;
   const overDepth=Math.max(0,player.depth-maxD);
-  const launchChance=overDepth===0?1.0:clamp(1-overDepth/(maxD*2),0,1);
   if(overDepth>0) _COMMS.weapons.missileDepthWarning(wl,player.depth,maxD);
-  if(Math.random()>launchChance){ _COMMS.weapons.vlsLaunchFail(wl,cellIdx+1); return; }
-  cell.state='expended';
-  const m=_MSL?.create(wType,player.wx,player.wy,{
-    bearing:session.ascmSolution.bearing,
-    range:session.ascmSolution.range,
-    ref:session.ascmSolution.ref,
-  });
-  if(m) missiles.push(m);
-  _COMMS.weapons.vlsFired(cellIdx+1,wl,cid);
+  // Queue the launch — countdown before missile away
+  const launchDelay=cfg.vlsLaunchDelay??4.0;
+  cell.state='launching';
+  cell._launchT=launchDelay;
+  cell._wType=wType;
+  cell._solution={bearing:session.ascmSolution.bearing, range:session.ascmSolution.range, ref:session.ascmSolution.ref};
+  cell._overDepth=overDepth;
+  cell._maxD=maxD;
+  cell._cid=cid;
+  _COMMS.weapons.vlsLaunchSequence?.(cellIdx+1,wl,cid);
+  player.noiseTransient=Math.min(1,(player.noiseTransient||0)+0.25);
+}
+
+// Tick VLS launch countdowns — called from tickPendingFires
+function _tickVLS(dt){
+  const cells=player.vlsCells||[];
+  for(let i=0;i<cells.length;i++){
+    const cell=cells[i];
+    if(!cell||cell.state!=='launching') continue;
+    cell._launchT-=dt;
+    if(cell._launchT>0) continue;
+    // Launch
+    const cfg=C.weapons?.[cell._wType];
+    const wl=cfg?.shortLabel||cell._wType?.toUpperCase()||'MSL';
+    const launchChance=cell._overDepth===0?1.0:clamp(1-cell._overDepth/(cell._maxD*2),0,1);
+    if(Math.random()>launchChance){
+      _COMMS.weapons.vlsLaunchFail(wl,i+1);
+      cell.state='expended';
+      continue;
+    }
+    cell.state='expended';
+    const m=_MSL?.create(cell._wType,player.wx,player.wy,cell._solution);
+    if(m) missiles.push(m);
+    _COMMS.weapons.vlsFired(i+1,wl,cell._cid||'');
+    player.noiseTransient=Math.min(1,(player.noiseTransient||0)+0.40);
+  }
 }
 
 // ── Stadimeter ──────────────────────────────────────────────────────────
@@ -425,6 +451,9 @@ export function tickPendingFires(dt){
   if(!player.pendingLogs) player.pendingLogs=[];
   for(const pl of player.pendingLogs){ pl.t-=dt; if(pl.t<=0){ pl.done=true; addLog(pl.station,pl.msg,pl.priority||0); } }
   player.pendingLogs=player.pendingLogs.filter(pl=>!pl.done);
+
+  // -- VLS launch countdowns ---------------------------------------------------
+  _tickVLS(dt);
 }
 
 // ── Tick: stadimeter ────────────────────────────────────────────────────

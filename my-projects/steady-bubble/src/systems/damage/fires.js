@@ -301,8 +301,16 @@ function _tickFireInner(dt, d){
     let F=0; // section max detected fire level (for section-level logic)
     let anyRoomFire=false;
 
+    // ── Distribute watchkeepers across burning rooms ─────────────────
+    // Watchkeepers split evenly across detected fires in their section.
+    // A single room gets all watchers; two rooms split them.
+    const burningDetected=roomIds.filter(rid=>(d.fire[rid]||0)>0&&d._fireDetected[rid]);
+    const watchPerRoom=watch&&watch.count>0&&burningDetected.length>0
+      ? Math.max(1, Math.floor(watch.count/burningDetected.length))
+      : 0;
+
     // ── Per-room fire growth ───────────────────────────────────────────
-    // Suppression is per-room: each room's watchkeepers fight their own fire,
+    // Suppression is per-room: watchkeepers split across fires,
     // and the DC team only suppresses the room they are physically in.
     for(const roomId of roomIds){
       const fire=d.fire[roomId]||0;
@@ -334,9 +342,8 @@ function _tickFireInner(dt, d){
         }
         continue; // doesn't contribute to F until detected
       }
-      // Detected — per-room suppression
-      const roomCrew=ROOMS[roomId].crew||0;
-      const watchSuppress=watch ? Math.min(roomCrew, watch.count) * WATCH_SUPPRESS : 0;
+      // Detected — per-room suppression with distributed watchkeepers
+      const watchSuppress=watchPerRoom * WATCH_SUPPRESS;
       const dcHere=(dcTeam&&dcTeam.location===roomId);
       const dcSuppress=dcHere ? DC_FIRE_SUPPRESS*_teamEffectiveness(dcTeam) : 0;
       const totalSuppress=watchSuppress+dcSuppress;
@@ -459,6 +466,18 @@ function _tickFireInner(dt, d){
           dcTeam._fireLosing=0;
           _COMMS?.fire.drenchInitiated(SECTION_LABEL[section]);
         }
+      } else if(F>DRENCH_THRESH && watch && watch.count>0){
+        // No DC team on scene — watchkeeper initiates drench (DC team still needed to vent)
+        if(!d._fireDrenchAutoT) d._fireDrenchAutoT={};
+        d._fireDrenchAutoT[section]=(d._fireDrenchAutoT[section]||0)+dt;
+        if(d._fireDrenchAutoT[section]>=DRENCH_LOSE_TIME){
+          d._fireDrenchAutoT[section]=0;
+          if(!d._fireDrenchPending) d._fireDrenchPending={};
+          d._fireDrenchPending[section]={t:20};
+          _COMMS?.fire.drenchInitiated(SECTION_LABEL[section]);
+        }
+      } else if(d._fireDrenchAutoT?.[section]){
+        d._fireDrenchAutoT[section]=0;
       }
     }
 

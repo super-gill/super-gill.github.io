@@ -83,7 +83,7 @@ import { player, session, ui, L, C } from './panel-context.js';
     ctx.fillText(changing?'CHANGING\u2026':'RELIEVE WATCH [W]',relBtnX+U(54),cy-U(1));
     if(canRelieve){
       PNL.btn2(ctx,'',relBtnX,cy-U(13),U(108),U(18),'transparent',
-        ()=>{ session._pendingWatchChange=true; });
+        ()=>{ L.SIM?.initiateWatchChange?.(); });
     }
 
     cy+=U(10);

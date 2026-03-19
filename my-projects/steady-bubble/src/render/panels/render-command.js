@@ -104,8 +104,8 @@ import { drawTdcSection } from './render-tdc.js';
     const aHalf=(w-pad-aGap)/2;
     btn('\u25b2 50',x,       arrowY,aHalf,arrowH,false,()=>PANEL.depthStep(-50));
     btn('\u25b2 10',x+aHalf+aGap,arrowY,aHalf,arrowH,false,()=>PANEL.depthStep(-10));
-    btn('\u25bc 10',x,       arrowY+arrowH+U(3),aHalf,arrowH,false,()=>PANEL.depthStep(10));
-    btn('\u25bc 50',x+aHalf+aGap,arrowY+arrowH+U(3),aHalf,arrowH,false,()=>PANEL.depthStep(50));
+    btn('\u25bc 50',x,       arrowY+arrowH+U(3),aHalf,arrowH,false,()=>PANEL.depthStep(50));
+    btn('\u25bc 10',x+aHalf+aGap,arrowY+arrowH+U(3),aHalf,arrowH,false,()=>PANEL.depthStep(10));
     const pdY=panelY+U(110);
     const atPD=player.depthOrder<=C.player.periscopeDepth+10;
     btn('COME TO PD',x,pdY,w-pad,U(20),atPD,()=>PANEL.comeToPD(),'#1e3a5f');
@@ -337,18 +337,19 @@ import { drawTdcSection } from './render-tdc.js';
     const ebH=U(20), egap=U(4); const ebW=w-pad;
     ctx.fillStyle=TH.color.header; ctx.font=`${U(TH.font.header)}px ${TH.FONT_FAMILY}`; ctx.textAlign='left'; ctx.fillText('EMERGENCY',x,panelY+U(18));
     btn('EMERGENCY TURN',x,panelY+U(27),ebW,ebH,player.emergTurnT>0,()=>PANEL.emergencyTurn(),'#7f1d1d',player.emergTurnT>0?'emergency':'available');
-    btn('CRASH DIVE',x,panelY+U(51),ebW,ebH,player.crashDiveT>0,()=>PANEL.emergencyCrashDive(),'#7f1d1d',player.crashDiveT>0?'emergency':'available');
+    btn('CRASH DIVE',x,panelY+U(51),ebW,ebH,player._crashDiving,()=>PANEL.emergencyCrashDive(),'#7f1d1d',player._crashDiving?'emergency':'available');
     }
 
     function drawWeaponsSection(x, w) {
     ctx.fillStyle=TH.color.header; ctx.font=`${U(TH.font.header)}px ${TH.FONT_FAMILY}`; ctx.textAlign='left'; ctx.fillText('WEAPONS',x,panelY+U(18));
     function weaponRow(label,cd,maxCd,y,actionLabel,action){
-      const rdy=cd<=0; const rowH=U(22); const wbW=U(110);
+      const rdy=cd<=0; const rowH=U(22); const actW=U(38); const gap=U(4);
+      const wbW=w-actW-gap-U(4);
       ctx.fillStyle='rgba(17,24,39,0.08)'; ctx.fillRect(x,y,wbW,rowH-U(3));
       if(!rdy){ ctx.fillStyle='rgba(17,24,39,0.20)'; ctx.fillRect(x,y,wbW*clamp(1-cd/maxCd,0,1),rowH-U(3)); } else { ctx.fillStyle='rgba(30,58,95,0.15)'; ctx.fillRect(x,y,wbW,rowH-U(3)); }
       ctx.fillStyle=rdy?'#111827':'rgba(17,24,39,0.35)'; ctx.font=`${U(9)}px ui-monospace,monospace`; ctx.textAlign='left';
       ctx.fillText(label+(rdy?' RDY':` ${cd.toFixed(1)}s`),x+U(3),y+rowH*0.70);
-      if(rdy) btn(actionLabel,x+wbW+U(4),y,U(38),rowH-U(3),false,action,'#1e3a5f');
+      if(rdy) btn(actionLabel,x+wbW+gap,y,actW,rowH-U(3),false,action,'#1e3a5f');
     }
     { const tubes=player.torpTubes||[]; const tubeLoad=player.tubeLoad||[]; const tubeOp=player.tubeOp||null;
       const stock=typeof player.torpStock==='number'?player.torpStock:0; const mStock=player.missileStock||0;
@@ -358,8 +359,9 @@ import { drawTdcSection } from './render-tdc.js';
       const selTube=ui.wirePanel?.selectedTube??0;
       ctx.fillStyle=outOfAmmo?'rgba(17,24,39,0.28)':'#111827'; ctx.font=`bold ${U(11)}px ui-monospace,monospace`; ctx.textAlign='left'; ctx.fillText('TUBES',x+U(3),hdrY+U(11));
       ctx.font=`bold ${U(11)}px ui-monospace,monospace`; ctx.fillStyle=outOfAmmo?'rgba(17,24,39,0.20)':'#111827'; ctx.textAlign='right';
-      const stockStr=`${stock}T${mStock>0?' '+mStock+'M':''}`; ctx.fillText(stockStr,x+U(145),hdrY+U(11));
-      const pipW=U(18), pipH=U(30), pipGap=U(4); const pipStartX=x+U(3); const pipY=hdrY+U(16);
+      const stockStr=`${stock}T${mStock>0?' '+mStock+'M':''}`; ctx.fillText(stockStr,x+w-U(5),hdrY+U(11));
+      const pipGap=U(3); const pipStartX=x+U(3); const pipY=hdrY+U(16);
+      const availW=w-U(8); const pipW=Math.min(U(18), (availW-pipGap*(tubes.length-1))/tubes.length); const pipH=U(30);
       for(let i=0;i<tubes.length;i++){
         const px=pipStartX+i*(pipW+pipGap);
         const wireOccupied=tubes[i]===-1||(player.tubeWires?.[i]?.wire?.live===true);
@@ -384,17 +386,18 @@ import { drawTdcSection } from './render-tdc.js';
         const wireOnSel=tubes[selTube]===-1||(player.tubeWires?.[selTube]?.wire?.live===true);
         const selLoad=tubeLoad[selTube]; const selState=tubes[selTube]; const opOnSel=tubeOp?.tubeIdx===selTube; const opBusy=!!tubeOp;
         const misTypes=C.player.missileTypes||[];
+        const lmX=x, lmW=w-U(3), lmGap=U(2);
         ctx.font=`${U(8)}px ui-monospace,monospace`; ctx.textAlign='left';
-        if(wireOnSel){ ctx.fillStyle='rgba(13,148,136,0.50)'; ctx.fillText(`T${selTube+1} WIRE LIVE`,pipStartX,lmY+U(13));
-        } else if(opOnSel){ const frac=clamp(tubeOp.progress/tubeOp.totalT,0,1); const barW2=U(145)-pipStartX+x; ctx.fillStyle='rgba(17,24,39,0.12)'; ctx.fillRect(pipStartX,lmY,barW2,lmH); ctx.fillStyle='rgba(180,140,60,0.35)'; ctx.fillRect(pipStartX,lmY,barW2*frac,lmH); ctx.fillStyle='rgba(180,140,60,0.80)'; const opLabels={load:'LOADING',unload:'UNLOADING',strike:'STRIKE RELOAD'}; ctx.fillText(`${opLabels[tubeOp.type]||'BUSY'} T${selTube+1}  ${Math.ceil(tubeOp.totalT-tubeOp.progress)}s`,pipStartX+U(3),lmY+U(13));
-        } else if(selLoad==null){ const nOpts=1+misTypes.length; const btnW2=(U(150)-pipStartX+x)/nOpts-U(2); let bx=pipStartX;
-          btn('LD TORP',bx,lmY,btnW2,lmH,opBusy,()=>L.orderLoad?.(selTube,'torp'),opBusy?'rgba(17,24,39,0.10)':'rgba(17,24,39,0.25)'); bx+=btnW2+U(2);
-          for(const mk of misTypes){ const ml=(C.weapons?.[mk]?.shortLabel||mk).slice(0,6); const canLoad=(mStock>0)&&!opBusy; btn(`LD ${ml}`,bx,lmY,btnW2,lmH,!canLoad,()=>L.orderLoad?.(selTube,mk),canLoad?'rgba(100,40,120,0.30)':'rgba(17,24,39,0.10)'); bx+=btnW2+U(2); }
-        } else { const nOpts=2+misTypes.filter(mk=>mk!==(selLoad==='torp'?null:selLoad)).length; const btnW2=(U(150)-pipStartX+x)/Math.max(nOpts,2)-U(2); let bx=pipStartX;
+        if(wireOnSel){ ctx.fillStyle='rgba(13,148,136,0.50)'; ctx.fillText(`T${selTube+1} WIRE LIVE`,lmX+U(3),lmY+U(13));
+        } else if(opOnSel){ const frac=clamp(tubeOp.progress/tubeOp.totalT,0,1); ctx.fillStyle='rgba(17,24,39,0.12)'; ctx.fillRect(lmX,lmY,lmW,lmH); ctx.fillStyle='rgba(180,140,60,0.35)'; ctx.fillRect(lmX,lmY,lmW*frac,lmH); ctx.fillStyle='rgba(180,140,60,0.80)'; const opLabels={load:'LOADING',unload:'UNLOADING',strike:'STRIKE RELOAD'}; ctx.fillText(`${opLabels[tubeOp.type]||'BUSY'} T${selTube+1}  ${Math.ceil(tubeOp.totalT-tubeOp.progress)}s`,lmX+U(3),lmY+U(13));
+        } else if(selLoad==null){ const nOpts=1+misTypes.length; const btnW2=(lmW-(nOpts-1)*lmGap)/nOpts; let bx=lmX;
+          btn('LD TORP',bx,lmY,btnW2,lmH,opBusy,()=>L.orderLoad?.(selTube,'torp'),opBusy?'rgba(17,24,39,0.10)':'rgba(17,24,39,0.25)'); bx+=btnW2+lmGap;
+          for(const mk of misTypes){ const ml=(C.weapons?.[mk]?.shortLabel||mk).slice(0,6); const canLoad=(mStock>0)&&!opBusy; btn(`LD ${ml}`,bx,lmY,btnW2,lmH,!canLoad,()=>L.orderLoad?.(selTube,mk),canLoad?'rgba(100,40,120,0.30)':'rgba(17,24,39,0.10)'); bx+=btnW2+lmGap; }
+        } else { const nOpts=1+(selLoad==='torp'?misTypes.length:1+misTypes.filter(mk=>mk!==selLoad).length); const btnW2=(lmW-(nOpts-1)*lmGap)/Math.max(nOpts,1); let bx=lmX;
           const canAct=!opBusy&&selState===0;
-          btn('UNLOAD',bx,lmY,btnW2,lmH,!canAct,()=>L.orderUnload?.(selTube),canAct?'rgba(17,24,39,0.25)':'rgba(17,24,39,0.10)'); bx+=btnW2+U(2);
-          if(selLoad!=='torp'){ const canChg=canAct&&(stock>0); btn('CHG TORP',bx,lmY,btnW2,lmH,!canChg,()=>L.orderStrikeReload?.(selTube,'torp'),canChg?'rgba(17,24,39,0.25)':'rgba(17,24,39,0.10)'); bx+=btnW2+U(2);
-          } else { for(const mk of misTypes){ const ml=(C.weapons?.[mk]?.shortLabel||mk).slice(0,6); const canChg=canAct&&(mStock>0); btn(`CHG ${ml}`,bx,lmY,btnW2,lmH,!canChg,()=>L.orderStrikeReload?.(selTube,mk),canChg?'rgba(100,40,120,0.30)':'rgba(17,24,39,0.10)'); bx+=btnW2+U(2); } }
+          btn('UNLOAD',bx,lmY,btnW2,lmH,!canAct,()=>L.orderUnload?.(selTube),canAct?'rgba(17,24,39,0.25)':'rgba(17,24,39,0.10)'); bx+=btnW2+lmGap;
+          if(selLoad!=='torp'){ const canChg=canAct&&(stock>0); btn('CHG TORP',bx,lmY,btnW2,lmH,!canChg,()=>L.orderStrikeReload?.(selTube,'torp'),canChg?'rgba(17,24,39,0.25)':'rgba(17,24,39,0.10)'); bx+=btnW2+lmGap;
+          } else { for(const mk of misTypes){ const ml=(C.weapons?.[mk]?.shortLabel||mk).slice(0,6); const canChg=canAct&&(mStock>0); btn(`CHG ${ml}`,bx,lmY,btnW2,lmH,!canChg,()=>L.orderStrikeReload?.(selTube,mk),canChg?'rgba(100,40,120,0.30)':'rgba(17,24,39,0.10)'); bx+=btnW2+lmGap; } }
         }
       }
       ctx.textAlign='left'; ctx.font=`${U(9)}px ui-monospace,monospace`; ctx.fillStyle='rgba(17,24,39,0.40)';
@@ -495,7 +498,7 @@ import { drawTdcSection } from './render-tdc.js';
       { draw: drawStatusSection,    min: 120, pref: 165, max: 185 },
       { draw: drawPostureSection,   min:  95, pref: 120, max: 135 },
       { draw: drawEmergencySection, min: 105, pref: 140, max: 155 },
-      { draw: drawWeaponsSection,   min: 125, pref: 155, max: 175 },
+      { draw: drawWeaponsSection,   min: Math.max(125, (C.player.torpTubes||4)*22+30), pref: Math.max(155, (C.player.torpTubes||4)*22+40), max: Math.max(175, (C.player.torpTubes||4)*22+50) },
       { draw: drawMastSection,      min: 120, pref: 150, max: 165 },
       { draw: drawWireSection,      min: 145, pref: 185, max: 210 },
       ...( (C.player.vlsCells||0) > 0 ? [{ draw: drawVlsSection, min: 105, pref: 135, max: 155 }] : [] ),

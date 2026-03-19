@@ -94,17 +94,28 @@ function depthStep(delta){
   const p=player;
   const ground=world?.ground??1900;
   if(!p) return;
-  p.depthOrder=Math.max(20,Math.min(ground-60,(p.depthOrder??p.depth)+delta));
-  if(p._blowVenting || p._blowPending || p._blowManualT > 0){
+  // Snap to nearest boundary in the step direction, then step evenly
+  const cur=p.depthOrder??p.depth;
+  const step=Math.abs(delta);
+  const snapped=delta>0 ? Math.ceil(cur/step)*step : Math.floor(cur/step)*step;
+  const newDepth=snapped===cur ? cur+delta : snapped;
+  p.depthOrder=Math.max(20,Math.min(ground-60,newDepth));
+  if(p._blowVenting || p._blowPending || p._blowManualT > 0 || p._blownBallast){
     p._blowVenting = false;
     p._blowVy = 0;
     p._blowPending = false;
     p._blowManualT = 0;
+    p._blownBallast = false;
     const hpaR=p.damage?.hpa;
     if(hpaR) hpaR._reserveCommitted = false;
     _COMMS?.trim?.blowCancelledByOrder(Math.round(p.depthOrder));
     setCasualtyState('normal');
     setTacticalState('cruising');
+  }
+  // Cancel crash dive on depth change
+  if(p._crashDiving){
+    p._crashDiving = false;
+    p._crashTanksFull = false;
   }
   clearTimeout(p._depthLogTimer);
   p._depthLogTimer=setTimeout(()=>{
@@ -197,7 +208,7 @@ function emergencyCrashDive(){
   const dmgFx=_DMG?.getEffects()||{};
   if(dmgFx.crashDiveAvail===false){ _COMMS?.nav?.connRoomUnavail('crash dive'); return; }
   if(p.crashDiveCd>0) return;
-  if(p.crashDiveT>0) return;
+  if(p._crashDiving) return;
   const emergRecent=(p.emergTurnCd||0) > (C.player.emergencyTurn?.cd||30)*0.7;
   if(emergRecent && p.speed>20 && Math.random()<0.45){
     triggerScram('combo');
@@ -221,8 +232,9 @@ function emergencyCrashDive(){
     if(ta.state==='operational'){ ta.state='damaged'; _COMMS?.nav?.towedArrayStress('crash dive','damaged'); }
     else if(ta.state==='damaged'){ ta.state='destroyed'; _COMMS?.nav?.towedArrayStress('crash dive','destroyed'); }
   }
-  p.crashDiveT=C.player.crashDive.dur;
+  p._crashDiving=true;
   p.crashDiveCd=C.player.crashDive.cd;
+  p._crashTanksFull=false;
   p.noiseTransient=Math.min(1,(p.noiseTransient||0)+C.player.crashDive.noiseSpike);
   p.depthOrder=Math.min(ground-60,(p.depthOrder??p.depth)+600);
   p._crashTauOverride=C.player.crashDive.tauOverride??0.4;
@@ -267,6 +279,12 @@ function emergencyBlowBallast(){
   if(hpa && hpa.pressure < ambient && hpa.reserve > 0){
     hpa._reserveCommitted = true;
     _COMMS?.trim?.reserveHPACommitted();
+  }
+
+  // Cancel crash dive — e-blow overrides
+  if(p._crashDiving){
+    p._crashDiving = false;
+    p._crashTanksFull = false;
   }
 
   setTacticalState('action');

@@ -130,6 +130,8 @@ addEventListener("mousedown", (e) => {
       return;
     }
     if (_handlePanelClick?.(input.mouseX, input.mouseY)) return;
+    // Block map clicks when damage/DC overlay is open
+    if (ui.showDamageScreen || ui.showDcPanel || ui.showDmgPanel || ui.showCrewPanel) return;
     if (input.shiftHeld) {
       input.torpAimClick = true;
     } else {

@@ -279,7 +279,7 @@ function stepDynamics(dt){
   // ── Depth ─────────────────────────────────────────────────────────────────
   const errD=(player.depthOrder??player.depth)-player.depth;
   // Crash dive: use tauOverride for instant response; clear once dive settles
-  const crashActive=player.crashDiveT>0;
+  const crashActive=!!player._crashDiving;
   if(crashActive && player._crashTauOverride>0){
     // Bleed off override as the dive progresses — snappy start, settles to normal
     player._crashTauOverride=Math.max(0, (player._crashTauOverride||0)-dt*0.025);  // slow bleed — keeps dive responsive for ~16s
@@ -416,11 +416,12 @@ function stepDynamics(dt){
       // factor 12: converts fill-rate to approximate m equivalent for cost continuity
     }
 
-    // ── Recharge — surface only ───────────────────────────────────────────
-    // HPA can only be recharged on the surface (≤20m) from atmospheric air.
-    // HP active recharge adds noise; both stop when submerged.
+    // ── Recharge — surface or snorkeling ────────────────────────────────
+    // HPA recharged from atmospheric air: surfaced (≤20m) or snorkeling.
+    // HP active recharge adds noise; both stop when fully submerged.
     const atSurface = player.depth <= 20;
-    if(!player._blowVenting && atSurface){
+    const canRechargeHPA = atSurface || player.snorkeling;
+    if(!player._blowVenting && canRechargeHPA){
       // Surface recharge resets reserve commitment — full banks available for next emergency
       if(hpa._reserveCommitted) hpa._reserveCommitted = false;
       const lpRate = hpaC.lpRechargeRate || 0.4;
@@ -586,7 +587,16 @@ function stepDynamics(dt){
     else if(player.depthOrder > 20) player._blownBallast = false;
   }
 
-  if(!blowing && !player._blownBallast && mbt){
+  // ── Crash dive ballast flood — mirror of e-blow ───────────────────────
+  // Vents open: sea pressure floods tanks rapidly. No HPA needed.
+  if(crashActive && mbt && !player._crashTanksFull){
+    const floodRate = (C.player.crashDive.ballastFloodRate ?? 0.08) * dt;
+    for(let i=0;i<mbt.tanks.length;i++) mbt.tanks[i] = Math.min(1, mbt.tanks[i]+floodRate);
+    const minFill = Math.min(...mbt.tanks);
+    if(minFill >= 0.98) player._crashTanksFull = true;
+  }
+
+  if(!blowing && !player._blownBallast && !crashActive && mbt){
     // Two-zone depth controller:
     // Outside brake zone — full authority (constant max fill offset, fast approach)
     // Inside brake zone  — proportional settle (avoids hanging near target)
@@ -722,7 +732,6 @@ function stepDynamics(dt){
   // ── Timers ────────────────────────────────────────────────────────────────
   player.emergTurnT=Math.max(0,player.emergTurnT-dt);
   player.emergTurnCd=Math.max(0,player.emergTurnCd-dt);
-  player.crashDiveT=Math.max(0,player.crashDiveT-dt);
   player.crashDiveCd=Math.max(0,player.crashDiveCd-dt);
 
   // ── Battery ───────────────────────────────────────────────────────────────
@@ -732,46 +741,46 @@ function stepDynamics(dt){
     if(player.battery==null) player.battery=1.0;
     const atSurface=player.depth<=5;
 
+    // ── Snorkel system (all sub types) ─────────────────────────────────
+    const snkDepth=C.player.snorkelDepth??12;
+
+    // ── Snorkel order / cancel transitions ────────────────────────────
+    if(player.snorkelOrdered && !player._snorkelOrderedFired){
+      player._snorkelOrderedFired=true;
+      player._snorkelCancelledFired=false;
+      _COMMS?.snorkel?.ordered();
+    }
+    if(!player.snorkelOrdered && !player._snorkelCancelledFired && player._snorkelOrderedFired){
+      player._snorkelCancelledFired=true;
+      player._snorkelOrderedFired=false;
+      if(player.snorkeling) _COMMS?.snorkel?.cancelled();
+    }
+
+    // ── Snorkel depth management ───────────────────────────────────────
+    if(player.snorkelOrdered && !player.snorkeling){
+      player.depthOrder=snkDepth;
+      if(player.depth<=snkDepth+5){
+        player.snorkeling=true;
+        player._snorkelNoisyCautionFired=false;
+        _COMMS?.snorkel?.deployed();
+      }
+    } else if(!player.snorkelOrdered && player.snorkeling){
+      player.snorkeling=false;
+    }
+
+    // One-time ESM/noise caution after snorkelling for 10 seconds
+    if(player.snorkeling){
+      player._snorkelT=(player._snorkelT||0)+dt;
+      if(player._snorkelT>=10 && !player._snorkelNoisyCautionFired){
+        player._snorkelNoisyCautionFired=true;
+        _COMMS?.snorkel?.noisyCaution();
+      }
+    } else {
+      player._snorkelT=0;
+    }
+
+    // ── Battery charge / drain ─────────────────────────────────────────
     if(isDiesel){
-      const snkDepth=C.player.snorkelDepth??12;
-
-      // ── Snorkel order / cancel transitions ────────────────────────────
-      // Fire ordered comms exactly once when snorkelOrdered first becomes true
-      if(player.snorkelOrdered && !player._snorkelOrderedFired){
-        player._snorkelOrderedFired=true;
-        player._snorkelCancelledFired=false;
-        _COMMS?.snorkel?.ordered();
-      }
-      if(!player.snorkelOrdered && !player._snorkelCancelledFired && player._snorkelOrderedFired){
-        player._snorkelCancelledFired=true;
-        player._snorkelOrderedFired=false;
-        if(player.snorkeling) _COMMS?.snorkel?.cancelled(); // only if was actually snorkeling
-      }
-
-      // ── Snorkel depth management ───────────────────────────────────────
-      if(player.snorkelOrdered && !player.snorkeling){
-        player.depthOrder=snkDepth;
-        if(player.depth<=snkDepth+5){
-          player.snorkeling=true;
-          player._snorkelNoisyCautionFired=false;
-          _COMMS?.snorkel?.deployed();
-        }
-      } else if(!player.snorkelOrdered && player.snorkeling){
-        player.snorkeling=false;
-      }
-
-      // One-time ESM/noise caution after snorkelling for 10 seconds
-      if(player.snorkeling){
-        player._snorkelT=(player._snorkelT||0)+dt;
-        if(player._snorkelT>=10 && !player._snorkelNoisyCautionFired){
-          player._snorkelNoisyCautionFired=true;
-          _COMMS?.snorkel?.noisyCaution();
-        }
-      } else {
-        player._snorkelT=0;
-      }
-
-      // ── Charge / drain ─────────────────────────────────────────────────
       if(atSurface||player.snorkeling){
         const dmgFxBat=_DMG?.getEffects()||{};
         const baseRate=atSurface?(batC.surfaceChargeRate??0.005):(batC.chargeRate??0.003);
@@ -786,7 +795,7 @@ function stepDynamics(dt){
         player.battery=Math.max(0, player.battery-drain);
       }
 
-      // ── Battery level warnings (once per band) ─────────────────────────
+      // ── Battery level warnings (once per band) ─────────────────────
       const batPct=Math.round(player.battery*100);
       const batBand=batPct<=10?'crit':batPct<=20?'low':batPct<=30?'med':'ok';
       if(batBand!=='ok' && batBand!==(player._lastBatBand||'ok') && !player.snorkeling && !atSurface){
@@ -796,12 +805,11 @@ function stepDynamics(dt){
         player._lastBatBand='ok';
       }
 
-      // ── Dead battery — kill propulsion, alert once ─────────────────────
+      // ── Dead battery — kill propulsion, alert once ─────────────────
       if(!player._battDead && player.battery<0.005 && !atSurface && !player.snorkeling){
         player._battDead=true;
         _COMMS?.snorkel?.exhausted();
       }
-
     } else {
       // Nuclear: drains only during SCRAM, charges when reactor is online
       if(player.scram){
