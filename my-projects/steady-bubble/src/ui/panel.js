@@ -103,6 +103,8 @@ function depthStep(delta){
     const hpaR=p.damage?.hpa;
     if(hpaR) hpaR._reserveCommitted = false;
     _COMMS?.trim?.blowCancelledByOrder(Math.round(p.depthOrder));
+    setCasualtyState('normal');
+    setTacticalState('cruising');
   }
   clearTimeout(p._depthLogTimer);
   p._depthLogTimer=setTimeout(()=>{
@@ -203,13 +205,16 @@ function emergencyCrashDive(){
     return;
   }
   // Cancel active blow — crash dive overrides emergency surface
-  if(p._blowVenting || p._blowPending || (p._blowManualT||0) > 0){
+  if(p._blowVenting || p._blowPending || (p._blowManualT||0) > 0 || p._blownBallast){
     p._blowVenting = false;
     p._blowVy = 0;
     p._blowPending = false;
     p._blowManualT = 0;
+    p._blownBallast = false;
     const hpaR=p.damage?.hpa;
     if(hpaR) hpaR._reserveCommitted = false;
+    setCasualtyState('normal');
+    setTacticalState('cruising');
   }
   const ta=p.towedArray;
   if(ta){
