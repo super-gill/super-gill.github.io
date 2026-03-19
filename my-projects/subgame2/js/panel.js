@@ -143,7 +143,7 @@
       else if(ta.state==='damaged'){ ta.state='destroyed'; COMMS.nav.towedArrayStress('manoeuvre','destroyed'); }
     }
     // Clear waypoints
-    const route=window.G?.route; if(route) route.length=0;
+    const route=window.ROUTE; if(route) route.length=0;
     p.emergTurnT=C.player.emergencyTurn.dur;
     p.emergTurnCd=C.player.emergencyTurn.cd;
     p.noiseTransient=Math.min(1,(p.noiseTransient||0)+C.player.emergencyTurn.noiseSpike);
@@ -192,7 +192,9 @@
     const flankIdx = SPEED_STATES.findIndex(s=>s.label==='AHEAD FLANK');
     const fullIdx  = SPEED_STATES.findIndex(s=>s.label==='AHEAD FULL');
     const useIdx   = flankIdx>=0 ? flankIdx : fullIdx>=0 ? fullIdx : _telegraphIdx;
-    if(_telegraphIdx < useIdx || _telegraphIdx === 5){   // only increase speed, don't slow down
+    // Apply if not already at target speed. Lower index = faster forward;
+    // condition was previously `< useIdx` which is always false since useIdx=0.
+    if(_telegraphIdx !== useIdx){
       _telegraphIdx = useIdx;
       p.speedOrderKts = SPEED_STATES[useIdx]?.kts ?? 20;
       p.speedDir      = SPEED_STATES[useIdx]?.dir ?? 1;

@@ -18,7 +18,7 @@
     }
     n=clamp(n+turnMag*C.player.turnNoise,0,1);
     if(window.PANEL?.getTelegraph()?.kts >= (C.player.flankKts||28)) n=clamp(n+C.player.flankNoiseBoost,0,1);
-    const cavK=cavitationThresholdKts(player.y);
+    const cavK=cavitationThresholdKts(player.depth);
     player.cavitating=(player.speed>cavK);
     if(player.cavitating) n=clamp(n+C.player.cavitationSpike,0,1);
     if(player.silent) n*=C.player.silentRunning.noiseMult;

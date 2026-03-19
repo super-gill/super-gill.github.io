@@ -216,9 +216,9 @@
     game._ssbnVictory=false;game._bossVictory=false;game._aswVictory=false;game._enemiesKilled=0;
     player.pendingFires=[];
     const spawn=window.MAPS?.getMap()?.playerSpawn||{wx:4000,wy:5000};
-    player.wx=spawn.wx; player.wy=spawn.wy; player.x=spawn.wx;
+    player.wx=spawn.wx; player.wy=spawn.wy;
     player.heading=0; player.speed=0; player.speedOrderKts=0;
-    player.depth=260; player.depthOrder=260; player.y=260;
+    player.depth=260; player.depthOrder=260;
     player.vy=0; player.turnRate=0; player.hp=C.player.hpMax; player.invuln=0;
     player.noise=0; player.noiseTransient=0; player.cavitating=false;
     player.torpCd=0; player.pingCd=0; player.cmCd=0; player.cmStock=C.player.cmStock??12; player.sonarPulse=0; player.periscopeCd=0; player.periscopeT=0;
@@ -292,12 +292,11 @@
   reset();
 
   function update(dt){
-    if(I.keys.has("r")){ I.keys.delete("r"); window.location.reload(); }
+    if(I.justPressed('reload')){ window.location.reload(); }
 
-    if(I.keys.has("h")){ I.keys.delete("h"); game.showDamageScreen=!game.showDamageScreen; }
-    if(I.keys.has("y")){ I.keys.delete("y"); game.showDamageScreen=!game.showDamageScreen; }
-    if(I.keys.has("w")){ I.keys.delete("w"); initiateWatchChange(); }
-    if(I.keys.has("a")){ I.keys.delete("a"); window.PANEL?.callActionStations(); }
+    if(I.justPressed('damageScreen')||I.justPressed('damageScreenAlt')){ game.showDamageScreen=!game.showDamageScreen; }
+    if(I.justPressed('watchChange')){ initiateWatchChange(); }
+    if(I.justPressed('actionStations')){ window.PANEL?.callActionStations(); }
 
     // God mode — restore hp to max every tick so damage can't stick
     if(game.godMode) player.hp=C.player.hpMax;
@@ -1110,8 +1109,7 @@
       I.aimWorldX=cam.x+(I.mouseX-(canvas.width-C.layout.depthStripW*DPR)/2)/(Z*DPR);
       I.aimWorldY=cam.y+(I.mouseY-(canvas.height-C.layout.panelH*DPR)/2)/(Z*DPR);
       // Periscope (O) — scope_atk must be raised, shallow only
-      if(I.keys.has("o") && player.periscopeCd<=0){
-        I.keys.delete("o");
+      if(I.justPressed('periscope') && player.periscopeCd<=0){
         const scopeMast=(player.masts||[]).find(m=>m.key==='scope_atk');
         if(DMG.getEffects().periscopeOk===false||(scopeMast&&scopeMast.state==='damaged')){
           COMMS.ui?.periscopeDamaged?.();
@@ -1228,7 +1226,7 @@
           }
         }
       }
-      if(I.keys.has(" ")&&player.pingCd<=0){ I.keys.delete(" "); if(player.scram){ COMMS.ui.sonarOffline(); } else { SENSE.activePing(); COMMS.ui.ping(); } }
+      if(I.justPressed('activePing')&&player.pingCd<=0){ if(player.scram){ COMMS.ui.sonarOffline(); } else { SENSE.activePing(); COMMS.ui.ping(); } }
       SENSE.passiveUpdate(dt);
       SENSE.towedArrayUpdate(dt);
 
@@ -1312,8 +1310,7 @@
       }
 
       // F = quick fire straight ahead, no wire
-      if(I.keys.has("f")){
-        I.keys.delete("f");
+      if(I.justPressed('fireTorpedo')){
         if((player.pendingFires||[]).length>0){
           COMMS.weapons.unableFiring();
         } else {
@@ -1339,8 +1336,7 @@
       }
 
       // X = deploy noisemaker
-      if(I.keys.has("x")&&player.cmCd<=0){
-        I.keys.delete("x");
+      if(I.justPressed('countermeasure')&&player.cmCd<=0){
         if((player.cmStock??1)>0){
           player.cmStock--;
           player.cmCd=C.player.cmCd;
@@ -2183,7 +2179,7 @@
             const dx=AI.wrapDx(e.x,tx);
             const dy=ty-e.y;
             const d=Math.hypot(dx,dy);
-            const layer=AI.layerPenalty(player.y,e.y);
+            const layer=AI.layerPenalty(player.depth,e.y);
             const maxD=(layer<1)?2200:2800;
             if(d<maxD){
               // Intercept bearing using TMA-estimated player velocity
@@ -2641,8 +2637,8 @@
         b.y += b.vy*dt;
         if(b.y>=b.targetY || b.y>=world.ground-12){
           W.makeExplosion(b.x,b.y,1.15,true);
-          const dxp=AI.wrapDx(b.x,player.x);
-          const dyp=player.y-b.y;
+          const dxp=AI.wrapDx(b.x,player.wx);
+          const dyp=player.depth-b.y;
           const dp=Math.hypot(dxp,dyp);
           if(dp<b.blastR) damagePlayer(b.dmg*(1-dp/b.blastR));
 
