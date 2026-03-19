@@ -1,13 +1,15 @@
 // render.js — main draw orchestrator
-// Calls all render sub-modules: render-world, render-hud, render-panel
+// Calls all render sub-modules: render-world, render-hud, render-panel, render-contacts, render-weapons
 'use strict';
 
 import { CONFIG } from '../config/constants.js';
-import { TAU, clamp, lerp, now, jitter, deg2rad, angleNorm } from '../utils/math.js';
-import { world, cam, bullets, particles, enemies, decoys, contacts, cwisTracers,
-         wireContacts, sonarContacts, player, wrecks, buoys, missiles, tdc } from '../state/sim-state.js';
-import { session, setMsg } from '../state/session-state.js';
+import { TAU, clamp, lerp, now, angleNorm } from '../utils/math.js';
+import { world, cam, bullets, particles, enemies, decoys,
+         player, wrecks, buoys, tdc } from '../state/sim-state.js';
+import { session } from '../state/session-state.js';
 import { ui } from '../state/ui-state.js';
+import { drawSonarContacts, drawTowedArrayBearings, drawPassiveContacts } from './render-contacts.js';
+import { drawTorpedoes, drawASROC, drawCruiseMissiles, drawDepthCharges, drawWireContacts, drawCWISTracers } from './render-weapons.js';
 
 // ── Lazy bindings ────────────────────────────────────────────────────────
 let _ctx = null;
@@ -153,255 +155,13 @@ function draw(){
   }
 
   // ── Sonar contacts — TMA bearing lines + position blobs ─────────────────
-  const SC=sonarContacts;
-  const TMA_CFG=C.tma;
-  if(SC && TMA_CFG){
-    const t2=performance.now()/1000;
-    const maxBrgLine=wScale(TMA_CFG.defaultRange*1.4);
-
-    for(const [e,c] of SC){
-      const fresh=c.activeT>0;
-      const T_game=session.missionT||0;
-      const staleSecs=T_game-(c.lastObsT||0);
-      const alpha=Math.max(0.18, 0.80 - Math.min(1,staleSecs/120)*0.62);
-      const age=t2-c.lastT;
-      const q=c.tmaQuality??0;
-
-      // Past bearing lines — ghosted history
-      const obs=c.bearings||[];
-      const histObs=obs.slice(-7, -1);
-      for(const o of histObs){
-        const [ox,oy]=w2s(o.fromX, o.fromY);
-        const endX=o.fromX+Math.cos(o.bearing)*TMA_CFG.defaultRange*1.3;
-        const endY=o.fromY+Math.sin(o.bearing)*TMA_CFG.defaultRange*1.3;
-        const [ex2,ey2]=w2s(endX, endY);
-        ctx.strokeStyle=`rgba(17,24,39,${alpha*0.14})`;
-        ctx.lineWidth=0.8;
-        ctx.setLineDash([3,6]);
-        ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ex2,ey2); ctx.stroke();
-        ctx.setLineDash([]);
-      }
-
-      // Current bearing line
-      if(c.latestBrg!=null){
-        const ox=c.latestFromX??player.wx, oy2=c.latestFromY??player.wy;
-        const [lox,loy]=w2s(ox,oy2);
-        const endX=ox+Math.cos(c.latestBrg)*TMA_CFG.defaultRange*1.4;
-        const endY=oy2+Math.sin(c.latestBrg)*TMA_CFG.defaultRange*1.4;
-        const [ex,ey]=w2s(endX, endY);
-        ctx.strokeStyle=`rgba(17,24,39,${alpha*(fresh?0.70:0.45)})`;
-        ctx.lineWidth=fresh?1.4:1.0;
-        ctx.setLineDash(fresh?[]:[4,5]);
-        ctx.beginPath(); ctx.moveTo(lox,loy); ctx.lineTo(ex,ey); ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Contact ID + solution quality along the bearing line
-        {
-          const labelDist=Math.min(maxBrgLine*0.55, wScale(500));
-          const lineLen=Math.hypot(ex-lox,ey-loy)||1;
-          const lx=lox+(ex-lox)*(labelDist/lineLen);
-          const ly=loy+(ey-loy)*(labelDist/lineLen);
-          const perpX=-(ey-loy)/lineLen, perpY=(ex-lox)/lineLen;
-          const tickLen=U(3+q*6);
-          const tickCol=q>=0.6?`rgba(22,163,74,${alpha*0.9})`:q>=0.2?`rgba(217,119,6,${alpha*0.9})`:`rgba(100,100,100,${alpha*0.6})`;
-          ctx.strokeStyle=tickCol; ctx.lineWidth=2;
-          ctx.beginPath();
-          ctx.moveTo(lx-perpX*tickLen, ly-perpY*tickLen);
-          ctx.lineTo(lx+perpX*tickLen, ly+perpY*tickLen);
-          ctx.stroke();
-          ctx.fillStyle=`rgba(17,24,39,${alpha*0.75})`;
-          doodleText(c.id, lx+U(4), ly-U(4), U(8), 'left');
-          if(q<0.2) doodleText('BRG', lx+U(4), ly+U(5), U(6), 'left');
-          else if(q<0.6){ ctx.fillStyle=`rgba(217,119,6,${alpha*0.75})`; doodleText('BLDG', lx+U(4), ly+U(5), U(6), 'left'); }
-          else { ctx.fillStyle=`rgba(22,163,74,${alpha*0.75})`; doodleText('SOLID', lx+U(4), ly+U(5), U(6), 'left'); }
-
-          // ── CLSNG / OPNG / CBDR tag
-          {
-            const rr=c._rangeRate, br=c._brgRate;
-            let tag=null, tagCol=null;
-            if(rr!=null){
-              const cbdr=Math.abs(br??0)<0.0006 && rr<-8;
-              if(cbdr){ tag='CBDR'; tagCol=`rgba(180,30,30,${alpha*0.90})`; }
-              else if(rr<-8){ tag='CLSNG'; tagCol=`rgba(180,30,30,${alpha*0.72})`; }
-              else if(rr>8){ tag='OPNG'; tagCol=`rgba(40,110,50,${alpha*0.72})`; }
-            } else if(br!=null && Math.abs(br)>0.0008){
-              tag=br>0?'R DRIFT':'L DRIFT';
-              tagCol=`rgba(100,100,100,${alpha*0.55})`;
-            }
-            if(tag){
-              ctx.fillStyle=tagCol;
-              doodleText(tag, lx+U(4), ly+U(14), U(6), 'left');
-            }
-          }
-        }
-      }
-
-      // ── Estimated contact position + heading arrow
-      if(c._estHeading!=null && c._estRange!=null){
-        const headingAge=T_game-(c._estHeadingT||0);
-        if(headingAge<90){
-          const conf=(c._estHeadingConf||0)*(1-Math.min(1,headingAge/90));
-          if(conf>0.06){
-            const ox=c.latestFromX??player.wx, oy=c.latestFromY??player.wy;
-            const cpx=ox+Math.cos(c.latestBrg??0)*c._estRange;
-            const cpy=oy+Math.sin(c.latestBrg??0)*c._estRange;
-            const [scx,scy]=w2s(cpx,cpy);
-            ctx.fillStyle=`rgba(17,24,39,${alpha*clamp(conf*1.2,0,0.75)})`;
-            ctx.beginPath(); ctx.arc(scx,scy,U(3),0,Math.PI*2); ctx.fill();
-            const arrowLen=800+conf*600;
-            const tipX=cpx+Math.cos(c._estHeading)*arrowLen;
-            const tipY=cpy+Math.sin(c._estHeading)*arrowLen;
-            const [stx,sty]=w2s(tipX,tipY);
-            const aAlpha=alpha*clamp(conf*1.1,0,0.70);
-            ctx.strokeStyle=`rgba(17,24,39,${aAlpha})`;
-            ctx.lineWidth=1.5; ctx.setLineDash([]);
-            ctx.beginPath(); ctx.moveTo(scx,scy); ctx.lineTo(stx,sty); ctx.stroke();
-            const ang=Math.atan2(sty-scy,stx-scx);
-            const aw=U(5);
-            ctx.beginPath();
-            ctx.moveTo(stx,sty);
-            ctx.lineTo(stx+Math.cos(ang+2.6)*aw, sty+Math.sin(ang+2.6)*aw);
-            ctx.moveTo(stx,sty);
-            ctx.lineTo(stx+Math.cos(ang-2.6)*aw, sty+Math.sin(ang-2.6)*aw);
-            ctx.stroke();
-            if(conf>0.25){
-              const hdgDeg=(((Math.atan2(Math.cos(c._estHeading),-Math.sin(c._estHeading))*180/Math.PI)+360)%360);
-              ctx.fillStyle=`rgba(17,24,39,${alpha*conf*0.65})`;
-              doodleText(Math.round(hdgDeg).toString().padStart(3,'0')+'°', scx+U(5), scy-U(8), U(7), 'left');
-            }
-            if(conf>0.30){
-              const brgToPlayer=(c.latestBrg??0)+Math.PI;
-              const aspectRad=Math.abs(((c._estHeading-brgToPlayer+3*Math.PI)%(Math.PI*2))-Math.PI);
-              let aspect;
-              if(aspectRad<Math.PI/6)       aspect='BOW';
-              else if(aspectRad<Math.PI/3)  aspect='F.QTR';
-              else if(aspectRad<2*Math.PI/3) aspect='BEAM';
-              else if(aspectRad<5*Math.PI/6) aspect='A.QTR';
-              else                           aspect='STERN';
-              const aspectCol=aspect==='BOW'?`rgba(180,30,30,${alpha*conf*0.80})`
-                :aspect==='STERN'?`rgba(40,110,50,${alpha*conf*0.80})`
-                :`rgba(17,24,39,${alpha*conf*0.65})`;
-              ctx.fillStyle=aspectCol;
-              doodleText(aspect, scx+U(5), scy+U(5), U(7), 'left');
-            }
-          }
-        }
-      }
-    }
-  }
+  drawSonarContacts(ctx, w2s, wScale, doodleText, doodleCircle, U);
 
   // ── Towed array — deaf cone + ambiguous bearing lines ───────────────────
-  {
-    const ta=player.towedArray;
-    const taActive=ta&&(ta.state==='operational'||ta.state==='damaged');
-    if(taActive){
-      const [px2,py2]=w2s(player.wx,player.wy);
-      const heading=player.heading||0;
-      const stern=heading+Math.PI;
-      const CONE_HALF=0.49;
-      const coneLen=wScale(600);
-      ctx.save();
-      ctx.globalAlpha=0.07;
-      ctx.fillStyle='rgba(17,24,39,1)';
-      ctx.beginPath();
-      ctx.moveTo(px2,py2);
-      ctx.arc(px2,py2,coneLen,stern-CONE_HALF,stern+CONE_HALF);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-      const coneEdgeX=px2+Math.cos(stern)*coneLen*0.7;
-      const coneEdgeY=py2+Math.sin(stern)*coneLen*0.7;
-      ctx.fillStyle='rgba(17,24,39,0.22)';
-      doodleText('DEAF', coneEdgeX, coneEdgeY, U(7), 'center');
-    }
-
-    // Draw towed array bearing candidates for each contact
-    if(ta&&ta.state!=='stowed'&&ta.state!=='destroyed'){
-      for(const [e,c] of sonarContacts){
-        if(!c.towedCandA||c.towedCandA.length===0) continue;
-        const T_game=session.missionT||0;
-        const staleSecs=T_game-(c.lastObsT||0);
-        const baseAlpha=Math.max(0.12, 0.75-Math.min(1,staleSecs/90)*0.60);
-        const resolved=c.towedResolved;
-        const lastObs=c.towedCandA[c.towedCandA.length-1];
-        if(!lastObs) continue;
-        const [ox,oy]=w2s(lastObs.fromX, lastObs.fromY);
-        const maxLen=wScale(C.tma.defaultRange*1.4);
-
-        if(resolved){
-          const useCandA = resolved==='A';
-          const latestObs=useCandA
-            ? c.towedCandA[c.towedCandA.length-1]
-            : c.towedCandB[c.towedCandB.length-1];
-          if(latestObs){
-            const brg=latestObs.bearing;
-            const [lox2,loy2]=w2s(latestObs.fromX,latestObs.fromY);
-            const ex=latestObs.fromX+Math.cos(brg)*C.tma.defaultRange*1.4;
-            const ey=latestObs.fromY+Math.sin(brg)*C.tma.defaultRange*1.4;
-            const [ex2,ey2]=w2s(ex,ey);
-            ctx.strokeStyle=`rgba(20,184,166,${baseAlpha*0.75})`;
-            ctx.lineWidth=1.3;
-            ctx.setLineDash([]);
-            ctx.beginPath(); ctx.moveTo(lox2,loy2); ctx.lineTo(ex2,ey2); ctx.stroke();
-            const labelDist=Math.min(maxLen*0.55,wScale(500));
-            const lineLen=Math.hypot(ex2-lox2,ey2-loy2)||1;
-            const lx=lox2+(ex2-lox2)*(labelDist/lineLen);
-            const ly=loy2+(ey2-loy2)*(labelDist/lineLen);
-            ctx.fillStyle=`rgba(20,184,166,${baseAlpha*0.85})`;
-            doodleText(c.id, lx+U(4), ly-U(4), U(8), 'left');
-            doodleText('[T]', lx+U(4), ly+U(5), U(6), 'left');
-          }
-        } else {
-          const candPairs=[
-            {obs:c.towedCandA, q:c.towedQA||0},
-            {obs:c.towedCandB, q:c.towedQB||0},
-          ];
-          for(let ci=0;ci<candPairs.length;ci++){
-            const {obs:cpObs,q}=candPairs[ci];
-            if(!cpObs.length) continue;
-            const latest=cpObs[cpObs.length-1];
-            const [lox3,loy3]=w2s(latest.fromX,latest.fromY);
-            const ex=latest.fromX+Math.cos(latest.bearing)*C.tma.defaultRange*1.4;
-            const ey=latest.fromY+Math.sin(latest.bearing)*C.tma.defaultRange*1.4;
-            const [ex3,ey3]=w2s(ex,ey);
-            ctx.strokeStyle=`rgba(20,184,166,${baseAlpha*0.38})`;
-            ctx.lineWidth=1.0;
-            ctx.setLineDash([3,5]);
-            ctx.beginPath(); ctx.moveTo(lox3,loy3); ctx.lineTo(ex3,ey3); ctx.stroke();
-            ctx.setLineDash([]);
-            if(ci===0){
-              const labelDist=Math.min(maxLen*0.45,wScale(400));
-              const lineLen=Math.hypot(ex3-lox3,ey3-loy3)||1;
-              const lx=lox3+(ex3-lox3)*(labelDist/lineLen);
-              const ly=loy3+(ey3-loy3)*(labelDist/lineLen);
-              ctx.fillStyle=`rgba(20,184,166,${baseAlpha*0.55})`;
-              doodleText(`${c.id} ?`, lx+U(4), ly-U(4), U(8), 'left');
-              doodleText('TURN TO RESOLVE', lx+U(4), ly+U(5), U(6), 'left');
-            }
-          }
-        }
-      }
-    }
-  }
+  drawTowedArrayBearings(ctx, w2s, wScale, doodleText, doodleCircle, U);
 
   // ── Passive contact flashes ─────────────────────────────────────────────
-  for(const c of contacts){
-    const isTowed = c.source==='towed';
-    const a=clamp(c.life/2.2,0,1);
-    const fromX=c.fromX??player.wx, fromY=c.fromY??player.wy;
-    const lineLen=TMA_CFG ? TMA_CFG.defaultRange*1.2 : 900;
-    const endX=fromX+Math.cos(c.bearing)*lineLen;
-    const endY=fromY+Math.sin(c.bearing)*lineLen;
-    const [lx1,ly1]=w2s(fromX,fromY);
-    const [lx2,ly2]=w2s(endX,endY);
-    ctx.strokeStyle=isTowed?`rgba(20,184,166,${0.30*a})`:`rgba(17,24,39,${0.22*a})`;
-    ctx.lineWidth=1.2;
-    ctx.setLineDash([4,5]);
-    ctx.beginPath(); ctx.moveTo(lx1,ly1); ctx.lineTo(lx2,ly2); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle=`rgba(17,24,39,${0.18*a})`;
-    ctx.beginPath(); ctx.arc(lx1,ly1,2,0,Math.PI*2); ctx.fill();
-  }
+  drawPassiveContacts(ctx, w2s, doodleText, U);
 
   // ── Decoys ────────────────────────────────────────────────────────────────
   for(const d of decoys){
@@ -427,179 +187,22 @@ function draw(){
   }
 
   // ── Torpedoes + wire lines + seeker cones ────────────────────────────────
-  for(const b of bullets){
-    if(b.kind!=='torpedo') continue;
-    const [tx2,ty2]=w2s(b.x,b.y);
-
-    const seekerOn=b.traveled>=(b.enableDist||0);
-    if(b.friendly && seekerOn){
-      const torpAng=Math.atan2(b.vy,b.vx);
-      const seekR=wScale(C.torpedo.seekRange||300);
-      const fov=C.torpedo.seekFOV||0.85;
-      const hasTarget=b.target!=null;
-      ctx.save();
-      ctx.translate(tx2,ty2);
-      ctx.rotate(torpAng);
-      ctx.beginPath();
-      ctx.moveTo(0,0);
-      ctx.arc(0,0,seekR,-fov/2,fov/2);
-      ctx.closePath();
-      ctx.fillStyle=hasTarget?'rgba(30,58,95,0.07)':'rgba(17,24,39,0.04)';
-      ctx.fill();
-      ctx.strokeStyle=hasTarget?'rgba(30,58,95,0.35)':'rgba(17,24,39,0.18)';
-      ctx.lineWidth=1;
-      ctx.setLineDash([3,4]);
-      ctx.beginPath();
-      ctx.moveTo(0,0);
-      ctx.lineTo(seekR*Math.cos(-fov/2), seekR*Math.sin(-fov/2));
-      ctx.moveTo(0,0);
-      ctx.lineTo(seekR*Math.cos(fov/2), seekR*Math.sin(fov/2));
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-
-      if(b.target){
-        const tRef=b.target;
-        const [ex,ey]=w2s(tRef.wx??tRef.x, tRef.wy??tRef.y);
-        ctx.strokeStyle='rgba(30,58,95,0.45)';
-        ctx.lineWidth=1.5;
-        ctx.setLineDash([2,3]);
-        ctx.beginPath(); ctx.moveTo(tx2,ty2); ctx.lineTo(ex,ey); ctx.stroke();
-        ctx.setLineDash([]);
-      }
-
-      const lifeLeft=Math.ceil(b.life);
-      const wireStatus=b.wire?.live;
-      const statusTxt=hasTarget?`T${b.torpId} LOCKED`
-        :wireStatus?`T${b.torpId} WIRE ${lifeLeft}s`
-        :`T${b.torpId} SEARCH ${lifeLeft}s`;
-      ctx.fillStyle=hasTarget?'rgba(30,58,95,0.75)':wireStatus?'rgba(20,100,60,0.70)':'rgba(17,24,39,0.45)';
-      doodleText(statusTxt, tx2+U(8), ty2-U(6), U(8), 'left');
-    } else if(b.friendly && !seekerOn){
-      const distLeft=wScale((b.enableDist||0)-b.traveled);
-      ctx.strokeStyle='rgba(17,24,39,0.20)';
-      ctx.lineWidth=1;
-      ctx.setLineDash([2,4]);
-      const ang=Math.atan2(b.vy,b.vx);
-      ctx.beginPath(); ctx.moveTo(tx2,ty2);
-      ctx.lineTo(tx2+Math.cos(ang)*distLeft, ty2+Math.sin(ang)*distLeft);
-      ctx.stroke(); ctx.setLineDash([]);
-      doodleText(`T${b.torpId} ARM`, tx2+U(8), ty2-U(6), U(8), 'left');
-    }
-
-    if(!b.friendly && !b._alertedPlayer) { /* not yet detected */ } else drawTorpedoTopDown(b);
-    if(b.wire&&b.wire.live){
-      ctx.strokeStyle='rgba(17,24,39,0.28)';
-      ctx.lineWidth=1;
-      ctx.setLineDash([4,5]);
-      ctx.beginPath(); ctx.moveTo(tx2,ty2); ctx.lineTo(...w2s(b.wire.fromX,b.wire.fromY)); ctx.stroke();
-      ctx.setLineDash([]);
-    }
-  }
+  drawTorpedoes(ctx, w2s, wScale, doodleLine, doodleText, doodleCircle, U, drawTorpedoTopDown, plotW, plotH);
 
   // ── ASROC rockets ────────────────────────────────────────────────────────
-  for(const b of bullets){
-    if(b.kind!=='rocket'||b.life<=0) continue;
-    const [rx,ry]=w2s(b.x,b.y);
-    if(rx<-40||rx>plotW+40||ry<-40||ry>plotH+40) continue;
-    const ang=Math.atan2(b.vy,b.vx);
-    ctx.save();
-    ctx.translate(rx,ry); ctx.rotate(ang);
-    ctx.strokeStyle='rgba(255,120,20,0.95)';
-    ctx.lineWidth=2.5;
-    doodleLine(-U(10),0, U(10),0, 2.5);
-    doodleLine(U(8),-U(3), U(10),0, 2);
-    doodleLine(U(8),U(3),  U(10),0, 2);
-    ctx.strokeStyle='rgba(255,200,80,0.40)';
-    ctx.lineWidth=1.5;
-    ctx.setLineDash([U(4),U(4)]);
-    doodleLine(-U(10),0, -U(25),0, 1.5);
-    ctx.setLineDash([]);
-    ctx.restore();
-    ctx.fillStyle='rgba(255,140,30,0.85)';
-    doodleText('ASROC', rx+U(12), ry-U(5), U(7), 'left');
-  }
+  drawASROC(ctx, w2s, doodleLine, doodleText, U, plotW, plotH);
 
   // ── Cruise missiles ───────────────────────────────────────────────────────
-  if(missiles){
-    for(const m of missiles){
-      const [mx,my]=w2s(m.x,m.y);
-      if(mx<-60||mx>plotW+60||my<-60||my>plotH+60) continue;
-      if(m.trail && m.trail.length>1){
-        ctx.strokeStyle='rgba(220,60,60,0.40)';
-        ctx.lineWidth=1.5;
-        ctx.beginPath();
-        for(let _ti=0;_ti<m.trail.length;_ti++){
-          const [tx,ty]=w2s(m.trail[_ti].x,m.trail[_ti].y);
-          if(_ti===0) ctx.moveTo(tx,ty); else ctx.lineTo(tx,ty);
-        }
-        ctx.stroke();
-      }
-      const ang=Math.atan2(m.vy,m.vx);
-      ctx.save();
-      ctx.translate(mx,my); ctx.rotate(ang);
-      ctx.strokeStyle='rgba(240,40,40,0.95)'; ctx.lineWidth=2.5;
-      doodleLine(-U(8),0,U(8),0,2.5);
-      doodleLine(U(6),-U(3),U(8),0,2);
-      doodleLine(U(6),U(3),U(8),0,2);
-      ctx.restore();
-      const mLbl=m.state==='seeker_active'?(m.target?'LOCKED':'SEEK'):'MSL';
-      ctx.fillStyle=m.target?'rgba(240,40,40,0.90)':'rgba(220,80,80,0.80)';
-      doodleText(mLbl,mx+U(10),my-U(5),U(7),'left');
-    }
-  }
+  drawCruiseMissiles(ctx, w2s, doodleLine, doodleText, U, plotW, plotH);
 
   // ── Depth charges ─────────────────────────────────────────────────────────
-  for(const b of bullets){
-    if(b.kind!=='depthCharge'||b.life<=0) continue;
-    const [dcx,dcy]=w2s(b.x,b.y);
-    if(dcx<-20||dcx>plotW+20||dcy<-20||dcy>plotH+20) continue;
-    const bw=U(7), bh=U(5);
-    ctx.fillStyle='rgba(160,90,30,0.88)';
-    ctx.strokeStyle='rgba(220,140,50,0.95)';
-    ctx.lineWidth=1.5;
-    ctx.beginPath();
-    ctx.roundRect(dcx-bw/2, dcy-bh/2, bw, bh, U(1.5));
-    ctx.fill(); ctx.stroke();
-    ctx.strokeStyle='rgba(240,180,70,0.70)';
-    ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(dcx-bw/2+U(2), dcy-bh/2); ctx.lineTo(dcx-bw/2+U(2), dcy+bh/2);
-    ctx.moveTo(dcx+bw/2-U(2), dcy-bh/2); ctx.lineTo(dcx+bw/2-U(2), dcy+bh/2);
-    ctx.stroke();
-    ctx.fillStyle='rgba(240,160,50,0.80)';
-    doodleText(`DC ${Math.round(b.y)}m`, dcx+bw/2+U(4), dcy+U(4), U(7.5), 'left');
-  }
+  drawDepthCharges(ctx, w2s, doodleText, U, plotW, plotH);
 
   // ── Wire-fed contacts ─────────────────────────────────────────────────────
-  for(const wc of wireContacts){
-    const [wx2,wy2]=w2s(wc.x,wc.y);
-    if(wx2<0||wx2>plotW) continue;
-    const a=clamp(wc.life/1.8,0,1);
-    ctx.strokeStyle=`rgba(99,102,241,${0.65*a})`;
-    ctx.fillStyle=`rgba(99,102,241,${0.50*a})`;
-    ctx.save();
-    ctx.translate(wx2,wy2); ctx.rotate(Math.PI/4);
-    const ds=U(7);
-    ctx.beginPath();
-    ctx.rect(-ds/2,-ds/2,ds,ds);
-    ctx.restore();
-    ctx.lineWidth=1.5;
-    doodleCircle(wx2,wy2,U(8),1.5);
-    doodleText('WG',wx2+U(10),wy2+4,U(8),'left');
-  }
+  drawWireContacts(ctx, w2s, doodleText, doodleCircle, U, plotW);
 
   // ── CWIS tracers ──────────────────────────────────────────────────────────
-  for(const t of cwisTracers){
-    const [tx,ty]=w2s(t.x,t.y);
-    const a=clamp(t.life/(t.maxLife||0.12),0,1);
-    const spd=Math.hypot(t.vx,t.vy)||1;
-    const tlen=wScale(14)*(a*0.6+0.4);
-    const tx2=tx-(t.vx/spd)*tlen, ty2=ty-(t.vy/spd)*tlen;
-    ctx.strokeStyle=`rgba(17,24,39,${0.85*a})`;
-    ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(tx2,ty2); ctx.stroke();
-  }
+  drawCWISTracers(ctx, w2s, wScale);
 
   // ── Particles ─────────────────────────────────────────────────────────────
   for(const p of particles){

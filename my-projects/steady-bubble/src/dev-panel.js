@@ -130,6 +130,21 @@ export function initDevPanel() {
         <button class="dev-btn" id="dev-btn-god">God Mode</button>
         <button class="dev-btn" id="dev-btn-torps">Reload Torps</button>
       </div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-d0">0m</button>
+        <button class="dev-btn" id="dev-btn-d50">50m</button>
+        <button class="dev-btn" id="dev-btn-d150">150m</button>
+        <button class="dev-btn" id="dev-btn-d260">260m</button>
+        <button class="dev-btn" id="dev-btn-d400">400m</button>
+        <button class="dev-btn" id="dev-btn-d500">500m</button>
+      </div>
+      <div class="dev-row">
+        <button class="dev-btn" id="dev-btn-bat100">BAT 100%</button>
+        <button class="dev-btn" id="dev-btn-bat50">BAT 50%</button>
+        <button class="dev-btn" id="dev-btn-bat20">BAT 20%</button>
+        <button class="dev-btn" id="dev-btn-bat5">BAT 5%</button>
+        <button class="dev-btn danger" id="dev-btn-bat0">BAT 0%</button>
+      </div>
       <div class="dev-section-label">Flood</div>
       <div class="dev-row">${floodBtns}</div>
       <div class="dev-row">
@@ -320,6 +335,25 @@ export function initDevPanel() {
     player.pendingFires=[];
     status('Tubes reloaded');
   });
+
+  // ── Instant depth ─────────────────────────────────────────────────────────
+  for(const d of [0,50,150,260,400,500]){
+    btn(`dev-btn-d${d}`, ()=>{
+      player.depth=d;
+      player.depthOrder=d;
+      status(`Depth set to ${d}m`);
+    });
+  }
+
+  // ── Battery ───────────────────────────────────────────────────────────────
+  for(const pct of [100,50,20,5,0]){
+    btn(`dev-btn-bat${pct}`, ()=>{
+      player.battery=pct/100;
+      if(pct===0) player._battDead=true;
+      else player._battDead=false;
+      status(`Battery set to ${pct}%`);
+    });
+  }
 
   // ── Flood ─────────────────────────────────────────────────────────────────
   document.querySelectorAll('[data-flood]').forEach(el=>{

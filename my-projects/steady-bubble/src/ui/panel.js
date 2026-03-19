@@ -102,7 +102,7 @@ function depthStep(delta){
     p._blowManualT = 0;
     const hpaR=p.damage?.hpa;
     if(hpaR) hpaR._reserveCommitted = false;
-    _COMMS?.trim?.blowCancelledByOrder(Math.round(p.depth));
+    _COMMS?.trim?.blowCancelledByOrder(Math.round(p.depthOrder));
   }
   clearTimeout(p._depthLogTimer);
   p._depthLogTimer=setTimeout(()=>{
@@ -150,6 +150,16 @@ function toggleSilent(){
   const dmgFx=_DMG?.getEffects()||{};
   if(dmgFx.silentRunAvail===false){ _COMMS?.nav?.connRoomUnavail('silent running'); return; }
   p.silent=!p.silent;
+  // Snap telegraph to AHEAD SLOW when activating silent running
+  if(p.silent){
+    const slowIdx = SPEED_STATES.findIndex(s=>s.label==='AHEAD SLOW');
+    const slowKts = slowIdx >= 0 ? SPEED_STATES[slowIdx].kts : 7;
+    if((SPEED_STATES[_telegraphIdx]?.kts ?? 0) > slowKts){
+      _telegraphIdx = slowIdx >= 0 ? slowIdx : _telegraphIdx;
+      p.speedOrderKts = SPEED_STATES[_telegraphIdx]?.kts ?? 7;
+      p.speedDir      = SPEED_STATES[_telegraphIdx]?.dir ?? 1;
+    }
+  }
   _COMMS?.nav?.silentRunning(p.silent);
 }
 
@@ -191,6 +201,15 @@ function emergencyCrashDive(){
     triggerScram('combo');
     _COMMS?.reactor?.scram('turn');
     return;
+  }
+  // Cancel active blow — crash dive overrides emergency surface
+  if(p._blowVenting || p._blowPending || (p._blowManualT||0) > 0){
+    p._blowVenting = false;
+    p._blowVy = 0;
+    p._blowPending = false;
+    p._blowManualT = 0;
+    const hpaR=p.damage?.hpa;
+    if(hpaR) hpaR._reserveCommitted = false;
   }
   const ta=p.towedArray;
   if(ta){
@@ -248,10 +267,15 @@ function emergencyBlowBallast(){
   setTacticalState('action');
   setCasualtyState('emergency');
 
+  // Set at least AHEAD FULL — but don't downgrade if already at FLANK
   const fullIdx = SPEED_STATES.findIndex(s=>s.label==='AHEAD FULL');
-  _telegraphIdx = fullIdx >= 0 ? fullIdx : _telegraphIdx;
-  p.speedOrderKts = SPEED_STATES[_telegraphIdx]?.kts ?? 20;
-  p.speedDir      = SPEED_STATES[_telegraphIdx]?.dir ?? 1;
+  const currentKts = SPEED_STATES[_telegraphIdx]?.kts ?? 0;
+  const fullKts = fullIdx >= 0 ? SPEED_STATES[fullIdx].kts : 20;
+  if(currentKts < fullKts){
+    _telegraphIdx = fullIdx >= 0 ? fullIdx : _telegraphIdx;
+    p.speedOrderKts = SPEED_STATES[_telegraphIdx]?.kts ?? 20;
+    p.speedDir      = SPEED_STATES[_telegraphIdx]?.dir ?? 1;
+  }
 
   p.depthOrder = 0;
   p.noiseTransient = Math.min(1,(p.noiseTransient||0)+0.30);

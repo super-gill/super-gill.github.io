@@ -3,7 +3,7 @@
 import { CONFIG } from '../config/constants.js';
 import { clamp, lerp, deg2rad, angleNorm } from '../utils/math.js';
 import { world, player, enemies, bullets, sonarContacts, cam, tdc } from '../state/sim-state.js';
-import { session, setMsg, addLog } from '../state/session-state.js';
+import { session, setMsg, addLog, setCasualtyState, setTacticalState } from '../state/session-state.js';
 
 const C = CONFIG;
 
@@ -337,9 +337,11 @@ function stepDynamics(dt){
       const tanksClear = maxTankFill < 0.02;
 
       if(tanksClear){
-        // Tanks empty — seal the blow valves.
+        // Tanks empty — seal the blow valves. Keep _blownBallast flag
+        // so the depth controller doesn't refill tanks during ascent.
         player._blowVenting = false;
         player._blowVy = 0;
+        player._blownBallast = true;
         if(hpa) hpa._reserveCommitted = false;
         // Check if actually positively buoyant — flooding mass may overwhelm empty MBTs
         const floodLoad = _DMG?.getTrimState?.()?.buoyancy || 0;
@@ -365,9 +367,13 @@ function stepDynamics(dt){
         } else {
           hpa.pressure = Math.max(0, hpa.pressure - draw);
         }
-        // Reduce MBT fill — air displaces water out of tanks
+        // Reduce MBT fill — air displaces water out of tanks.
+        // Depth matters: air at bank pressure expands at ambient (Boyle's law).
+        // At shallow depth each bar of air displaces more water than at deep depth.
+        // depthEfficiency = referenceBar / ambient — higher at shallow, lower at deep.
         if(mbtB){
-          const fillReduction = flowRate * (hpaC.blowFlowToFillRate||0.025) * dt;
+          const depthEfficiency = (hpaC.blowReferenceBar||50) / Math.max(ambient, 1);
+          const fillReduction = flowRate * (hpaC.blowFlowToFillRate||0.025) * depthEfficiency * dt;
           for(let i=0;i<mbtB.tanks.length;i++) mbtB.tanks[i] = Math.max(0, mbtB.tanks[i] - fillReduction);
         }
         // Small surge component — buoyancy does the main work
@@ -522,9 +528,10 @@ function stepDynamics(dt){
   // Aft planes set pitch; forward planes correct trim offset
   // NOTE: positive pitch = nose up = ascend. errD negative means want shallower → need nose up → positive target.
   const pitchMax     = 15;   // degrees max operational pitch
-  // During e-blow force full nose-up to help the blow rather than fight it
+  // During e-blow or blown ascent, force full nose-up until near surface
   const blowing      = player._blowVenting || false;
-  const pitchFromErr = blowing ? pitchMax : clamp(-errD * 0.08, -pitchMax, pitchMax);
+  const blownAscent  = player._blownBallast && player.depth > 30;
+  const pitchFromErr = (blowing || blownAscent) ? pitchMax : clamp(-errD * 0.08, -pitchMax, pitchMax);
   const pitchFromTrim= clamp(-floodTrim * 2.0, -8, 8);          // trim imbalance → fwd plane correction
   const pitchTarget  = pitchFromErr;
   const fwdTarget    = pitchFromTrim;
@@ -568,7 +575,18 @@ function stepDynamics(dt){
   const kFill     = C.player.kFill    || 0.0016;
   const fillRate  = (C.player.fillRate || 0.022) * rateMult * (dmgFx.depthRateMult ?? 1.0);
 
-  if(!blowing && mbt){
+  // Clear blown ballast flag when surfaced or on new depth order away from surface
+  if(player._blownBallast){
+    if(player.depth <= 20){
+      player._blownBallast = false;
+      // Clear emergency and action stations on surfacing after e-blow
+      setCasualtyState('normal');
+      setTacticalState('cruising');
+    }
+    else if(player.depthOrder > 20) player._blownBallast = false;
+  }
+
+  if(!blowing && !player._blownBallast && mbt){
     // Two-zone depth controller:
     // Outside brake zone — full authority (constant max fill offset, fast approach)
     // Inside brake zone  — proportional settle (avoids hanging near target)
