@@ -76,9 +76,9 @@ export function drawSonarContacts(ctx, w2s, wScale, doodleText, doodleCircle, U)
           ctx.stroke();
           ctx.fillStyle=`rgba(17,24,39,${alpha*0.75})`;
           doodleText(c.id, lx+U(4), ly-U(4), U(8), 'left');
-          if(q<0.2) doodleText('BRG', lx+U(4), ly+U(5), U(6), 'left');
-          else if(q<0.6){ ctx.fillStyle=`rgba(217,119,6,${alpha*0.75})`; doodleText('BLDG', lx+U(4), ly+U(5), U(6), 'left'); }
-          else { ctx.fillStyle=`rgba(22,163,74,${alpha*0.75})`; doodleText('SOLID', lx+U(4), ly+U(5), U(6), 'left'); }
+          if(q<0.2) doodleText('BRG', lx+U(4), ly+U(6), U(8), 'left');
+          else if(q<0.6){ ctx.fillStyle=`rgba(217,119,6,${alpha*0.75})`; doodleText('BLDG', lx+U(4), ly+U(6), U(8), 'left'); }
+          else { ctx.fillStyle=`rgba(22,163,74,${alpha*0.75})`; doodleText('SOLID', lx+U(4), ly+U(6), U(8), 'left'); }
 
           // ── CLSNG / OPNG / CBDR tag
           {
@@ -95,7 +95,7 @@ export function drawSonarContacts(ctx, w2s, wScale, doodleText, doodleCircle, U)
             }
             if(tag){
               ctx.fillStyle=tagCol;
-              doodleText(tag, lx+U(4), ly+U(14), U(6), 'left');
+              doodleText(tag, lx+U(4), ly+U(16), U(8), 'left');
             }
           }
         }

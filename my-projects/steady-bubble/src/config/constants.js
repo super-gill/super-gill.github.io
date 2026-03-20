@@ -69,6 +69,47 @@ export const CONFIG = {
       steamLeak:      { shockChance:0.12, repairTime:[30,60], speedCap:7 },
       turbineTrip:    { shockChance:0.15, throttleSnapThreshold:10, throttleSnapChance:0.20, recoveryTime:[20,30], speedCap:12 },
       reactorRunaway: { hitChance:0.08, transientRange:3000, transientSus:0.60 },
+      electricalFire: { degradedChancePerSec:0.0008, offlineChancePerSec:0.0025, unmannedDamagedChancePerSec:0.0002, startIntensity:0.05 },
+      stuckPlanes: {
+        combatChance:0.20, manoeuvreChance:0.08, wearChance:0.0003,
+        recoveryTime:[25,40], recoveryBaseChance:0.85,
+        jamPitchRate:0.6, jamPitchRateHighSpeed:1.0,
+      },
+      hotRun: {
+        combatChance:0.06, reloadChanceDegraded:0.02, reloadChanceBase:0.0005,
+        countdown:12, ejectBaseChance:0.75, sympatheticChance:0.15,
+        acousticTransientEject:0.25, acousticTransientDetonate:0.60,
+      },
+      hydrogen: {
+        generationFactor:0.0008,
+        cautionLevel:0.25, dangerLevel:0.50, explosiveLevel:0.75,
+        naturalDecay:0.001, forceVentRate:0.05,
+        elecFaultIgnitionPerSec:0.03, fireIgnitionPerSec:0.08,
+        combatHitIgnition:0.40, randomSparkPerSec:0.0005,
+        explosionHpDamage:15, explosionTransient:0.35,
+        nuclearChargeRate:0.008, dieselSnorkelChargeRate:0.003, dieselSurfaceChargeRate:0.005,
+      },
+      snorkelFlood: {
+        combatChance:0.30, waveOverChancePerSec:0.002, valveFailureChancePerSec:0.0002,
+        minorChance:0.50, majorChance:0.35, catastrophicChance:0.15,
+        majorFloodRate:0.005, catastrophicFloodRate:0.015, valveCloseTime:15,
+      },
+      chlorine: {
+        floodThreshold:0.33, generationRate:0.015,
+        traceLevel:0.15, hazardousLevel:0.35, lethalLevel:0.60, saturatedLevel:0.85,
+        surfaceClearRate:0.08, snorkelClearRate:0.03, naturalDecay:0.002,
+        wtdSpreadReduction:0.75,
+      },
+      shaftSeal: {
+        combatChance:0.25, flankRiskPerSec:0.0015, flankStressTime:20,
+        wearChance:0.0001, baseLeakRate:0.003, destroyedLeakMult:2.0,
+      },
+      hydraulic: {
+        degradedLeakRate:0.005, offlineLeakRate:0.02, destroyedLeakRate:0.05,
+        combatPressureLoss:0.20, recoveryRate:0.01,
+        sluggishThreshold:0.60, failThreshold:0.30, completeFailThreshold:0.10,
+        fireChancePerSec:0.003, fireStartIntensity:0.15,
+      },
     },
   },
   // Vessel presets — imported from vessels.js

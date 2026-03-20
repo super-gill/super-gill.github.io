@@ -3,15 +3,19 @@
 import {
   COMPS, COMP_DEF, ROOMS, ROOM_IDS, SECTION_ROOMS, SECTION_LABEL,
   SYS_DEF, SYS_LABEL, ROOM_SYSTEMS, ROOM_ADJ, EVAC_TO, SECTION_CAP,
+  STATES,
   FIRE_BASE_GROW, FIRE_SCALE_GROW, WATCH_SUPPRESS, DC_FIRE_SUPPRESS,
   FIRE_EVAC_TIME, FIRE_DETECT_THRESHOLD, FIRE_INVESTIGATE_DELAY,
   DRENCH_THRESH, DRENCH_LOSE_TIME, DRENCH_FILL_TIME, VENT_N2_TIME,
   activeSystems, roomSection, _sectionNoEvac,
 } from './damage-data.js';
+import { CONFIG } from '../../config/constants.js';
 import { player, triggerScram } from '../../state/sim-state.js';
 import { session, setCasualtyState } from '../../state/session-state.js';
 import { clamp } from '../../utils/math.js';
 import { dcLog, COMP_STATION } from '../../narrative/comms.js';
+
+const C = CONFIG;
 
 // ── Lazy bindings (set from index.js) ─────────────────────────────────────
 let _COMMS = null, _PANEL = null;
@@ -179,7 +183,7 @@ function _nextRepairTarget(comp,d){
   const sysList=activeSystems(comp);
   const stIdx = (sys) => STATES.indexOf(d.systems[sys]);
   const repairable=sysList
-    .filter(s=>d.systems[s]!=='nominal')
+    .filter(s=>d.systems[s]!=='nominal' && !d.permanentDamage?.has(s))
     .sort((a,b)=>stIdx(b)-stIdx(a));
   return repairable[0]||null;
 }
@@ -270,6 +274,46 @@ export function _tickFire(dt, d){
 }
 
 function _tickFireInner(dt, d){
+  // ── Electrical fire ignition check ──────────────────────────────────
+  // Non-combat fires from damaged electrical systems. Can recur if the
+  // underlying damage is not repaired.
+  const _efCfg = C.player.casualties?.electricalFire;
+  if (_efCfg) {
+    // Trigger 1: Damaged electrical distribution → fire in its section
+    const elecState = d.systems.elec_dist || 'nominal';
+    const elecDmg = STATES.indexOf(elecState);
+    if (elecDmg >= 1) {
+      const chance = elecDmg >= 2
+        ? (_efCfg.offlineChancePerSec || 0.0025)
+        : (_efCfg.degradedChancePerSec || 0.0008);
+      if (Math.random() < chance * dt) {
+        const section = ROOMS[SYS_DEF.elec_dist.room]?.section || 'engine_room';
+        const hadFire = _sectionHasFire(section, d);
+        igniteFire(section, _efCfg.startIntensity || 0.05);
+        if (hadFire) {
+          _COMMS?.fire.electricalFireReignition(
+            ROOMS[SYS_DEF.elec_dist.room]?.label || 'ELEC DIST',
+            COMP_STATION[section] || 'ENG'
+          );
+        }
+      }
+    }
+    // Trigger 2: Any damaged system in unmanned space (detectionDelay > 30s)
+    for (const roomId of ROOM_IDS) {
+      const room = ROOMS[roomId];
+      if ((room.detectionDelay || 0) <= 30) continue;
+      if ((d.fire[roomId] || 0) > 0) continue;       // already burning
+      if (d.flooded[room.section]) continue;           // flooded section
+      const hasDamagedSys = (ROOM_SYSTEMS[roomId] || []).some(
+        s => STATES.indexOf(d.systems[s] || 'nominal') >= 1
+      );
+      if (!hasDamagedSys) continue;
+      if (Math.random() < (_efCfg.unmannedDamagedChancePerSec || 0.0002) * dt) {
+        igniteFire(roomId, _efCfg.startIntensity || 0.05);
+      }
+    }
+  }
+
   for(const section of COMPS){
     const roomIds=SECTION_ROOMS[section]||[];
     // ── Evacuation transit timer ───────────────────────────────────────────
@@ -301,8 +345,16 @@ function _tickFireInner(dt, d){
     let F=0; // section max detected fire level (for section-level logic)
     let anyRoomFire=false;
 
+    // ── Distribute watchkeepers across burning rooms ─────────────────
+    // Watchkeepers split evenly across detected fires in their section.
+    // A single room gets all watchers; two rooms split them.
+    const burningDetected=roomIds.filter(rid=>(d.fire[rid]||0)>0&&d._fireDetected[rid]);
+    const watchPerRoom=watch&&watch.count>0&&burningDetected.length>0
+      ? Math.max(1, Math.floor(watch.count/burningDetected.length))
+      : 0;
+
     // ── Per-room fire growth ───────────────────────────────────────────
-    // Suppression is per-room: each room's watchkeepers fight their own fire,
+    // Suppression is per-room: watchkeepers split across fires,
     // and the DC team only suppresses the room they are physically in.
     for(const roomId of roomIds){
       const fire=d.fire[roomId]||0;
@@ -334,9 +386,8 @@ function _tickFireInner(dt, d){
         }
         continue; // doesn't contribute to F until detected
       }
-      // Detected — per-room suppression
-      const roomCrew=ROOMS[roomId].crew||0;
-      const watchSuppress=watch ? Math.min(roomCrew, watch.count) * WATCH_SUPPRESS : 0;
+      // Detected — per-room suppression with distributed watchkeepers
+      const watchSuppress=watchPerRoom * WATCH_SUPPRESS;
       const dcHere=(dcTeam&&dcTeam.location===roomId);
       const dcSuppress=dcHere ? DC_FIRE_SUPPRESS*_teamEffectiveness(dcTeam) : 0;
       const totalSuppress=watchSuppress+dcSuppress;
@@ -459,6 +510,18 @@ function _tickFireInner(dt, d){
           dcTeam._fireLosing=0;
           _COMMS?.fire.drenchInitiated(SECTION_LABEL[section]);
         }
+      } else if(F>DRENCH_THRESH && watch && watch.count>0){
+        // No DC team on scene — watchkeeper initiates drench (DC team still needed to vent)
+        if(!d._fireDrenchAutoT) d._fireDrenchAutoT={};
+        d._fireDrenchAutoT[section]=(d._fireDrenchAutoT[section]||0)+dt;
+        if(d._fireDrenchAutoT[section]>=DRENCH_LOSE_TIME){
+          d._fireDrenchAutoT[section]=0;
+          if(!d._fireDrenchPending) d._fireDrenchPending={};
+          d._fireDrenchPending[section]={t:20};
+          _COMMS?.fire.drenchInitiated(SECTION_LABEL[section]);
+        }
+      } else if(d._fireDrenchAutoT?.[section]){
+        d._fireDrenchAutoT[section]=0;
       }
     }
 

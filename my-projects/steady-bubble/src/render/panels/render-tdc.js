@@ -36,10 +36,10 @@ export function drawTdcSection(x, w, pc) {
     ctx.fillStyle=tdc.frozen?'rgba(180,60,60,0.70)':'rgba(17,24,39,0.35)';
     ctx.font=`${U(11)}px ui-monospace,monospace`;
     ctx.textAlign='left';
-    // Show classification of designated contact
+    // Show classification of designated contact — persists even when frozen (kill confirmed)
     const selSc=tdc.target?sonarContacts.get(tdc.target):null;
     const classLabel=selSc?.classification?' \u2014 '+selSc.classification:'';
-    ctx.fillText(tdc.frozen?'TDC [FROZEN]':'TDC'+classLabel,fcX,panelY+U(18));
+    ctx.fillText(tdc.frozen?'TDC [FROZEN]'+classLabel:'TDC'+classLabel,fcX,panelY+U(18));
 
     // ── Solution quality bar — prominent feedback on designated contact ────────
     {
@@ -331,61 +331,87 @@ export function drawTdcSection(x, w, pc) {
       ctx.font=`${U(TH.font.header)}px ${TH.FONT_FAMILY}`; ctx.textAlign='left';
       ctx.fillText('PLANES',px,panelY+U(18));
 
-      // ── Bubble inclinometer ───────────────────────────────────────────────
-      const tubeW=pw-U(4), tubeH=U(18);
+      // ── Bubble inclinometer (gentle arc) ─────────────────────────────────
+      // Same footprint as the old straight tube, just slightly curved.
+      // Sagitta (rise) controls curvature: U(4) = gentle bow in the middle.
+      const tubeW=pw-U(4), tubeH=U(16);
       const tubeX=px, tubeY=panelY+U(24);
-      const tubeRad=tubeH*0.45;
       const tubeMid=tubeX+tubeW/2;
-
-      // Tube body — dark glass
-      ctx.fillStyle='rgba(6,14,30,0.85)';
-      ctx.beginPath(); ctx.roundRect(tubeX,tubeY,tubeW,tubeH,tubeRad); ctx.fill();
-
-      // Tick marks — 0, ±5, ±10, ±15°
+      const sag=U(4); // how much the centre rises above the ends
+      const arcRadius=(tubeW*tubeW)/(8*sag)+sag/2; // radius from chord + sagitta
+      const arcCx=tubeMid;
+      const arcCy=tubeY+tubeH/2+arcRadius-sag; // centre below the tube
+      const halfAng=Math.asin((tubeW/2)/arcRadius);
+      const arcStart=Math.PI*1.5-halfAng;
+      const arcEnd=Math.PI*1.5+halfAng;
       const pitchMax=15;
-      const tickSpan=tubeW*0.85;
-      for(const deg of [-15,-10,-5,0,5,10,15]){
-        const tx=tubeMid+(deg/pitchMax)*(tickSpan/2);
-        const isCentre=deg===0;
-        ctx.strokeStyle=isCentre?'rgba(60,200,80,0.60)':'rgba(60,90,130,0.35)';
-        ctx.lineWidth=isCentre?1.5:1;
-        const ty1=tubeY+(isCentre?U(2):U(4));
-        const ty2=tubeY+tubeH-(isCentre?U(2):U(4));
-        ctx.beginPath(); ctx.moveTo(tx,ty1); ctx.lineTo(tx,ty2); ctx.stroke();
-      }
+      const tubeThick=U(10);
+
+      // Clip to section bounds so nothing escapes
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(tubeX-U(2),tubeY-U(2),tubeW+U(4),tubeH+U(8));
+      ctx.clip();
+
+      // Arc track — dark glass
+      ctx.lineWidth=tubeThick;
+      ctx.strokeStyle='rgba(6,14,30,0.85)';
+      ctx.beginPath(); ctx.arc(arcCx,arcCy,arcRadius,arcStart,arcEnd); ctx.stroke();
 
       // Glass highlight
-      ctx.fillStyle='rgba(100,160,220,0.07)';
-      ctx.beginPath(); ctx.roundRect(tubeX+1,tubeY+1,tubeW-2,tubeH*0.35,tubeRad*0.8); ctx.fill();
+      ctx.lineWidth=tubeThick*0.35;
+      ctx.strokeStyle='rgba(100,160,220,0.07)';
+      ctx.beginPath(); ctx.arc(arcCx,arcCy,arcRadius-tubeThick*0.28,arcStart,arcEnd); ctx.stroke();
 
-      // Tube border
-      ctx.strokeStyle='rgba(50,70,110,0.55)'; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.roundRect(tubeX+0.5,tubeY+0.5,tubeW-1,tubeH-1,tubeRad); ctx.stroke();
+      // Track border
+      ctx.lineWidth=1;
+      ctx.strokeStyle='rgba(50,70,110,0.55)';
+      ctx.beginPath(); ctx.arc(arcCx,arcCy,arcRadius+tubeThick/2,arcStart,arcEnd); ctx.stroke();
+      ctx.beginPath(); ctx.arc(arcCx,arcCy,arcRadius-tubeThick/2,arcStart,arcEnd); ctx.stroke();
 
-      // Bubble — position driven by pitch, clamped to tube interior
+      // Tick marks along the arc
+      for(const deg of [-15,-10,-5,0,5,10,15]){
+        const frac=deg/pitchMax;
+        const tickAng=Math.PI*1.5+frac*halfAng;
+        const isCentre=deg===0;
+        const innerR=arcRadius-tubeThick*(isCentre?0.42:0.30);
+        const outerR=arcRadius+tubeThick*(isCentre?0.42:0.30);
+        ctx.strokeStyle=isCentre?'rgba(60,200,80,0.60)':'rgba(60,90,130,0.35)';
+        ctx.lineWidth=isCentre?1.5:1;
+        ctx.beginPath();
+        ctx.moveTo(arcCx+Math.cos(tickAng)*innerR, arcCy+Math.sin(tickAng)*innerR);
+        ctx.lineTo(arcCx+Math.cos(tickAng)*outerR, arcCy+Math.sin(tickAng)*outerR);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // S/B labels — stern left, bow right
+      ctx.fillStyle='rgba(50,75,120,0.40)';
+      ctx.font=`${U(7)}px ui-monospace,monospace`;
+      const edgeY=arcCy+Math.sin(arcStart)*arcRadius;
+      ctx.textAlign='right'; ctx.fillText('S',tubeX-U(1),edgeY+U(4));
+      ctx.textAlign='left';  ctx.fillText('B',tubeX+tubeW+U(1),edgeY+U(4));
+
+      // Bubble — position driven by pitch along the arc
       const isFrz   = aftMode==='frozen';
       const isAirEmg = aftMode==='air_emergency'||fwdMode==='air_emergency';
-      const bubbleR  = tubeH*0.38;
-      const bubbleTravel=(tickSpan/2)-bubbleR*1.1;
+      const bubbleR  = tubeThick*0.35;
       const pitchFrac=clamp(pitch/pitchMax,-1,1);
-      const bubbleX  =tubeMid+pitchFrac*bubbleTravel;
-      const bubbleY  =tubeY+tubeH/2;
-      // Bubble fill — amber normal, orange air emergency, red frozen
+      const bubbleAng=Math.PI*1.5+pitchFrac*halfAng*0.85;
+      const bubbleX=arcCx+Math.cos(bubbleAng)*arcRadius;
+      const bubbleY=arcCy+Math.sin(bubbleAng)*arcRadius;
       const bubbleCol=isFrz?'rgba(210,40,40,0.88)':isAirEmg?'rgba(210,130,10,0.88)':'rgba(210,160,20,0.82)';
       const bubbleGlow=isFrz?'rgba(200,30,30,0.22)':isAirEmg?'rgba(200,120,0,0.20)':'rgba(210,180,30,0.18)';
-      // Glow
       const bgrd=ctx.createRadialGradient(bubbleX,bubbleY,0,bubbleX,bubbleY,bubbleR*2.2);
       bgrd.addColorStop(0,bubbleGlow); bgrd.addColorStop(1,'transparent');
       ctx.fillStyle=bgrd; ctx.beginPath(); ctx.arc(bubbleX,bubbleY,bubbleR*2.2,0,Math.PI*2); ctx.fill();
-      // Main bubble
       const bgrad=ctx.createRadialGradient(bubbleX-bubbleR*0.3,bubbleY-bubbleR*0.35,bubbleR*0.05,bubbleX,bubbleY,bubbleR);
       bgrad.addColorStop(0,'rgba(255,240,140,0.95)'); bgrad.addColorStop(0.55,bubbleCol); bgrad.addColorStop(1,'rgba(60,40,0,0.60)');
       ctx.fillStyle=bgrad; ctx.beginPath(); ctx.arc(bubbleX,bubbleY,bubbleR,0,Math.PI*2); ctx.fill();
-      // Specular
       ctx.fillStyle='rgba(255,255,220,0.65)';
       ctx.beginPath(); ctx.ellipse(bubbleX-bubbleR*0.28,bubbleY-bubbleR*0.32,bubbleR*0.25,bubbleR*0.15,0,0,Math.PI*2); ctx.fill();
 
-      // STEADY BUBBLE label — tiny, centred below tube
+      // STEADY BUBBLE label
       ctx.fillStyle='rgba(50,75,120,0.38)';
       ctx.font=`${U(7)}px ui-monospace,monospace`; ctx.textAlign='center';
       ctx.fillText('STEADY BUBBLE',tubeMid,tubeY+tubeH+U(9));
@@ -550,6 +576,12 @@ export function drawTdcSection(x, w, pc) {
       const staleSecs=sc ? T_now-(sc.lastObsT||0) : 0;
       const staleAlpha=isDead?0.40:entry.isTorp?0.70:Math.max(0.22, 0.80-Math.min(1,staleSecs/90)*0.58);
       const rowAlpha=staleAlpha;
+
+      // Clickable row — designate contact by clicking anywhere on the row
+      const _rowEntry=entry;
+      btn('', cqX-U(2), ry-rowH*0.78, cqW+U(2), rowH, isDesignated,
+        ()=>{ tdc.target=_rowEntry.ref; tdc.targetId=_rowEntry.id; setMsg(`TDC: ${_rowEntry.id} DESIGNATED`,1.0); },
+        'transparent','transparent');
 
       // ID pill — quality-tinted: solid=navy, building=amber, bearing-only=grey
       const rQ=sc?.tmaQuality??0;

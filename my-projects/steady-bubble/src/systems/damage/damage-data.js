@@ -40,6 +40,7 @@ export const SYS_DEF = {
   co2_scrubbers:  { label:'CO2 SCRUBBERS',     room:'aux_section_d1'   },
   o2_gen:         { label:'O2 GENERATOR',      room:'aux_section_d2'   },
   aux_power:      { label:'AUX POWER PANEL',   room:'aux_section_d0'   },
+  vent_plant:     { label:'VENT PLANT',        room:'aux_section_d1b'  },
   // ── WT Section 4 — Reactor Comp (nuclear) ────────────────────────────
   reactor:        { label:'REACTOR',           room:'reactor_comp_d1',  nuclearOnly:true },
   primary_coolant:{ label:'PRIMARY COOLANT',   room:'reactor_comp_d2',  nuclearOnly:true },
@@ -53,9 +54,9 @@ export const SYS_DEF = {
   main_turbines:  { label:'MAIN TURBINES',     room:'engine_room_d2',   nuclearOnly:true },
   elec_dist:      { label:'ELEC DISTRIBUTION', room:'engine_room_d1'   },
   emerg_diesel:   { label:'EMERGENCY DIESEL',  room:'engine_room_d2',   nuclearOnly:true },
-  // ── WT Section 5 (diesel) — Motor Room ───────────────────────────────
+  // ── WT Section 5 — Battery (all vessels) / Motor Room (diesel) ───────
+  battery_bank:   { label:'BATTERY BANK',      room:'engine_room_d1'   },
   main_motor:     { label:'MAIN MOTOR',        room:'engine_room_d0b',  dieselOnly:true  },
-  battery_bank:   { label:'BATTERY BANK',      room:'engine_room_d1',   dieselOnly:true  },
   // ── WT Section 6 — Aft Ends ──────────────────────────────────────────
   towed_array:    { label:'TOWED ARRAY',       room:'aft_ends_d2'      },
   steering:       { label:'STEERING',          room:'aft_ends_d2'      },

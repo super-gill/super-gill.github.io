@@ -223,10 +223,20 @@ export const reactor = {
     if (lines[step]) log(lines[step][0], lines[step][1], lines[step][2]||P.NORMAL);
   },
   online() { msg('REACTOR ONLINE', 1.5); },
-  coolantLeak() {
-    log('MANV', 'Conn, Manoeuvring — primary coolant pressure dropping. We have a leak in the primary loop', P.CRIT);
-    qlog('ENG', 'Conn, Eng — estimating automatic SCRAM in forty-five seconds. Recommend reducing speed to give DC a chance to isolate', 2.0, P.CRIT);
-    msg('COOLANT LEAK', 2.0);
+  coolantLeak(count=1) {
+    if(count <= 1){
+      log('MANV', 'Conn, Manoeuvring — primary coolant pressure dropping. We have a leak in the primary loop', P.CRIT);
+      qlog('ENG', 'Conn, Eng — estimating automatic SCRAM in forty-five seconds. Recommend reducing speed to give DC a chance to isolate', 2.0, P.CRIT);
+      msg('COOLANT LEAK', 2.0);
+    } else if(count === 2){
+      log('MANV', 'Conn, Manoeuvring — primary coolant pressure dropping again. Second leak', P.CRIT);
+      qlog('ENG', 'Conn, Eng — DC reports the patch is not holding. We need to slow down, sir', 1.5, P.CRIT);
+      msg('COOLANT LEAK — RECURRING', 2.0);
+    } else {
+      log('MANV', 'Conn, Manoeuvring — another primary coolant leak. System is failing', P.CRIT);
+      qlog('ENG', 'Conn, Eng — we cannot keep isolating these. SCRAM is inevitable if we maintain this speed and depth', 1.5, P.CRIT);
+      msg('COOLANT — CRITICAL', 2.5);
+    }
   },
   coolantLeakProgress() {
     log('ENG', 'Conn, Eng — DC working the leak. Coolant pressure still falling', P.MED);
@@ -315,6 +325,28 @@ export const planes = {
     log('HELM', `Conn, Helm — planes frozen. No HP air. Planes locked ${Math.abs(angleNow)}° ${dir}.`, P.CRIT);
     qlog('CONN', `All stations, Conn — planes are frozen in ${dir}. Ballast control only.`, 1.0, P.CRIT);
     msg('PLANES FROZEN', 3.0);
+  },
+  stuckPlanes(set, direction) {
+    const setLabel = set === 'fwd' ? 'FORWARD' : 'AFT';
+    const dirLabel = direction === 'neutral' ? 'NEUTRAL' : direction.toUpperCase();
+    msg(`PLANES JAM — ${setLabel}`, 2.5);
+    log('HELM', `Conn, Helm — planes jam, ${setLabel.toLowerCase()} planes. Jammed in ${dirLabel.toLowerCase()}`, P.CRIT);
+    qlog('HELM', `Conn, Helm — shifting to backup control`, 1.5, P.MED);
+    if (direction !== 'neutral') {
+      qlog('CONN', `All stations, Conn — depth rate increasing from jammed planes. Stand by for emergency manoeuvre`, 3.0, P.CRIT);
+    }
+  },
+  stuckPlanesRecovered(set) {
+    const setLabel = set === 'fwd' ? 'forward' : 'aft';
+    msg(`${setLabel.toUpperCase()} PLANES — BACKUP CONTROL`, 1.5);
+    log('HELM', `Conn, Helm — backup control established. ${setLabel.charAt(0).toUpperCase()+setLabel.slice(1)} planes on air-emergency`, P.MED);
+    qlog('CONN', `Conn, Helm — compensating on remaining planes`, 2.0, P.MED);
+  },
+  stuckPlanesFailed(set) {
+    const setLabel = set === 'fwd' ? 'forward' : 'aft';
+    msg(`${setLabel.toUpperCase()} PLANES — JAMMED HARD`, 2.5);
+    log('HELM', `Conn, Helm — unable to recover ${setLabel} planes. Planes jammed hard`, P.CRIT);
+    qlog('CONN', `All stations, Conn — ${setLabel} planes lost. Compensating on remaining planes`, 2.0, P.CRIT);
   },
 };
 
@@ -469,6 +501,12 @@ export const weapons = {
   missileDefeat(target) {
     msg('MISSILE DEFEATED', 1.5);
     log('SONAR', `Conn, Sonar — ${target} CIWS active. Missile defeated`);
+  },
+  vlsLaunchSequence(cell, weaponLabel, contactId) {
+    log('CONN', `Weps, Conn — firing point procedures, VLS cell ${cell}, ${weaponLabel}, ${contactId}`);
+    qlog('WEPS', `Conn, Weps — VLS cell ${cell}, ${weaponLabel}, ${contactId}, aye. Preparing cell`, 1.0);
+    qlog('WEPS', `Conn, Weps — cell ${cell} pressurised. Solution set. Ready to fire`, 2.5);
+    msg('VLS READY', 2.5);
   },
   vlsFired(cell, weaponLabel, contactId) {
     log('CONN', `Fire, VLS cell ${cell}, ${weaponLabel}, ${contactId}`);

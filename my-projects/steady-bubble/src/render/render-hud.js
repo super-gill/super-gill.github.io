@@ -328,8 +328,8 @@ function drawNavCompass(W,H,panelH){
   _PANEL?.btn2(ctx,'1\u00B0 P',portX,portY2,btnW,btnH,btnColor,()=>_PANEL?.courseStep(-1));
 
   const stbdX=cx+radius+U(8);
-  _PANEL?.btn2(ctx,'1\u00B0 S',stbdX,portY1,btnW,btnH,btnColor,()=>_PANEL?.courseStep(1));
-  _PANEL?.btn2(ctx,'10\u00B0 S',stbdX,portY2,btnW,btnH,btnColor,()=>_PANEL?.courseStep(10));
+  _PANEL?.btn2(ctx,'10\u00B0 S',stbdX,portY1,btnW,btnH,btnColor,()=>_PANEL?.courseStep(10));
+  _PANEL?.btn2(ctx,'1\u00B0 S',stbdX,portY2,btnW,btnH,btnColor,()=>_PANEL?.courseStep(1));
 
   const depBtnW=U(34), depBtnH=U(20);
   const aboveX=cx-depBtnW/2;

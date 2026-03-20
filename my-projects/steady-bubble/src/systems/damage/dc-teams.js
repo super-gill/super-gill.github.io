@@ -210,9 +210,9 @@ export function _autoDispatchDC(dt,d){
 // ── Next damaged system to repair in a compartment (auto-priority) ────────
 function _nextRepairTarget(comp,d){
   const sysList=activeSystems(comp);
-  // Priority: worst state first, skip nominal only (destroyed is repairable post-blow)
+  // Priority: worst state first. Skip nominal AND permanently damaged systems.
   const repairable=sysList
-    .filter(s=>d.systems[s]!=='nominal')
+    .filter(s=>d.systems[s]!=='nominal' && !d.permanentDamage?.has(s))
     .sort((a,b)=>stateIndex(b)-stateIndex(a));
   return repairable[0]||null;
 }

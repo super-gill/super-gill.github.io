@@ -30,7 +30,8 @@ export const COMP_STATION = {
 
 // ── Voice templates (moved to voice.js + voice-ops.js) ───────────────────
 import { flood, dc, sys, reactor, escape, planes, combat, weapons } from './voice.js';
-import { nav, sensors, tactical, depth, trim, fire, medical, watch, snorkel, mast } from './voice-ops.js';
+import { nav, sensors, tactical, depth, trim, fire, medical, watch, snorkel, mast,
+         hydraulic, shaftSeal, hydrogen, hotRun, snorkelFlood, chlorine } from './voice-ops.js';
 
 // ════════════════════════════════════════════════════════════════════════
 // PANEL / SPEED ORDERS
@@ -123,5 +124,6 @@ export const crewState = {
 export const COMMS = {
   P, COMP_STATION, dcLog, flood, dc, sys, reactor, escape, combat, weapons,
   nav, sensors, tactical, panel, ui: commsUi, crewState, depth, trim, planes,
-  fire, watch, medical, snorkel, mast,
+  fire, watch, medical, snorkel, mast, hydraulic, shaftSeal, hydrogen, hotRun,
+  snorkelFlood, chlorine,
 };

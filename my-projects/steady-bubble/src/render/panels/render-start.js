@@ -107,7 +107,15 @@ import { CONFIG, session, ui, L, C } from './panel-context.js';
       ctx.fillText('DIVE \u2014 BEGIN MISSION',diveX+diveW/2,diveY+diveH*0.68);
       L.PANEL?.btn2(ctx,'',diveX,diveY,diveW,diveH,'transparent',()=>{
         const vk=session.vesselKey||'688i';const prs=CONFIG.playerPresets||[];
-        CONFIG.player=prs.find(p=>p.key===vk)||prs[0]||CONFIG.player;
+        const preset=prs.find(p=>p.key===vk)||prs[0];
+        if(preset){
+          // Merge preset into CONFIG.player — preserves base properties (e.g. casualty configs)
+          // that aren't overridden by the vessel preset
+          const baseCasualties=CONFIG.player.casualties;
+          Object.assign(CONFIG.player, preset);
+          // Deep-merge casualties so vessel-specific overrides don't clobber new casualty types
+          if(baseCasualties) CONFIG.player.casualties=Object.assign({}, baseCasualties, preset.casualties||{});
+        }
         session.started=true;session.scenario=session.scenario||'waves';L.SIM?.resetScenario(session.scenario);
       });
 

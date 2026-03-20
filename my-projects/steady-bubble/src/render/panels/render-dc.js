@@ -192,7 +192,7 @@ import { clamp, player, session, ui, L, C } from './panel-context.js';
       const comp=compKeys[ci]; const cx2=compXs[ci]; const cw=compWs[ci];
       const sysList=DMG.activeSystems(comp);
       let worstIdx=0;
-      for(const s of sysList) worstIdx=Math.max(worstIdx,DMG.STATES.indexOf(DMG.effectiveState(s,dmg)));
+      for(const s of sysList) worstIdx=Math.max(worstIdx,DMG.STATES.indexOf(dmg.systems[s]||'nominal'));
       const worst=DMG.STATES[worstIdx];
       const flood=dmg.flooding[comp]||0;
       const isFlooded=dmg.flooded[comp];
@@ -238,7 +238,7 @@ import { clamp, player, session, ui, L, C } from './panel-context.js';
       const isFlooded=dmg.flooded[comp];
       const sysList=DMG.activeSystems(comp);
       let worstIdx=0;
-      for(const s of sysList) worstIdx=Math.max(worstIdx,DMG.STATES.indexOf(DMG.effectiveState(s,dmg)));
+      for(const s of sysList) worstIdx=Math.max(worstIdx,DMG.STATES.indexOf(dmg.systems[s]||'nominal'));
       const worst=DMG.STATES[worstIdx];
       const cMid=cx2+cw*0.5;
 
@@ -379,8 +379,11 @@ import { clamp, player, session, ui, L, C } from './panel-context.js';
           } else if(hasFire&&isInTransit){
             bCol='rgba(130,55,10,0.80)'; bLabel='\u2192FIRE';
             clickFn=()=>DMG.recallTeam(team.id);
-          } else if(hasFire){
+          } else if(hasFire&&isReady){
             bCol='rgba(140,40,5,0.75)'; bLabel='FIRE';
+            clickFn=()=>DMG.assignTeam(team.id,comp);
+          } else if(hasFire){
+            bCol='rgba(100,30,5,0.45)'; bLabel=lbl+'\u2622';
             clickFn=()=>DMG.assignTeam(team.id,comp);
           } else if(isOnScene){
             bCol='rgba(20,90,40,0.85)'; bLabel=lbl+' \u2713';

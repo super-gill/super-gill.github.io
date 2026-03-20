@@ -245,6 +245,34 @@ function initDamage(){
     },
     _emergMusterFired:false,
 
+    // Hydraulic pressure — 1.0 = full, 0.0 = empty
+    hydPressure: 1.0,
+
+    // Stuck diving planes — null when inactive
+    stuckPlanes: null,  // { set:'fwd'|'aft', direction:'dive'|'rise'|'neutral', recoveryT, recovered }
+
+    // Shaft seal leak — permanent speed-dependent flooding
+    shaftSealLeak: false,
+
+    // Snorkel flooding (Type 209 only)
+    snorkelFloodActive: false,
+    _snorkelFloodSeverity: null,  // 'minor'|'major'|'catastrophic'
+    _snorkelValveT: 0,
+
+    // Chlorine gas level (Type 209 only) — 0-1 scale
+    cl2Level: 0,
+
+    // Hot run torpedo — countdown timer and affected tube
+    hotRunCountdown: null,
+    hotRunTube: null,
+
+    // Hydrogen level — 0-1 scale (all vessels)
+    h2Level: 0,
+
+    // Permanent damage — systems that cannot be repaired at sea
+    permanentDamage: new Set(),
+
+
     // Watertight Doors — 5 doors between adjacent sections, all open at start
     wtd: Object.fromEntries(WTD_PAIRS.map(([a,b])=>[a+'|'+b,'open'])),
     _wtdSpreadAlerted:{},  // comp -> true once watchkeepers have reported WTD ingress
@@ -256,9 +284,9 @@ function initDamage(){
 // ── Next damaged system to repair in a compartment (auto-priority) ────────
 function _nextRepairTarget(comp,d){
   const sysList=activeSystems(comp);
-  // Priority: worst state first, skip nominal only (destroyed is repairable post-blow)
+  // Priority: worst state first. Skip nominal AND permanently damaged systems.
   const repairable=sysList
-    .filter(s=>d.systems[s]!=='nominal')
+    .filter(s=>d.systems[s]!=='nominal' && !d.permanentDamage?.has(s))
     .sort((a,b)=>stateIndex(b)-stateIndex(a));
   return repairable[0]||null;
 }
@@ -346,6 +374,70 @@ function hit(amount,hitX,hitY,forceComp){
       d.towers[def.tower]='damaged';
       _alert(`ESCAPE TOWER ${def.tower.toUpperCase()} DAMAGED`);
     }
+    // Hot run — combat hit to fore_ends, severity > 0.30, loaded tube
+    if(comp==='fore_ends' && severity > 0.30 && d.hotRunCountdown==null){
+      const hrCfg = C.player.casualties?.hotRun || {};
+      const loadedTubes = (player.torpTubes||[]).map((v,i)=>({v,i})).filter(t=>t.v===0);
+      if(loadedTubes.length > 0 && Math.random() < (hrCfg.combatChance||0.06)){
+        const tube = loadedTubes[Math.floor(Math.random()*loadedTubes.length)].i;
+        d.hotRunCountdown = hrCfg.countdown || 12;
+        d.hotRunTube = tube;
+        player.torpTubes[tube] = -2; // locked — cannot fire
+        _COMMS?.hotRun?.detected(tube+1);
+      }
+    }
+
+    // Snorkel flood — combat hit while snorkelling (diesel only)
+    // Sets flag; tickSnorkelFlood in casualty-ticks.js resolves severity on next frame
+    if(C.player.isDiesel && player.snorkelling && !d.snorkelFloodActive){
+      if(Math.random() < (C.player.casualties?.snorkelFlood?.combatChance || 0.30)){
+        d._snorkelFloodPending = true;  // picked up by tickSnorkelFlood
+      }
+    }
+
+    // Hydrogen combat ignition — hit to engine_room when h2Level >= danger
+    if(comp==='engine_room' && (d.h2Level||0) >= (C.player.casualties?.hydrogen?.dangerLevel||0.50)){
+      if(Math.random() < (C.player.casualties?.hydrogen?.combatHitIgnition||0.40)){
+        // Detonation handled by tickHydrogen's _detonateHydrogen — set h2Level to explosive to trigger next tick
+        d.h2Level = 1.0;
+      }
+    }
+
+    // Shaft seal — combat hit to aft_ends when shaft_seals degraded+
+    if(comp==='aft_ends' && !d.shaftSealLeak){
+      const sealState = STATES.indexOf(d.systems.shaft_seals||'nominal');
+      if(sealState >= 1 && Math.random() < (C.player.casualties?.shaftSeal?.combatChance||0.25)){
+        d.shaftSealLeak = true;
+        _COMMS?.shaftSeal?.activated();
+      }
+    }
+
+    // Stuck planes — combat damage to planes hydraulics
+    if(!d.stuckPlanes){
+      const spCfg=C.player.casualties?.stuckPlanes||{};
+      for(const planesSys of ['planes_fwd_hyd','planes_aft_hyd']){
+        const pState=d.systems[planesSys];
+        if((pState==='offline'||pState==='destroyed') && Math.random()<(spCfg.combatChance||0.20)){
+          const set=planesSys==='planes_fwd_hyd'?'fwd':'aft';
+          const dir=player.vy>0.5?'dive':player.vy<-0.5?'rise':'neutral';
+          d.stuckPlanes={set, direction:dir,
+            recoveryT:rand(spCfg.recoveryTime?.[0]||25, spCfg.recoveryTime?.[1]||40),
+            recovered:false};
+          _COMMS?.planes?.stuckPlanes?.(set, dir);
+          break;
+        }
+      }
+    }
+
+    // Hydraulic pressure — combat hit to control_room when hyd_main already damaged
+    if(comp==='control_room'){
+      const hydIdx=STATES.indexOf(d.systems.hyd_main||'nominal');
+      if(hydIdx>=1){
+        const hydCfg=C.player.casualties?.hydraulic||{};
+        d.hydPressure=Math.max(0, (d.hydPressure??1.0) - (hydCfg.combatPressureLoss||0.20));
+      }
+    }
+
     // Fire ignition — higher severity hits have a chance of starting a fire
     if(severity>0.35){
       const fireChance=(severity-0.35)/0.65*0.55;

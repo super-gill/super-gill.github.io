@@ -50,8 +50,12 @@ export function _bindSensors(deps) { if(deps.COMMS) _COMMS=deps.COMMS; if(deps.A
       }
     if(maxBase<TMA.minBaseline){ c.tmaQuality=0; return; }
 
-    const qBase=clamp(maxBase/TMA.goodBaseline,0,1);
-    const qObs=clamp(obs.length/TMA.goodObs,0,1);
+    // Signal quality boost: loud close contacts have tighter bearings (lower u_brg).
+    // Scale baseline/obs requirements inversely — strong signals need less geometry.
+    const avgU=obs.reduce((s,o)=>s+(o.u_brg||0.10),0)/obs.length;
+    const sigBoost=clamp(1.5-avgU*8, 1.0, 2.5); // u_brg 0.02→2.3×, 0.10→0.7× (clamped to 1.0)
+    const qBase=clamp(maxBase/(TMA.goodBaseline/sigBoost),0,1);
+    const qObs=clamp(obs.length/(TMA.goodObs/sigBoost),0,1);
     let maxCross=0;
     for(let i=0;i<obs.length;i++)
       for(let j=i+1;j<obs.length;j++){
@@ -117,30 +121,25 @@ export function _bindSensors(deps) { if(deps.COMMS) _COMMS=deps.COMMS; if(deps.A
             if(c._rangeSample!=null) c._rangeRate=(c._estRange-c._rangeSample)/rSampleAge;
             c._rangeSample=c._estRange; c._rangeSampleT=T;
           }
-          // ── Contact heading estimation — diff successive triangle intersections ──
-          // Two estimates ≥12s apart give a displacement → estimated course.
-          // The raw TMA displacement can be mirrored across the bearing line due to
-          // triangulation geometry shifts. Use bearing rate to correct the cross-bearing
-          // component when available.
-          const prevEstT=c._tmaEstT;
-          if(prevEstT!=null && T-prevEstT>=12 && T-prevEstT<=90){
-            const hdgDx=ix-c._tmaEstX, hdgDy=iy-c._tmaEstY;
-            const moved=Math.hypot(hdgDx,hdgDy);
-            if(moved>30){ // suppress noise from tiny displacements
-              let rawHdg=Math.atan2(hdgDy,hdgDx);
-              // Correct cross-bearing component using bearing rate as ground truth.
-              // TMA intersection displacement can mirror the heading across the bearing
-              // line when geometry is weak. The bearing rate tells us which side the
-              // contact is actually drifting toward.
-              if(c._brgRate!=null && Math.abs(c._brgRate)>0.0003 && c.latestBrg!=null){
-                const relHdg=rawHdg-c.latestBrg;
-                const crossSign=Math.sin(relHdg); // >0 = heading right of bearing, <0 = left
-                // brgRate >0 means bearing increasing (contact drifting right relative to us)
-                // If cross component disagrees with bearing rate, reflect across bearing line
-                if(crossSign * c._brgRate < 0){
-                  rawHdg=2*c.latestBrg - rawHdg; // reflect across bearing line
-                }
-              }
+          // ── Contact heading estimation — bearing rate + range rate ──
+          // Bearing rate gives perpendicular velocity, range rate gives along-bearing
+          // velocity. Together they reconstruct the contact's course vector directly
+          // from observable sonar data, avoiding unreliable TMA displacement.
+          if(c._brgRate!=null && Math.abs(c._brgRate)>0.0003
+             && c.latestBrg!=null && c._estRange!=null && c._estRange>200
+             && c._rangeRate!=null){
+            const brg=c.latestBrg;
+            // Perpendicular velocity: v_perp = brgRate * range
+            // Positive brgRate = bearing increasing (CW) = contact moving CW around us
+            const vPerp=c._brgRate * c._estRange;
+            // Along-bearing velocity: positive = opening (range increasing)
+            const vAlong=c._rangeRate;
+            // Decompose into world XY (perp direction is bearing + π/2)
+            const vx=vAlong*Math.cos(brg) + vPerp*(-Math.sin(brg));
+            const vy=vAlong*Math.sin(brg) + vPerp*Math.cos(brg);
+            const spd=Math.hypot(vx,vy);
+            if(spd>5){ // suppress noise from near-stationary estimates
+              const rawHdg=Math.atan2(vy,vx);
               // Angular interpolation via sin/cos blend — avoids wrap discontinuity
               c._estHeading=c._estHeading!=null
                 ? Math.atan2(Math.sin(rawHdg)*0.35+Math.sin(c._estHeading)*0.65,

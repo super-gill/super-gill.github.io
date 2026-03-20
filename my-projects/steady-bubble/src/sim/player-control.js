@@ -228,17 +228,43 @@ function _fireVLS(cellIdx){
   const cid=session.ascmSolution.contactId||'';
   const maxD=cfg.maxLaunchDepth??30;
   const overDepth=Math.max(0,player.depth-maxD);
-  const launchChance=overDepth===0?1.0:clamp(1-overDepth/(maxD*2),0,1);
   if(overDepth>0) _COMMS.weapons.missileDepthWarning(wl,player.depth,maxD);
-  if(Math.random()>launchChance){ _COMMS.weapons.vlsLaunchFail(wl,cellIdx+1); return; }
-  cell.state='expended';
-  const m=_MSL?.create(wType,player.wx,player.wy,{
-    bearing:session.ascmSolution.bearing,
-    range:session.ascmSolution.range,
-    ref:session.ascmSolution.ref,
-  });
-  if(m) missiles.push(m);
-  _COMMS.weapons.vlsFired(cellIdx+1,wl,cid);
+  // Queue the launch — countdown before missile away
+  const launchDelay=cfg.vlsLaunchDelay??4.0;
+  cell.state='launching';
+  cell._launchT=launchDelay;
+  cell._wType=wType;
+  cell._solution={bearing:session.ascmSolution.bearing, range:session.ascmSolution.range, ref:session.ascmSolution.ref};
+  cell._overDepth=overDepth;
+  cell._maxD=maxD;
+  cell._cid=cid;
+  _COMMS.weapons.vlsLaunchSequence?.(cellIdx+1,wl,cid);
+  player.noiseTransient=Math.min(1,(player.noiseTransient||0)+0.25);
+}
+
+// Tick VLS launch countdowns — called from tickPendingFires
+function _tickVLS(dt){
+  const cells=player.vlsCells||[];
+  for(let i=0;i<cells.length;i++){
+    const cell=cells[i];
+    if(!cell||cell.state!=='launching') continue;
+    cell._launchT-=dt;
+    if(cell._launchT>0) continue;
+    // Launch
+    const cfg=C.weapons?.[cell._wType];
+    const wl=cfg?.shortLabel||cell._wType?.toUpperCase()||'MSL';
+    const launchChance=cell._overDepth===0?1.0:clamp(1-cell._overDepth/(cell._maxD*2),0,1);
+    if(Math.random()>launchChance){
+      _COMMS.weapons.vlsLaunchFail(wl,i+1);
+      cell.state='expended';
+      continue;
+    }
+    cell.state='expended';
+    const m=_MSL?.create(cell._wType,player.wx,player.wy,cell._solution);
+    if(m) missiles.push(m);
+    _COMMS.weapons.vlsFired(i+1,wl,cell._cid||'');
+    player.noiseTransient=Math.min(1,(player.noiseTransient||0)+0.40);
+  }
 }
 
 // ── Stadimeter ──────────────────────────────────────────────────────────
@@ -271,9 +297,26 @@ function _toggleMast(key){
 
 export function tickTubeOps(dt){
   player.torpCd=Math.max(0,player.torpCd-dt);
-  // Tick tube reload timers (skip wire-occupied tubes: value -1)
-  for(let i=0;i<(player.torpTubes||[]).length;i++)
-    if(player.torpTubes[i]>0) player.torpTubes[i]=Math.max(0,player.torpTubes[i]-dt);
+  // Tick tube reload timers (skip wire-occupied tubes: value -1, skip hot-run locked: -2)
+  for(let i=0;i<(player.torpTubes||[]).length;i++){
+    if(player.torpTubes[i]>0){
+      const prev=player.torpTubes[i];
+      player.torpTubes[i]=Math.max(0,player.torpTubes[i]-dt);
+      // Hot run check on reload completion
+      if(prev>0 && player.torpTubes[i]===0 && player.damage?.hotRunCountdown==null){
+        const hrCfg=C.player.casualties?.hotRun||{};
+        const stowState=player.damage?.systems?.weapon_stow||'nominal';
+        const stowDmg=['degraded','offline','destroyed'].indexOf(stowState)>=0;
+        const chance=stowDmg?(hrCfg.reloadChanceDegraded||0.02):(hrCfg.reloadChanceBase||0.0005);
+        if(Math.random()<chance){
+          player.damage.hotRunCountdown=hrCfg.countdown||12;
+          player.damage.hotRunTube=i;
+          player.torpTubes[i]=-2; // locked
+          _COMMS?.hotRun?.detected(i+1);
+        }
+      }
+    }
+  }
 
   // Tick torpedo room operation (load/unload/strike -- one at a time)
   if(player.tubeOp){
@@ -425,6 +468,9 @@ export function tickPendingFires(dt){
   if(!player.pendingLogs) player.pendingLogs=[];
   for(const pl of player.pendingLogs){ pl.t-=dt; if(pl.t<=0){ pl.done=true; addLog(pl.station,pl.msg,pl.priority||0); } }
   player.pendingLogs=player.pendingLogs.filter(pl=>!pl.done);
+
+  // -- VLS launch countdowns ---------------------------------------------------
+  _tickVLS(dt);
 }
 
 // ── Tick: stadimeter ────────────────────────────────────────────────────

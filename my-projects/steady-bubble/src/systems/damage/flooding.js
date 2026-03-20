@@ -29,7 +29,12 @@ function _alert(text) { _alertFn?.(text); }
 function damageSystem(sys, steps) { return _damageSystemFn?.(sys, steps); }
 
 // ── WTD helpers ───────────────────────────────────────────────────────────
-function _hydMainOk(d){ return (d.systems?.hyd_main||'nominal')!=='destroyed'; }
+// Hydraulic pressure check — WTDs require sufficient pressure to operate.
+// Below failThreshold (0.30) = cannot open/close. Below sluggishThreshold = slow.
+function _hydMainOk(d){
+  const hydP = d.hydPressure ?? 1.0;
+  return hydP >= 0.30;  // matches hydraulic.failThreshold
+}
 
 export function _wtdTransitPenalty(from, to, d){
   if(!d.wtd) return 0;
@@ -151,16 +156,17 @@ export function toggleWTD(sectionA, sectionB){
   const key=sectionA+'|'+sectionB;
   if(!Object.prototype.hasOwnProperty.call(d.wtd, key)) return;
   if(!_hydMainOk(d)){
-    dcLog('WTD — HYD PLANT DESTROYED — DOOR CANNOT BE OPERATED');
+    dcLog('WTD — HYDRAULIC PRESSURE TOO LOW — DOOR CANNOT BE OPERATED');
     return;
   }
   const cur=d.wtd[key];
   const next=cur==='open'?'closed':'open';
   d.wtd[key]=next;
-  const isManual=(d.systems?.hyd_main||'nominal')==='offline';
+  const hydP = d.hydPressure ?? 1.0;
+  const isSluggish = hydP < 0.60;
   const labA=compLabel(sectionA);
   const labB=compLabel(sectionB);
-  dcLog(`WTD ${labA}/${labB} — ${next.toUpperCase()}${isManual?' (MANUAL OP)':''}`);
+  dcLog(`WTD ${labA}/${labB} — ${next.toUpperCase()}${isSluggish?' (SLUGGISH — LOW HYD PRESSURE)':''}`);
 }
 
 export function _floodComp(comp){

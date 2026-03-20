@@ -79,7 +79,7 @@ export function tickReactorScram(dt){
 // ── Crash dive depth-passing calls ──────────────────────────────────────
 
 export function tickCrashDive(dt){
-  if((player.crashDiveT??0)>0){
+  if(player._crashDiving){
     if(!player._crashDepthCalled) player._crashDepthCalled=new Set();
     const band=Math.floor(player.depth/50)*50;
     if(band>=100 && !player._crashDepthCalled.has(band)){
@@ -106,8 +106,9 @@ export function tickCoolantLeak(dt){
         const threshold = coolantDegraded ? (casCfg.stressThreshold||15)/((casCfg.degradedRiskMult||3)) : (casCfg.stressThreshold||15);
         const risk = clamp((player._flankDepthT - threshold) * (casCfg.riskPerSec||0.008), 0, 0.35) * dt;
         if(risk>0 && Math.random() < risk){
+          player._coolantLeakCount = (player._coolantLeakCount||0) + 1;
           player._coolantLeak={ timer:casCfg.countdown||45, rolled:false, warned:false };
-          _COMMS.reactor.coolantLeak();
+          _COMMS.reactor.coolantLeak(player._coolantLeakCount);
         }
       } else {
         player._flankDepthT = Math.max(0,(player._flankDepthT||0)-dt*2);

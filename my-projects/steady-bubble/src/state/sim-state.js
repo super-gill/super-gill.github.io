@@ -27,7 +27,7 @@ export const player = {
   silent: false,
   scram: false, scramT: 0, scramCause: null, scramEPM: false,
   emergTurnT: 0, emergTurnCd: 0,
-  crashDiveT: 0, crashDiveCd: 0,
+  _crashDiving: false, crashDiveCd: 0, _crashTanksFull: false,
   passiveTick: 0,
   turnRate: 0,
   towedArray: {
