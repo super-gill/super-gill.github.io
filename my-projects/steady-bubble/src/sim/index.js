@@ -14,6 +14,9 @@ import { bindPlayerControl, tickTubeOps, tickPendingFires, tickStadimeter,
          tickFiringInputs, tickWireGuidance } from './player-control.js';
 import { bindPlayerPhysics, tickReactorScram, tickCrashDive, tickCoolantLeak,
          tickNavSig, initiateWatchChange, tickWatchFatigue } from './player-physics.js';
+import { bindCasualtyTicks,
+         tickHydraulic, tickShaftSeal, tickHotRun, tickStuckPlanes,
+         tickSnorkelFlood, tickHydrogen, tickChlorine } from './casualty-ticks.js';
 import { bindScenario, spawnScenario, spawnWave,
          tickWaveManagement, tickVictory } from './scenario.js';
 
@@ -58,6 +61,7 @@ export function _bindSim(deps) {
   // Forward bindings to sub-modules
   bindPlayerControl({ COMMS: _COMMS, I: _I, NAV: _NAV, SENSE: _SENSE, W: _W, AI: _AI, DMG: _DMG, MSL: _MSL, canvas: _canvas, SIM });
   bindPlayerPhysics({ COMMS: _COMMS, NAV: _NAV, SIG: _SIG, DMG: _DMG });
+  bindCasualtyTicks({ COMMS: _COMMS, DMG: _DMG, broadcastTransient: _broadcastTransient });
   bindScenario({ COMMS: _COMMS, AI: _AI });
 }
 
@@ -88,6 +92,23 @@ export function damagePlayer(amount, hitX, hitY){
   if(session.godMode){ _W.makeExplosion(player.wx, player.wy, 0.8, true); return; }
   _DMG.hit(amount, hitX??null, hitY??null);
   _W.makeExplosion(player.wx, player.wy, 0.8, true);
+  // Combat shock severs all active torpedo wires
+  _severAllWires('dive');
+}
+
+function _severAllWires(cause){
+  const tubeWires=player.tubeWires||[];
+  let severed=0;
+  for(let i=0;i<tubeWires.length;i++){
+    const b=tubeWires[i];
+    if(!b||!b.wire?.live) continue;
+    b.wire.live=false;
+    tubeWires[i]=null;
+    player.torpTubes[i]=0;
+    player.tubeLoad[i]=null;
+    severed++;
+  }
+  if(severed>0) _COMMS.weapons.wireParted(null, cause);
 }
 
 export function damageEnemy(e,amount){
@@ -309,6 +330,11 @@ function update(dt){
   player.pingCd=Math.max(0,player.pingCd-dt);
 
   tickCoolantLeak(dt);
+  tickHydraulic(dt);
+  tickShaftSeal(dt);
+  tickHotRun(dt);
+  tickStuckPlanes(dt);
+  tickSnorkelFlood(dt);
 
   player.cmCd=Math.max(0,player.cmCd-dt);
   player.periscopeCd=Math.max(0,player.periscopeCd-dt);
@@ -318,6 +344,8 @@ function update(dt){
   player.periscopeT=Math.max(0,player.periscopeT-dt);
   player.invuln=Math.max(0,player.invuln-dt);
   _DMG.tick(dt);
+  tickHydrogen(dt);
+  tickChlorine(dt);
   tickWatchFatigue(dt);
   if(session.hitFlash>0) session.hitFlash=Math.max(0,session.hitFlash-dt*2.5);
   player.sonarPulse=Math.max(0,player.sonarPulse-dt);

@@ -46,6 +46,36 @@ Architectural and process decisions made during the project. Recorded so they ar
 
 ---
 
+## D005 — New casualty tick functions extracted to sim/casualty-ticks.js
+
+**Decision:** All 7 new casualty tick functions (tickSnorkelFlood, tickChlorine, tickHotRun, tickStuckPlanes, tickShaftSeal, tickHydraulic, tickHydrogen) are placed in a new file `src/sim/casualty-ticks.js` (505 lines) rather than in `player-physics.js`.
+
+**Why:** Adding ~560 lines of new casualty systems to player-physics.js (279 lines) would have pushed it to 836 lines, exceeding the 800-line limit. The new casualties are a distinct system group (non-combat runtime casualties) with their own lazy bindings (COMMS, DMG, broadcastTransient), making them a natural split point. player-physics.js retains the original reactor/coolant/steam/turbine casualty ticks and nav/sig/watch systems.
+
+**How to apply:** casualty-ticks.js is bound via `bindCasualtyTicks()` from sim/index.js. It follows the same lazy binding pattern as player-physics.js. ARCHITECTURE.md should be updated to include this file.
+
+---
+
+## D006 — damage/index.js at 830 lines (over 800-line limit)
+
+**Decision:** `damage/index.js` is at 830 lines after the casualty upgrade, exceeding the 800-line limit by 30 lines.
+
+**Why:** The casualty upgrade added ~125 lines of combat triggers to the `hit()` function (hot run check, stuck planes check, shaft seal check, snorkel flood flag, hydrogen ignition check, hydraulic pressure loss) plus new state properties in `initDamage()`. These triggers must live inside `hit()` because they fire on combat hit events. Extracting them would require splitting `hit()` across files, which would fragment the combat damage flow and make the code harder to follow.
+
+**How to apply:** Accept damage/index.js at 830 lines. If further growth pushes it higher, extract `initDamage()` and the escape system into a separate `damage/init.js` or `damage/escape.js`.
+
+---
+
+## D007 — battery_bank system changed from dieselOnly to all vessels
+
+**Decision:** The `battery_bank` system definition in `damage-data.js` was changed from `dieselOnly: true` to available on all vessel types.
+
+**Why:** The hydrogen buildup and explosion casualty (CASUALTY-UPGRADE.md Section 6) requires tracking battery state on nuclear boats. Nuclear boats carry batteries for EPM (emergency propulsion mode). When the battery bank is destroyed by a hydrogen explosion, EPM becomes unavailable — a subsequent reactor SCRAM means zero propulsion. The battery room is `engine_room_d1` for all vessel types.
+
+**How to apply:** Nuclear boats now have `battery_bank` as a damageable system. It appears in WTS 5 system lists and can be damaged by combat, flooding, or hydrogen explosion. Effects on diesel boats are unchanged.
+
+---
+
 ## Known Bugs (ported knowingly)
 
 | ID | Description | V1 Location | Logged |

@@ -494,6 +494,11 @@ export const fire = {
     log('ENG', `Conn, ENG — N2 clear in ${compLabel}. Entering for inspection`, P.MED);
     qlog('CONN', `ENG, Conn — aye. Enter ${compLabel} and report`, 1.5, P.MED);
   },
+  electricalFireReignition(roomLabel, station) {
+    msg('ELECTRICAL FIRE — REIGNITION', 1.5);
+    log(station, `Conn, ${station} — electrical fire reignition, ${roomLabel}. Source is damaged distribution board`, P.CRIT);
+    dcLog(`ELECTRICAL FIRE REIGNITION — ${roomLabel} — damaged wiring`);
+  },
   cascade(fromLabel, toLabel) {
     msg('FIRE SPREADING', 1.4);
     log('ENG', `Conn, ${fromLabel} — fire spreading to ${toLabel}`, P.CRIT);
@@ -501,6 +506,139 @@ export const fire = {
   crewReturn(compLabel, station, n) {
     log('CONN', `All stations, Conn — ${compLabel} fire out. Watchkeepers close up.`);
     qlog(station, `Conn, ${station} — manned and ready`, 0.5);
+  },
+};
+
+// ── Snorkel Flooding (Type 209) ──────────────────────────────────────
+export const snorkelFlood = {
+  minor() {
+    msg('SNORKEL FLOOD — MINOR', 1.5);
+    log('MAN', 'Conn, Manoeuvring — snorkel flood. Water in the induction. Diesel stalled. Securing snorkel', P.CRIT);
+  },
+  major() {
+    msg('SNORKEL FLOOD — MAJOR', 2.0);
+    log('MAN', 'Conn, Manoeuvring — snorkel flood, major. Flooding engine compartment. Securing snorkel. Closing induction valve', P.CRIT);
+    qlog('CONN', 'All stations, Conn — snorkel flood. DC teams close up engine compartment', 2.0, P.CRIT);
+  },
+  catastrophic() {
+    msg('SNORKEL HEAD VALVE FAILURE', 3.0);
+    log('MAN', 'Conn, Manoeuvring — snorkel head valve failure. Catastrophic flooding through induction. All stop on snorkel. Closing induction manually', P.CRIT);
+    qlog('CONN', 'All stations, Conn — catastrophic snorkel flood. Emergency stations. DC teams to engine compartment', 2.0, P.CRIT);
+    dcLog('SNORKEL FLOOD — CATASTROPHIC — head valve failure', P.CRIT);
+  },
+};
+
+// ── Chlorine Gas (Type 209) ─────────────────────────────────────────
+export const chlorine = {
+  trace() {
+    msg('CHLORINE — TRACE', 1.5);
+    log('MAN', 'Conn, Manoeuvring — chemical contamination. Chlorine gas detected in the motor room', P.MED);
+  },
+  hazardous() {
+    msg('CHLORINE — HAZARDOUS', 2.0);
+    log('MAN', 'Conn, Manoeuvring — chlorine concentration hazardous. Crew donning emergency breathing apparatus', P.CRIT);
+    dcLog('CHLORINE HAZARDOUS — motor room — DC team effectiveness halved', P.CRIT);
+  },
+  lethal() {
+    msg('CHLORINE — LETHAL', 2.5);
+    log('MAN', 'Conn, Manoeuvring — chlorine lethal concentration. Evacuating motor room. DC teams cannot enter', P.CRIT);
+    qlog('CONN', 'All stations, Conn — chlorine spreading through ventilation. Recommend surface and ventilate', 2.0, P.CRIT);
+    dcLog('CHLORINE LETHAL — motor room evacuated — DC entry blocked', P.CRIT);
+  },
+  saturated() {
+    msg('CHLORINE — SATURATED', 3.0);
+    log('CONN', 'All stations, Conn — gas contamination spreading to adjacent sections. Hatches must be opened', P.CRIT);
+    dcLog('CHLORINE SATURATED — spreading to adjacent sections', P.CRIT);
+  },
+};
+
+// ── Hot Run Torpedo ──────────────────────────────────────────────────
+export const hotRun = {
+  detected(tube) {
+    msg('HOT RUN — TUBE ' + tube, 3.0);
+    log('TOR', `Conn, Torpedo Room — HOT RUN, HOT RUN — tube ${tube}. Motor running`, P.CRIT);
+    qlog('TOR', `Torpedo Room — flooding tube ${tube}. Opening outer doors`, 1.5, P.CRIT);
+    dcLog(`HOT RUN — tube ${tube} — 12 seconds to detonation`, P.CRIT);
+  },
+  ejected(tube) {
+    msg('TORPEDO EJECTED', 2.0);
+    log('TOR', `Conn, Torpedo Room — tube ${tube} ejected. Weapon clear of the hull`, P.CRIT);
+    qlog('CONN', 'All stations, Conn — hot run contained. Weapon ejected. Stand by for damage assessment', 2.0, P.MED);
+    dcLog(`HOT RUN RESOLVED — tube ${tube} ejected — tube degraded`);
+  },
+  detonation() {
+    msg('DETONATION — TORPEDO ROOM', 4.0);
+    log('CONN', 'Conn — detonation in the torpedo room', P.CRIT);
+    dcLog('HOT RUN DETONATION — torpedo room — catastrophic', P.CRIT);
+  },
+  sympatheticDetonation() {
+    msg('SYMPATHETIC DETONATION', 4.0);
+    log('CONN', 'All stations — sympathetic detonation. Stored weapons. Torpedo room lost', P.CRIT);
+    dcLog('SYMPATHETIC DETONATION — all stored weapons — torpedo room destroyed', P.CRIT);
+  },
+};
+
+// ── Hydrogen ─────────────────────────────────────────────────────────
+export const hydrogen = {
+  caution() {
+    msg('HYDROGEN — CAUTION', 1.5);
+    log('MAN', 'Conn, Manoeuvring — hydrogen concentration elevated. Caution level in battery well', P.MED);
+  },
+  danger() {
+    msg('HYDROGEN — DANGER', 2.0);
+    log('MAN', 'Conn, Manoeuvring — hydrogen concentration dangerous. Recommend ventilating battery well. Request permission to come shallow', P.CRIT);
+  },
+  explosive() {
+    msg('HYDROGEN — EXPLOSIVE', 2.5);
+    log('MAN', 'Conn, Manoeuvring — hydrogen at explosive concentration. Recommend immediate ventilation', P.CRIT);
+    qlog('CONN', 'All stations, Conn — hydrogen explosive concentration in battery well. Secure all non-essential electrical', 2.0, P.CRIT);
+  },
+  explosion(isDiesel) {
+    msg('EXPLOSION — BATTERY WELL', 3.0);
+    log('MAN', 'Conn, Manoeuvring — explosion in the battery well. Battery bank destroyed', P.CRIT);
+    qlog('CONN', 'All stations, Conn — fire in engine room. Emergency stations', 1.5, P.CRIT);
+    if (isDiesel) {
+      qlog('MAN', 'Conn, Manoeuvring — all battery power lost. Propulsion lost. Recommend emergency surface', 3.0, P.CRIT);
+    } else {
+      qlog('MAN', 'Conn, Manoeuvring — EPM backup unavailable. Battery destroyed', 3.0, P.CRIT);
+    }
+    dcLog('HYDROGEN EXPLOSION — battery well — BEYOND REPAIR AT SEA', P.CRIT);
+  },
+};
+
+// ── Shaft Seal ───────────────────────────────────────────────────────
+export const shaftSeal = {
+  activated() {
+    msg('SHAFT SEAL FAILURE', 2.0);
+    log('ENG', 'Conn, Aft Ends — shaft seal failure. Water ingress aft of frame. Leak rate increasing with speed', P.CRIT);
+    qlog('CONN', 'Aft Ends, Conn — aye. DC teams, close up aft ends. Reduce speed to slow the leak', 2.0, P.CRIT);
+    dcLog('SHAFT SEAL FAILURE — speed-dependent leak active', P.CRIT);
+  },
+  speedWarning() {
+    log('ENG', 'Conn, Aft Ends — shaft seal leak rate increasing with speed. Recommend reducing speed', P.MED);
+  },
+};
+
+// ── Hydraulic System ──────────────────────────────────────────────────
+export const hydraulic = {
+  pressureLow(hydState) {
+    msg('HYDRAULIC PRESSURE LOW', 1.5);
+    log('CONN', `Conn, Control Room — hydraulic pressure dropping. Main plant ${hydState.toUpperCase()}. WTD operation sluggish`, P.CRIT);
+    qlog('ENG', 'Conn, Eng — hydraulic pressure low. Close WTDs now if required', 2.0, P.MED);
+  },
+  pressureCritical() {
+    msg('HYDRAULIC PRESSURE CRITICAL', 2.0);
+    log('CONN', 'Conn, Control Room — hydraulic pressure critical. WTDs frozen. Planes shifting to air-emergency', P.CRIT);
+    qlog('HELM', 'Conn, Helm — planes on air emergency. HPA consumption increasing', 1.5, P.CRIT);
+  },
+  pressureZero() {
+    msg('HYDRAULIC FAILURE', 2.5);
+    log('CONN', 'All stations, Conn — complete hydraulic failure. WTDs frozen in current state. Planes on air-emergency backup only', P.CRIT);
+  },
+  fluidFire() {
+    msg('HYDRAULIC FIRE', 1.8);
+    log('ENG', 'Conn, Control Room — hydraulic fluid fire, Machinery Space. Aerosolised fluid on hot surfaces', P.CRIT);
+    dcLog('HYDRAULIC FIRE — MACHINERY SPACE — aerosolised fluid ignition');
   },
 };
 

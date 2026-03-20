@@ -146,13 +146,23 @@ export function getEffects(){
   // or when periscope destroyed + 3+ strikes (catastrophic conn damage)
   const fwdCtrl = connRoomLost
     || ((d.systems?.periscope==='destroyed') && (d.strikes?.control_room||0) >= 3);
-  // fwd plane mode
+  // Hydraulic pressure affects plane and WTD operation
+  const hydP = d.hydPressure ?? 1.0;
+  const hydCfg = C.player.casualties?.hydraulic || {};
+  const hydFail = hydP < (hydCfg.failThreshold || 0.30);
+  // fwd plane mode — hydraulic pressure below fail threshold forces air_emergency
   const fwdPlaneMode = fwdCtrl ? 'frozen'
+    : hydFail ? 'air_emergency'
     : (fwdHyd==='offline'||fwdHyd==='destroyed') ? 'air_emergency'
     : fwdHyd==='degraded' ? 'air_emergency' : 'hydraulic';
   // aft plane mode — no control loss (Manoeuvring fallback), only hydraulic mode changes
-  const aftPlaneMode = (aftHyd==='offline'||aftHyd==='destroyed') ? 'air_emergency'
+  const aftPlaneMode = hydFail ? 'air_emergency'
+    : (aftHyd==='offline'||aftHyd==='destroyed') ? 'air_emergency'
     : aftHyd==='degraded' ? 'air_emergency' : 'hydraulic';
+  // WTD operation speed multiplier based on hydraulic pressure
+  const hydSluggish = hydP < (hydCfg.sluggishThreshold || 0.60);
+  const hydComplete = hydP < (hydCfg.completeFailThreshold || 0.10);
+  const wtdSpeedMult = hydComplete ? 0 : hydFail ? 0 : hydSluggish ? 0.67 : 1.0;
   const aftCtrlTransferred = (d.strikes?.control_room||0) > 0;
   const fireLevel=Object.fromEntries(COMPS.map(c=>[c,_sectionFire(c,d)]));
   const anyFire=ROOM_IDS.some(rid=>(d.fire?.[rid]||0)>0.01);
@@ -179,10 +189,10 @@ export function getEffects(){
   if(eFireCtrl==='degraded')       { wireNoiseMult=3.0; wireUpdateRate=0.5; }
   else if(eFireCtrl==='offline')   { wireNoiseMult=8.0; wireUpdateRate=0.2; }
   else if(eFireCtrl==='destroyed') { wireCutAll=true; }
-  return {speedCap,sonarRangeMult,bearingNoiseMult,reloadMult,depthRateMult,noisePenalty,tdcErrDeg,tubesAvail,towedOk,periscopeOk,maxDepth,totalFlood,floodTauMult,fwdPlaneMode,aftPlaneMode,aftCtrlTransferred,connRoomLost,crashDiveAvail:!connRoomLost,silentRunAvail:!connRoomLost,steeringMult,steeringOk,fireLevel,anyFire,wireNoiseMult,wireUpdateRate,wireCutAll,chargeRateMult};
+  return {speedCap,sonarRangeMult,bearingNoiseMult,reloadMult,depthRateMult,noisePenalty,tdcErrDeg,tubesAvail,towedOk,periscopeOk,maxDepth,totalFlood,floodTauMult,fwdPlaneMode,aftPlaneMode,aftCtrlTransferred,connRoomLost,crashDiveAvail:!connRoomLost,silentRunAvail:!connRoomLost,steeringMult,steeringOk,fireLevel,anyFire,wireNoiseMult,wireUpdateRate,wireCutAll,chargeRateMult,wtdSpeedMult,hydPressure:hydP};
 }
 export function _defaults(){
-  return {speedCap:Infinity,sonarRangeMult:1.0,bearingNoiseMult:1.0,reloadMult:1.0,depthRateMult:1.0,noisePenalty:0,tdcErrDeg:0,tubesAvail:C.player.torpTubes||4,towedOk:true,periscopeOk:true,maxDepth:C.world?.maxDepth||500,totalFlood:0,floodTauMult:1.0,fwdPlaneMode:'hydraulic',aftPlaneMode:'hydraulic',aftCtrlTransferred:false,connRoomLost:false,crashDiveAvail:true,silentRunAvail:true,steeringMult:1.0,steeringOk:true,wireNoiseMult:1.0,wireUpdateRate:1.0,wireCutAll:false,chargeRateMult:1.0};
+  return {speedCap:Infinity,sonarRangeMult:1.0,bearingNoiseMult:1.0,reloadMult:1.0,depthRateMult:1.0,noisePenalty:0,tdcErrDeg:0,tubesAvail:C.player.torpTubes||4,towedOk:true,periscopeOk:true,maxDepth:C.world?.maxDepth||500,totalFlood:0,floodTauMult:1.0,fwdPlaneMode:'hydraulic',aftPlaneMode:'hydraulic',aftCtrlTransferred:false,connRoomLost:false,crashDiveAvail:true,silentRunAvail:true,steeringMult:1.0,steeringOk:true,wireNoiseMult:1.0,wireUpdateRate:1.0,wireCutAll:false,chargeRateMult:1.0,wtdSpeedMult:1.0,hydPressure:1.0};
 }
 
 // ── Buoyancy/trim state ───────────────────────────────────────────────────

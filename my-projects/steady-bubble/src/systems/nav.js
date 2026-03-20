@@ -180,7 +180,10 @@ function stepDynamics(dt){
   const err=orderSigned-currentSigned;
   // Conn room lost — engine orders relayed via internal comms; 4× slower response
   // Flooding adds drag — acceleration degrades with water mass
-  const speedTauEff = (dmgFx.connRoomLost ? C.player.speedTau * 4.0 : C.player.speedTau) * (dmgFx.floodTauMult||1.0);
+  // Scale speedTau with vessel flank speed — tuned for 28kt base; faster boats accelerate proportionally
+  const baseTau = C.player.speedTau || 45;
+  const tauScale = 28 / Math.max(20, C.player.flankKts || 28); // Seawolf 35kt → tau*0.8
+  const speedTauEff = (dmgFx.connRoomLost ? baseTau * tauScale * 4.0 : baseTau * tauScale) * (dmgFx.floodTauMult||1.0);
   const newSigned=currentSigned+(err/Math.max(0.05, speedTauEff))*dt;
   player.speed=clamp(Math.abs(newSigned),0,maxKts);
   player._movingDir=player.speed<0.05?orderDir:(newSigned>=0?1:-1);

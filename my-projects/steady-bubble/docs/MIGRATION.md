@@ -11,10 +11,10 @@
 ## Current Status
 
 **Phase:** 4 — Split & Clean
-**Phase:** Post-migration — Bug fixes
-**State:** All 4 phases complete. 36 bugs tracked in docs/BUGS.md (B001–B036).
-**Last session:** 2026-03-19 — Phase 4 signed off by Jason. All splits complete, build clean (59 modules). Migration finished.
-**Next session starts at:** Bug triage and fixes. Read docs/BUGS.md for the full list.
+**Phase:** Post-migration — Casualty system upgrade
+**State:** All 4 migration phases complete. Casualty upgrade (CASUALTY-UPGRADE.md) implemented — all 8 phases.
+**Last session:** 2026-03-19 — Casualty upgrade: 6 new casualties + 2 enhancements implemented. 60 modules, build clean. D005–D006 logged.
+**Next session starts at:** Playtesting casualty upgrade. DC panel display updates for new state (h2Level, cl2Level, hydPressure, hotRunCountdown, stuckPlanes). Render-dc.js changes deferred for Jason review.
 
 ---
 
@@ -164,3 +164,4 @@ Render:
 | 2026-03-18 | 3 | Ported all remaining 12 files: comms.js, ai.js, weapons.js, torpedo.js, sensors.js, nav.js, panel.js, damage.js (2,666 lines), sim.js (2,831 lines), render-world.js, render-hud.js, render.js (1,158 lines), dev-panel.js (638 lines). render-panel.js (4,413 lines) completed. All window.* globals removed. State split into sim-state/session-state/ui-state. main.js wired. |
 | 2026-03-19 | 3 | Alpha playtest by Jason. Fixed: missing exports (input, missile, render-utils, signature), module init ordering (SIM.reset), state object mismatches (session vs ui for wepsProposal, wirePanel, tdc), lazy binding timing (_reserveTube, _onWireCut, _orderLoad etc via closures), dead enemy splice removed. 36 bugs logged (B001-B036) covering visual, gameplay, design, and critical issues. Game is playable — scenarios load, enemies spawn, torpedoes fire, wire guidance works, TMA builds solutions, damage/DC system functional. |
 | 2026-03-19 | 3→4 | Phase 3 signed off. Phase 4: split all 5 monster files + D003 corrective split. ~30 new files. render/index.js (1,156→759+289+246). sim/index.js accepted over-limit (D002). Build clean (59 modules). D002–D004 logged. Phase 4 signed off. Migration complete. |
+| 2026-03-19 | Post | Casualty system upgrade per CASUALTY-UPGRADE.md. All 8 phases implemented: (1) electrical fire, (2) hydraulic pressure, (3) stuck planes, (4) shaft seal, (5) hydrogen/explosion, (6) hot run torpedo, (7) snorkel flood, (8) chlorine gas. New file: sim/casualty-ticks.js (505 lines). New systems: vent_plant, battery_bank (now all vessels). New state: hydPressure, h2Level, cl2Level, stuckPlanes, shaftSealLeak, hotRunCountdown, snorkelFloodActive, permanentDamage. constants.js expanded with 8 casualty config blocks. Voice templates added to voice-ops.js + voice.js. Build clean (60 modules). D005–D006 logged. |

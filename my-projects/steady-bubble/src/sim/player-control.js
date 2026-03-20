@@ -297,9 +297,26 @@ function _toggleMast(key){
 
 export function tickTubeOps(dt){
   player.torpCd=Math.max(0,player.torpCd-dt);
-  // Tick tube reload timers (skip wire-occupied tubes: value -1)
-  for(let i=0;i<(player.torpTubes||[]).length;i++)
-    if(player.torpTubes[i]>0) player.torpTubes[i]=Math.max(0,player.torpTubes[i]-dt);
+  // Tick tube reload timers (skip wire-occupied tubes: value -1, skip hot-run locked: -2)
+  for(let i=0;i<(player.torpTubes||[]).length;i++){
+    if(player.torpTubes[i]>0){
+      const prev=player.torpTubes[i];
+      player.torpTubes[i]=Math.max(0,player.torpTubes[i]-dt);
+      // Hot run check on reload completion
+      if(prev>0 && player.torpTubes[i]===0 && player.damage?.hotRunCountdown==null){
+        const hrCfg=C.player.casualties?.hotRun||{};
+        const stowState=player.damage?.systems?.weapon_stow||'nominal';
+        const stowDmg=['degraded','offline','destroyed'].indexOf(stowState)>=0;
+        const chance=stowDmg?(hrCfg.reloadChanceDegraded||0.02):(hrCfg.reloadChanceBase||0.0005);
+        if(Math.random()<chance){
+          player.damage.hotRunCountdown=hrCfg.countdown||12;
+          player.damage.hotRunTube=i;
+          player.torpTubes[i]=-2; // locked
+          _COMMS?.hotRun?.detected(i+1);
+        }
+      }
+    }
+  }
 
   // Tick torpedo room operation (load/unload/strike -- one at a time)
   if(player.tubeOp){

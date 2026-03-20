@@ -326,6 +326,28 @@ export const planes = {
     qlog('CONN', `All stations, Conn — planes are frozen in ${dir}. Ballast control only.`, 1.0, P.CRIT);
     msg('PLANES FROZEN', 3.0);
   },
+  stuckPlanes(set, direction) {
+    const setLabel = set === 'fwd' ? 'FORWARD' : 'AFT';
+    const dirLabel = direction === 'neutral' ? 'NEUTRAL' : direction.toUpperCase();
+    msg(`PLANES JAM — ${setLabel}`, 2.5);
+    log('HELM', `Conn, Helm — planes jam, ${setLabel.toLowerCase()} planes. Jammed in ${dirLabel.toLowerCase()}`, P.CRIT);
+    qlog('HELM', `Conn, Helm — shifting to backup control`, 1.5, P.MED);
+    if (direction !== 'neutral') {
+      qlog('CONN', `All stations, Conn — depth rate increasing from jammed planes. Stand by for emergency manoeuvre`, 3.0, P.CRIT);
+    }
+  },
+  stuckPlanesRecovered(set) {
+    const setLabel = set === 'fwd' ? 'forward' : 'aft';
+    msg(`${setLabel.toUpperCase()} PLANES — BACKUP CONTROL`, 1.5);
+    log('HELM', `Conn, Helm — backup control established. ${setLabel.charAt(0).toUpperCase()+setLabel.slice(1)} planes on air-emergency`, P.MED);
+    qlog('CONN', `Conn, Helm — compensating on remaining planes`, 2.0, P.MED);
+  },
+  stuckPlanesFailed(set) {
+    const setLabel = set === 'fwd' ? 'forward' : 'aft';
+    msg(`${setLabel.toUpperCase()} PLANES — JAMMED HARD`, 2.5);
+    log('HELM', `Conn, Helm — unable to recover ${setLabel} planes. Planes jammed hard`, P.CRIT);
+    qlog('CONN', `All stations, Conn — ${setLabel} planes lost. Compensating on remaining planes`, 2.0, P.CRIT);
+  },
 };
 
 export const combat = {

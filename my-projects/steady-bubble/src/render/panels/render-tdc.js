@@ -36,10 +36,10 @@ export function drawTdcSection(x, w, pc) {
     ctx.fillStyle=tdc.frozen?'rgba(180,60,60,0.70)':'rgba(17,24,39,0.35)';
     ctx.font=`${U(11)}px ui-monospace,monospace`;
     ctx.textAlign='left';
-    // Show classification of designated contact
+    // Show classification of designated contact — persists even when frozen (kill confirmed)
     const selSc=tdc.target?sonarContacts.get(tdc.target):null;
     const classLabel=selSc?.classification?' \u2014 '+selSc.classification:'';
-    ctx.fillText(tdc.frozen?'TDC [FROZEN]':'TDC'+classLabel,fcX,panelY+U(18));
+    ctx.fillText(tdc.frozen?'TDC [FROZEN]'+classLabel:'TDC'+classLabel,fcX,panelY+U(18));
 
     // ── Solution quality bar — prominent feedback on designated contact ────────
     {
@@ -576,6 +576,12 @@ export function drawTdcSection(x, w, pc) {
       const staleSecs=sc ? T_now-(sc.lastObsT||0) : 0;
       const staleAlpha=isDead?0.40:entry.isTorp?0.70:Math.max(0.22, 0.80-Math.min(1,staleSecs/90)*0.58);
       const rowAlpha=staleAlpha;
+
+      // Clickable row — designate contact by clicking anywhere on the row
+      const _rowEntry=entry;
+      btn('', cqX-U(2), ry-rowH*0.78, cqW+U(2), rowH, isDesignated,
+        ()=>{ tdc.target=_rowEntry.ref; tdc.targetId=_rowEntry.id; setMsg(`TDC: ${_rowEntry.id} DESIGNATED`,1.0); },
+        'transparent','transparent');
 
       // ID pill — quality-tinted: solid=navy, building=amber, bearing-only=grey
       const rQ=sc?.tmaQuality??0;

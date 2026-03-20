@@ -3,15 +3,19 @@
 import {
   COMPS, COMP_DEF, ROOMS, ROOM_IDS, SECTION_ROOMS, SECTION_LABEL,
   SYS_DEF, SYS_LABEL, ROOM_SYSTEMS, ROOM_ADJ, EVAC_TO, SECTION_CAP,
+  STATES,
   FIRE_BASE_GROW, FIRE_SCALE_GROW, WATCH_SUPPRESS, DC_FIRE_SUPPRESS,
   FIRE_EVAC_TIME, FIRE_DETECT_THRESHOLD, FIRE_INVESTIGATE_DELAY,
   DRENCH_THRESH, DRENCH_LOSE_TIME, DRENCH_FILL_TIME, VENT_N2_TIME,
   activeSystems, roomSection, _sectionNoEvac,
 } from './damage-data.js';
+import { CONFIG } from '../../config/constants.js';
 import { player, triggerScram } from '../../state/sim-state.js';
 import { session, setCasualtyState } from '../../state/session-state.js';
 import { clamp } from '../../utils/math.js';
 import { dcLog, COMP_STATION } from '../../narrative/comms.js';
+
+const C = CONFIG;
 
 // ── Lazy bindings (set from index.js) ─────────────────────────────────────
 let _COMMS = null, _PANEL = null;
@@ -179,7 +183,7 @@ function _nextRepairTarget(comp,d){
   const sysList=activeSystems(comp);
   const stIdx = (sys) => STATES.indexOf(d.systems[sys]);
   const repairable=sysList
-    .filter(s=>d.systems[s]!=='nominal')
+    .filter(s=>d.systems[s]!=='nominal' && !d.permanentDamage?.has(s))
     .sort((a,b)=>stIdx(b)-stIdx(a));
   return repairable[0]||null;
 }
@@ -270,6 +274,46 @@ export function _tickFire(dt, d){
 }
 
 function _tickFireInner(dt, d){
+  // ── Electrical fire ignition check ──────────────────────────────────
+  // Non-combat fires from damaged electrical systems. Can recur if the
+  // underlying damage is not repaired.
+  const _efCfg = C.player.casualties?.electricalFire;
+  if (_efCfg) {
+    // Trigger 1: Damaged electrical distribution → fire in its section
+    const elecState = d.systems.elec_dist || 'nominal';
+    const elecDmg = STATES.indexOf(elecState);
+    if (elecDmg >= 1) {
+      const chance = elecDmg >= 2
+        ? (_efCfg.offlineChancePerSec || 0.0025)
+        : (_efCfg.degradedChancePerSec || 0.0008);
+      if (Math.random() < chance * dt) {
+        const section = ROOMS[SYS_DEF.elec_dist.room]?.section || 'engine_room';
+        const hadFire = _sectionHasFire(section, d);
+        igniteFire(section, _efCfg.startIntensity || 0.05);
+        if (hadFire) {
+          _COMMS?.fire.electricalFireReignition(
+            ROOMS[SYS_DEF.elec_dist.room]?.label || 'ELEC DIST',
+            COMP_STATION[section] || 'ENG'
+          );
+        }
+      }
+    }
+    // Trigger 2: Any damaged system in unmanned space (detectionDelay > 30s)
+    for (const roomId of ROOM_IDS) {
+      const room = ROOMS[roomId];
+      if ((room.detectionDelay || 0) <= 30) continue;
+      if ((d.fire[roomId] || 0) > 0) continue;       // already burning
+      if (d.flooded[room.section]) continue;           // flooded section
+      const hasDamagedSys = (ROOM_SYSTEMS[roomId] || []).some(
+        s => STATES.indexOf(d.systems[s] || 'nominal') >= 1
+      );
+      if (!hasDamagedSys) continue;
+      if (Math.random() < (_efCfg.unmannedDamagedChancePerSec || 0.0002) * dt) {
+        igniteFire(roomId, _efCfg.startIntensity || 0.05);
+      }
+    }
+  }
+
   for(const section of COMPS){
     const roomIds=SECTION_ROOMS[section]||[];
     // ── Evacuation transit timer ───────────────────────────────────────────
