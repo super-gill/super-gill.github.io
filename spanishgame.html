@@ -1,0 +1,3400 @@
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #fbf8f3;
+        color: #1a2332;
+        padding: 1.25rem;
+        line-height: 1.5;
+        min-height: 100vh;
+    }
+
+    .container {
+        max-width: 720px;
+        margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #d5cfc1;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    h1 {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-weight: 400;
+        font-size: 1.75rem;
+        letter-spacing: -0.01em;
+    }
+
+    .back-btn {
+        background: transparent;
+        border: none;
+        color: #7a7466;
+        font-family: inherit;
+        font-size: 0.9rem;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .back-btn:hover {
+        color: #1a2332;
+    }
+
+    .back-btn.hidden {
+        display: none;
+    }
+
+    /* Home view */
+    .stats-overview {
+        background: white;
+        border: 1px solid #d5cfc1;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        font-size: 0.85rem;
+    }
+
+    .stat-block {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stat-label {
+        color: #7a7466;
+        font-size: 0.78rem;
+    }
+
+    .stat-value {
+        font-family: Georgia, serif;
+        font-size: 1.5rem;
+        color: #1a2332;
+    }
+
+    .games-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 0.85rem;
+    }
+
+    .game-card {
+        background: white;
+        border: 1px solid #d5cfc1;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        text-align: left;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .game-card:hover {
+        border-color: #1a2332;
+        transform: translateY(-1px);
+    }
+
+    .game-card-title {
+        font-family: Georgia, serif;
+        font-size: 1.1rem;
+        color: #1a2332;
+        margin-bottom: 0.25rem;
+    }
+
+    .game-card-desc {
+        font-size: 0.8rem;
+        color: #7a7466;
+        margin-bottom: 0.5rem;
+    }
+
+    .game-card-stats {
+        font-size: 0.75rem;
+        color: #5a5446;
+    }
+
+    /* Game view shared */
+    .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-btn {
+        padding: 0.4rem 0.85rem;
+        background: transparent;
+        border: 1px solid #d5cfc1;
+        border-radius: 999px;
+        color: #1a2332;
+        font-size: 0.85rem;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .filter-btn:hover {
+        border-color: #1a2332;
+    }
+
+    .filter-btn.active {
+        background: #1a2332;
+        color: #fbf8f3;
+        border-color: #1a2332;
+    }
+
+    .prompt-card {
+        background: white;
+        border: 1px solid #d5cfc1;
+        border-radius: 12px;
+        padding: 1.75rem 1.5rem;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    .prompt-main {
+        font-family: Georgia, serif;
+        font-size: 2rem;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+        letter-spacing: -0.01em;
+    }
+
+    .prompt-meta {
+        font-size: 0.85rem;
+        color: #7a7466;
+        margin-bottom: 1.25rem;
+    }
+
+    .prompt-ask {
+        font-size: 0.95rem;
+        color: #1a2332;
+        margin-bottom: 0.5rem;
+    }
+
+    .prompt-target {
+        font-family: Georgia, serif;
+        font-size: 1.4rem;
+        color: #c2624a;
+    }
+
+    .input-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    input[type="text"] {
+        flex: 1;
+        padding: 0.85rem 1rem;
+        font-size: 1.1rem;
+        font-family: inherit;
+        border: 1px solid #d5cfc1;
+        border-radius: 8px;
+        background: white;
+        color: #1a2332;
+        min-width: 0;
+    }
+
+    input[type="text"]:focus {
+        outline: none;
+        border-color: #1a2332;
+    }
+
+    button.primary {
+        padding: 0.85rem 1.5rem;
+        background: #1a2332;
+        color: #fbf8f3;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-family: inherit;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    button.primary:hover {
+        background: #2a3343;
+    }
+
+    button.primary:disabled {
+        background: #b5b0a3;
+        cursor: not-allowed;
+    }
+
+    .feedback {
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+    }
+
+    .feedback.correct {
+        background: #e8f1e6;
+        color: #2d5a2d;
+        border-left: 3px solid #3a7a3a;
+    }
+
+    .feedback.almost {
+        background: #fdf6e3;
+        color: #7a5a1f;
+        border-left: 3px solid #d4a849;
+    }
+
+    .feedback.incorrect {
+        background: #fce8e8;
+        color: #7a2d2d;
+        border-left: 3px solid #a33838;
+    }
+
+    .feedback strong {
+        font-weight: 600;
+    }
+
+    /* Hint button — for hiding translations behind a "cheat" reveal */
+    .hint-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        margin: -0.5rem 0 1.25rem 0;
+        min-height: 1.6rem;
+    }
+
+    .hint-btn {
+        background: transparent;
+        border: 1px solid #d5cfc1;
+        color: #7a7466;
+        padding: 0.2rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-family: inherit;
+        cursor: pointer;
+    }
+
+    .hint-btn:hover {
+        color: #1a2332;
+        border-color: #1a2332;
+    }
+
+    .hint-text {
+        font-size: 0.85rem;
+        color: #7a7466;
+        font-style: italic;
+    }
+
+    .hint-text.hidden {
+        display: none;
+    }
+
+    .hint-btn.hidden {
+        display: none;
+    }
+
+    /* Multiple choice options */
+    .option-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+    }
+
+    .option-btn {
+        padding: 0.85rem 1rem;
+        background: white;
+        border: 1px solid #d5cfc1;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-family: inherit;
+        cursor: pointer;
+        color: #1a2332;
+        transition: all 0.1s;
+    }
+
+    .option-btn:hover {
+        border-color: #1a2332;
+    }
+
+    .option-btn.correct {
+        background: #e8f1e6;
+        border-color: #3a7a3a;
+        color: #2d5a2d;
+    }
+
+    .option-btn.incorrect {
+        background: #fce8e8;
+        border-color: #a33838;
+        color: #7a2d2d;
+    }
+
+    .option-btn:disabled {
+        cursor: default;
+    }
+
+    /* Big binary options (el/la) */
+    .binary-options {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .binary-options .option-btn {
+        padding: 1.5rem;
+        font-family: Georgia, serif;
+        font-size: 1.75rem;
+    }
+
+    /* Recognition game */
+    .recog-word {
+        font-family: Georgia, serif;
+        font-size: 2.5rem;
+        text-align: center;
+        padding: 2rem 1rem 1rem;
+    }
+
+    .recog-reveal-area {
+        margin: 1rem 0;
+        padding: 1rem 1.25rem;
+        background: #f7f3eb;
+        border: 1px solid #d5cfc1;
+        border-radius: 8px;
+        min-height: 1rem;
+    }
+
+    .recog-reveal-area.hidden {
+        display: none;
+    }
+
+    .recog-meaning {
+        font-size: 1.25rem;
+        color: #1a2332;
+        margin-bottom: 0.5rem;
+    }
+
+    .recog-meta {
+        font-size: 0.9rem;
+        color: #5a5040;
+        margin-bottom: 0.4rem;
+    }
+
+    .recog-sample {
+        font-family: Georgia, serif;
+        font-size: 0.95rem;
+        color: #3a3525;
+        font-style: italic;
+        margin-top: 0.5rem;
+        line-height: 1.5;
+    }
+
+    .rate-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .rate-row.binary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .rate-btn {
+        padding: 0.85rem 0.5rem;
+        background: white;
+        border: 1px solid #d5cfc1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-family: inherit;
+        cursor: pointer;
+        color: #1a2332;
+    }
+
+    .rate-btn:hover {
+        border-color: #1a2332;
+    }
+
+    .rate-btn.knew {
+        border-color: #3a7a3a;
+        color: #2d5a2d;
+    }
+
+    .rate-btn.knew:hover {
+        background: #e8f1e6;
+    }
+
+    .rate-btn.fuzzy {
+        border-color: #9a7a2a;
+        color: #6a5a1a;
+    }
+
+    .rate-btn.fuzzy:hover {
+        background: #f3edd8;
+    }
+
+    .rate-btn.didnt {
+        border-color: #a33838;
+        color: #7a2d2d;
+    }
+
+    .rate-btn.didnt:hover {
+        background: #fce8e8;
+    }
+
+    /* Sentence parse mode */
+    .recog-sentence {
+        font-family: Georgia, serif;
+        font-size: 1.4rem;
+        line-height: 2.2;
+        padding: 1.5rem 1rem;
+        text-align: center;
+    }
+
+    .word-chip {
+        display: inline-block;
+        padding: 0.15rem 0.4rem;
+        margin: 0.1rem 0.1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.1s;
+        border-bottom: 1px dotted transparent;
+    }
+
+    .word-chip:hover {
+        background: #f0e9d6;
+        border-bottom-color: #8a7a4a;
+    }
+
+    .word-chip.active {
+        background: #e3d8b3;
+        border-bottom-color: #8a7a4a;
+    }
+
+    .word-chip.unknown {
+        color: #8a7a6a;
+    }
+
+    .word-popover {
+        background: #1a2332;
+        color: #f5f0e3;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin: 0.75rem 0;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .word-popover .pop-word {
+        font-family: Georgia, serif;
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin-bottom: 0.2rem;
+    }
+
+    .word-popover .pop-meta {
+        color: #c5b8a0;
+        font-size: 0.85rem;
+    }
+
+    .recog-mode-toggle {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .recog-mode-toggle .filter-btn {
+        flex: 1;
+    }
+
+    /* Tile builder */
+    .tile-target {
+        min-height: 4rem;
+        background: white;
+        border: 2px dashed #d5cfc1;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        align-items: center;
+    }
+
+    .tile-bank {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        background: #f0ebe1;
+        border-radius: 8px;
+        min-height: 3rem;
+    }
+
+    .tile {
+        padding: 0.5rem 0.85rem;
+        background: white;
+        border: 1px solid #d5cfc1;
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 0.95rem;
+        cursor: pointer;
+        color: #1a2332;
+    }
+
+    .tile:hover {
+        border-color: #1a2332;
+    }
+
+    .tile.placed {
+        background: #1a2332;
+        color: #fbf8f3;
+    }
+
+    /* Place-action checkbox grid */
+    .check-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .check-item {
+        padding: 0.65rem 0.85rem;
+        background: white;
+        border: 1px solid #d5cfc1;
+        border-radius: 6px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.9rem;
+        color: #1a2332;
+        text-align: left;
+    }
+
+    .check-item.selected {
+        background: #1a2332;
+        color: #fbf8f3;
+        border-color: #1a2332;
+    }
+
+    .check-item.true-positive {
+        background: #e8f1e6;
+        border-color: #3a7a3a;
+        color: #2d5a2d;
+    }
+
+    .check-item.false-positive {
+        background: #fce8e8;
+        border-color: #a33838;
+        color: #7a2d2d;
+    }
+
+    .check-item.missed {
+        background: #fdf6e3;
+        border-color: #d4a849;
+        color: #7a5a1f;
+    }
+
+    /* Stats area inside game */
+    .game-stats {
+        font-size: 0.85rem;
+        color: #7a7466;
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid #d5cfc1;
+    }
+
+    .stats-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.25rem;
+    }
+
+    .stats-row strong {
+        color: #1a2332;
+        font-weight: 600;
+    }
+
+    .weak-spots-title {
+        font-weight: 600;
+        margin-top: 0.75rem;
+        margin-bottom: 0.35rem;
+        color: #1a2332;
+        font-size: 0.85rem;
+    }
+
+    .weak-spot {
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        margin: 0.15rem 0.2rem 0.15rem 0;
+        background: #f0ebe1;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        color: #5a5446;
+    }
+
+    /* Dialogue */
+    .dialogue-turn {
+        padding: 0.85rem 1rem;
+        margin-bottom: 0.5rem;
+        border-radius: 8px;
+        background: white;
+        border: 1px solid #d5cfc1;
+    }
+
+    .dialogue-turn.you {
+        border-left: 3px solid #c2624a;
+    }
+
+    .dialogue-turn.other {
+        border-left: 3px solid #7a7466;
+        background: #f0ebe1;
+    }
+
+    .dialogue-speaker {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #7a7466;
+        margin-bottom: 0.2rem;
+    }
+
+    .dialogue-text {
+        font-size: 0.95rem;
+    }
+
+    .dialogue-english {
+        font-size: 0.85rem;
+        color: #7a7466;
+        font-style: italic;
+        margin-top: 0.25rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: #7a7466;
+        background: white;
+        border: 1px dashed #d5cfc1;
+        border-radius: 10px;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    @media (max-width: 480px) {
+        .prompt-main {
+            font-size: 1.65rem;
+        }
+
+        .input-row {
+            flex-direction: column;
+        }
+
+        button.primary {
+            width: 100%;
+        }
+
+        .option-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .games-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="container">
+    <header>
+        <div style="display:flex; align-items:baseline; gap:0.5rem;">
+            <button class="back-btn hidden" id="back-btn">← Home</button>
+            <h1 id="page-title">Spanish Practice</h1>
+        </div>
+    </header>
+
+    <main id="main"></main>
+</div>
+
+<script>
+    // =============================================================================
+    // CONTENT DATABASE
+    // To add or update content, edit the arrays below. Each game pulls from here.
+    // Sections mirror the structure of Spanish_1.md.
+    // =============================================================================
+
+    const DATA = {
+        // VOCAB: grouped by topic. Add entries as you learn them.
+        vocab: {
+            family: [
+                { en: 'mother', es: 'madre' }, { en: 'father', es: 'padre' },
+                { en: 'son', es: 'hijo' }, { en: 'daughter', es: 'hija' },
+                { en: 'brother', es: 'hermano' }, { en: 'sister', es: 'hermana' },
+                { en: 'uncle', es: 'tío' }, { en: 'aunt', es: 'tía' },
+                { en: 'grandfather', es: 'abuelo' }, { en: 'grandmother', es: 'abuela' },
+                { en: 'cousin (m)', es: 'primo' }, { en: 'partner', es: 'pareja' },
+                { en: 'husband', es: 'marido' }, { en: 'wife', es: 'esposa' }
+            ],
+            pets: [
+                { en: 'dog', es: 'perro' }, { en: 'cat', es: 'gato' }, { en: 'fish', es: 'pez' },
+                { en: 'bird', es: 'pájaro' }, { en: 'rabbit', es: 'conejo' },
+                { en: 'snake', es: 'serpiente' }, { en: 'hamster', es: 'hámster' },
+                { en: 'turtle', es: 'tortuga' }
+            ],
+            food: [
+                { en: 'bread', es: 'pan' }, { en: 'rice', es: 'arroz' }, { en: 'meat', es: 'carne' },
+                { en: 'chicken', es: 'pollo' }, { en: 'fish (food)', es: 'pescado' },
+                { en: 'egg', es: 'huevo' }, { en: 'cheese', es: 'queso' },
+                { en: 'salad', es: 'ensalada' }, { en: 'soup', es: 'sopa' },
+                { en: 'apple', es: 'manzana' }, { en: 'orange', es: 'naranja' },
+                { en: 'banana', es: 'plátano' }, { en: 'strawberry', es: 'fresa' },
+                { en: 'potato', es: 'patata' }, { en: 'tomato', es: 'tomate' },
+                { en: 'steak', es: 'bistec' }, { en: 'water', es: 'agua' },
+                { en: 'coffee', es: 'café' }, { en: 'tea', es: 'té' }, { en: 'juice', es: 'zumo' },
+                { en: 'wine', es: 'vino' }, { en: 'beer', es: 'cerveza' }, { en: 'milk', es: 'leche' },
+                { en: 'breakfast', es: 'desayuno' }, { en: 'lunch', es: 'almuerzo' },
+                { en: 'dinner', es: 'cena' }, { en: 'snack', es: 'merienda' },
+                { en: 'pineapple', es: 'piña' }, { en: 'watermelon', es: 'sandía' },
+                { en: 'grapes', es: 'uvas' }, { en: 'lemon', es: 'limón' }, { en: 'lime', es: 'lima' },
+                { en: 'apricot', es: 'albaricoque' }, { en: 'sandwich', es: 'bocadillo' },
+                { en: 'toast', es: 'tostada' }, { en: 'soft drink', es: 'refresco' },
+                { en: 'ham', es: 'jamón' }, { en: 'tuna', es: 'atún' },
+                { en: 'chips / fries', es: 'patatas fritas' }, { en: 'mushrooms', es: 'champiñones' },
+                { en: 'vegetables', es: 'verduras' }, { en: 'fruit', es: 'fruta' },
+                { en: 'dessert', es: 'postre' }, { en: 'ice cream', es: 'helado' },
+                { en: 'pasta', es: 'pasta' }, { en: 'noodles', es: 'fideos' },
+                { en: 'carrot', es: 'zanahoria' }, { en: 'biscuits', es: 'galletas' },
+                { en: 'cake / pastry', es: 'pastel' }
+            ],
+            city: [
+                { en: 'bank', es: 'banco' }, { en: 'library', es: 'biblioteca' },
+                { en: 'pharmacy', es: 'farmacia' }, { en: 'supermarket', es: 'supermercado' },
+                { en: 'restaurant', es: 'restaurante' }, { en: 'gym', es: 'gimnasio' },
+                { en: 'café', es: 'cafetería' }, { en: 'market', es: 'mercado' },
+                { en: 'hospital', es: 'hospital' }, { en: 'school', es: 'escuela' },
+                { en: 'church', es: 'iglesia' }, { en: 'park', es: 'parque' },
+                { en: 'beach', es: 'playa' }, { en: 'train station', es: 'estación de tren' },
+                { en: 'post office', es: 'correos' }, { en: 'shopping centre', es: 'centro comercial' },
+                { en: 'museum', es: 'museo' }, { en: 'cinema', es: 'cine' },
+                { en: 'bookshop', es: 'librería' }, { en: 'town hall', es: 'ayuntamiento' },
+                { en: 'hotel', es: 'hotel' }, { en: 'shop', es: 'tienda' },
+                { en: 'shoe shop', es: 'zapatería' }, { en: 'petrol station', es: 'gasolinera' },
+                { en: "butcher's", es: 'carnicería' }, { en: 'clothes shop', es: 'tienda de ropa' },
+                { en: 'bar', es: 'bar' }, { en: 'theatre', es: 'teatro' },
+                { en: 'mountain', es: 'montaña' }, { en: 'forest', es: 'bosque' },
+                { en: 'police station', es: 'comisaría' }, { en: 'fire station', es: 'estación de bomberos' },
+                { en: 'bus stop', es: 'parada de autobús' }, { en: 'clinic', es: 'clínica' },
+                { en: 'bullring', es: 'plaza de toros' }, { en: 'stadium', es: 'estadio' }
+            ],
+            jobs: [
+                { en: 'IT manager', es: 'gerente de IT' },
+                { en: 'Spanish teacher', es: 'profesor de español' },
+                { en: 'baker', es: 'panadero' }, { en: 'nurse', es: 'enfermero' },
+                { en: 'doctor', es: 'médico' }, { en: 'cook', es: 'cocinero' },
+                { en: 'waiter', es: 'camarero' }, { en: 'mechanic', es: 'mecánico' },
+                { en: 'fireman', es: 'bombero' }, { en: 'electrician', es: 'electricista' },
+                { en: 'cleaner', es: 'limpiador' }, { en: 'cashier', es: 'cajero' },
+                { en: 'builder', es: 'constructor' }, { en: 'accountant', es: 'contador' }
+            ],
+            countries: [
+                { en: 'England', es: 'Inglaterra' }, { en: 'Spain', es: 'España' },
+                { en: 'France', es: 'Francia' }, { en: 'Italy', es: 'Italia' },
+                { en: 'Germany', es: 'Alemania' }, { en: 'Portugal', es: 'Portugal' },
+                { en: 'Sweden', es: 'Suecia' }, { en: 'Ireland', es: 'Irlanda' }
+            ],
+            days: [
+                { en: 'Monday', es: 'lunes' }, { en: 'Tuesday', es: 'martes' },
+                { en: 'Wednesday', es: 'miércoles' }, { en: 'Thursday', es: 'jueves' },
+                { en: 'Friday', es: 'viernes' }, { en: 'Saturday', es: 'sábado' },
+                { en: 'Sunday', es: 'domingo' }
+            ],
+            weather: [
+                { en: "it's hot", es: 'hace calor' }, { en: "it's cold", es: 'hace frío' },
+                { en: "it's sunny", es: 'hace sol' }, { en: "it's windy", es: 'hace viento' },
+                { en: 'cloudy', es: 'nublado' }, { en: 'sunny (adj)', es: 'soleado' },
+                { en: 'rainy', es: 'lluvioso' }, { en: 'stormy', es: 'tormentoso' },
+                { en: 'snow', es: 'nieve' }
+            ],
+            adjectives: [
+                { en: 'big', es: 'grande' }, { en: 'small', es: 'pequeño' },
+                { en: 'tall', es: 'alto' }, { en: 'short (person)', es: 'bajo' },
+                { en: 'short (thing)', es: 'corto' }, { en: 'long', es: 'largo' },
+                { en: 'thin', es: 'delgado' }, { en: 'fat', es: 'gordo' },
+                { en: 'pretty', es: 'bonito' }, { en: 'ugly', es: 'feo' },
+                { en: 'intelligent', es: 'inteligente' }, { en: 'stupid', es: 'tonto' },
+                { en: 'elegant', es: 'elegante' }, { en: 'kind', es: 'amable' },
+                { en: 'friendly', es: 'simpático' }, { en: 'unfriendly', es: 'antipático' },
+                { en: 'talkative', es: 'hablador' }, { en: 'noisy', es: 'ruidoso' },
+                { en: 'generous', es: 'generoso' }, { en: 'confused', es: 'confundido' },
+                { en: 'cold', es: 'frío' }, { en: 'hot', es: 'caliente' },
+                { en: 'expensive', es: 'caro' }, { en: 'cheap', es: 'barato' }
+            ],
+            colours: [
+                { en: 'red', es: 'rojo' }, { en: 'blue', es: 'azul' },
+                { en: 'yellow', es: 'amarillo' }, { en: 'green', es: 'verde' },
+                { en: 'orange (colour)', es: 'naranja' }, { en: 'white', es: 'blanco' }
+            ],
+            emotions: [
+                { en: 'happy', es: 'feliz' }, { en: 'sad', es: 'triste' },
+                { en: 'angry', es: 'enfadado' }, { en: 'fun', es: 'divertido' },
+                { en: 'boring', es: 'aburrido' }
+            ],
+            flavours: [
+                { en: 'delicious', es: 'delicioso' }, { en: 'disgusting', es: 'asqueroso' },
+                { en: 'tasty', es: 'sabroso' }, { en: 'salty', es: 'salado' },
+                { en: 'healthy', es: 'sano' }, { en: 'spicy / hot', es: 'picante' },
+                { en: 'sweet', es: 'dulce' }, { en: 'sour', es: 'agrio' },
+                { en: 'bitter', es: 'amargo' }
+            ],
+            homes: [
+                { en: 'house', es: 'casa' }, { en: 'flat / apartment', es: 'apartamento' },
+                { en: 'penthouse', es: 'ático' }, { en: 'townhouse', es: 'casa adosada' },
+                { en: 'villa', es: 'villa' }, { en: 'bungalow', es: 'bungalow' }
+            ],
+            timeOfDay: [
+                { en: 'in the morning', es: 'por la mañana' },
+                { en: 'in the afternoon', es: 'por la tarde' },
+                { en: 'at night', es: 'por la noche' },
+                { en: 'early', es: 'temprano' }, { en: 'late', es: 'tarde' },
+                { en: 'today', es: 'hoy' }, { en: 'yesterday', es: 'ayer' },
+                { en: 'tomorrow', es: 'mañana' }, { en: 'here', es: 'aquí' },
+                { en: 'there', es: 'allí' }
+            ],
+            rooms: [
+                { en: 'kitchen', es: 'cocina' }, { en: 'living room', es: 'salón' },
+                { en: 'dining room', es: 'comedor' }, { en: 'bedroom', es: 'dormitorio' },
+                { en: 'bathroom', es: 'cuarto de baño' }, { en: 'toilet (small)', es: 'aseo' },
+                { en: 'hallway', es: 'pasillo' }, { en: 'office / study', es: 'estudio' },
+                { en: 'garage', es: 'garaje' }
+            ],
+            houseObjects: [
+                { en: 'bed', es: 'cama' }, { en: 'bedside table', es: 'mesilla de noche' },
+                { en: 'wardrobe', es: 'armario' }, { en: 'bookshelf', es: 'estantería' },
+                { en: 'window', es: 'ventana' }, { en: 'curtains', es: 'cortinas' },
+                { en: 'armchair', es: 'sillón' }, { en: 'sofa', es: 'sofá' },
+                { en: 'television', es: 'televisión' }, { en: 'shelf', es: 'estante' },
+                { en: 'toilet', es: 'water' }, { en: 'sink', es: 'lavabo' },
+                { en: 'mirror', es: 'espejo' }, { en: 'towel', es: 'toalla' },
+                { en: 'shower', es: 'ducha' }, { en: 'computer', es: 'ordenador' },
+                { en: 'desk', es: 'escritorio' }, { en: 'lamp', es: 'lámpara' },
+                { en: 'clock', es: 'reloj' }, { en: 'plant', es: 'planta' },
+                { en: 'oven', es: 'horno' }, { en: 'fridge', es: 'frigorífico' },
+                { en: 'chair', es: 'silla' }, { en: 'table', es: 'mesa' }
+            ]
+        },
+
+        // VERBS: conjugations for present tense (all) and past tense (regular only).
+        // Past tense is included only for verbs with fully-regular preterite forms.
+        // Orthographic-change verbs (buscar→busqué, llegar→llegué, pagar→pagué,
+        // practicar→practiqué) get present only at this stage of the syllabus.
+        // Stem-changers, irregulars, and reflexives get present only — their past
+        // forms have their own irregularities not covered yet.
+        verbs: [
+            // ===== Regular -AR =====
+            {
+                inf: 'hablar', en: 'to speak', cat: 'reg-ar', conj: {
+                    present: { yo: 'hablo', tu: 'hablas', el: 'habla', nos: 'hablamos', vos: 'habláis', ellos: 'hablan' },
+                    past: { yo: 'hablé', tu: 'hablaste', el: 'habló', nos: 'hablamos', vos: 'hablasteis', ellos: 'hablaron' }
+                }
+            },
+            {
+                inf: 'trabajar', en: 'to work', cat: 'reg-ar', conj: {
+                    present: { yo: 'trabajo', tu: 'trabajas', el: 'trabaja', nos: 'trabajamos', vos: 'trabajáis', ellos: 'trabajan' },
+                    past: { yo: 'trabajé', tu: 'trabajaste', el: 'trabajó', nos: 'trabajamos', vos: 'trabajasteis', ellos: 'trabajaron' }
+                }
+            },
+            {
+                inf: 'cantar', en: 'to sing', cat: 'reg-ar', conj: {
+                    present: { yo: 'canto', tu: 'cantas', el: 'canta', nos: 'cantamos', vos: 'cantáis', ellos: 'cantan' },
+                    past: { yo: 'canté', tu: 'cantaste', el: 'cantó', nos: 'cantamos', vos: 'cantasteis', ellos: 'cantaron' }
+                }
+            },
+            {
+                inf: 'estudiar', en: 'to study', cat: 'reg-ar', conj: {
+                    present: { yo: 'estudio', tu: 'estudias', el: 'estudia', nos: 'estudiamos', vos: 'estudiáis', ellos: 'estudian' },
+                    past: { yo: 'estudié', tu: 'estudiaste', el: 'estudió', nos: 'estudiamos', vos: 'estudiasteis', ellos: 'estudiaron' }
+                }
+            },
+            {
+                inf: 'cocinar', en: 'to cook', cat: 'reg-ar', conj: {
+                    present: { yo: 'cocino', tu: 'cocinas', el: 'cocina', nos: 'cocinamos', vos: 'cocináis', ellos: 'cocinan' },
+                    past: { yo: 'cociné', tu: 'cocinaste', el: 'cocinó', nos: 'cocinamos', vos: 'cocinasteis', ellos: 'cocinaron' }
+                }
+            },
+            {
+                inf: 'comprar', en: 'to buy', cat: 'reg-ar', conj: {
+                    present: { yo: 'compro', tu: 'compras', el: 'compra', nos: 'compramos', vos: 'compráis', ellos: 'compran' },
+                    past: { yo: 'compré', tu: 'compraste', el: 'compró', nos: 'compramos', vos: 'comprasteis', ellos: 'compraron' }
+                }
+            },
+            {
+                inf: 'escuchar', en: 'to listen', cat: 'reg-ar', conj: {
+                    present: { yo: 'escucho', tu: 'escuchas', el: 'escucha', nos: 'escuchamos', vos: 'escucháis', ellos: 'escuchan' },
+                    past: { yo: 'escuché', tu: 'escuchaste', el: 'escuchó', nos: 'escuchamos', vos: 'escuchasteis', ellos: 'escucharon' }
+                }
+            },
+            {
+                inf: 'mirar', en: 'to watch / look at', cat: 'reg-ar', conj: {
+                    present: { yo: 'miro', tu: 'miras', el: 'mira', nos: 'miramos', vos: 'miráis', ellos: 'miran' },
+                    past: { yo: 'miré', tu: 'miraste', el: 'miró', nos: 'miramos', vos: 'mirasteis', ellos: 'miraron' }
+                }
+            },
+            {
+                inf: 'caminar', en: 'to walk', cat: 'reg-ar', conj: {
+                    present: { yo: 'camino', tu: 'caminas', el: 'camina', nos: 'caminamos', vos: 'camináis', ellos: 'caminan' },
+                    past: { yo: 'caminé', tu: 'caminaste', el: 'caminó', nos: 'caminamos', vos: 'caminasteis', ellos: 'caminaron' }
+                }
+            },
+            {
+                inf: 'viajar', en: 'to travel', cat: 'reg-ar', conj: {
+                    present: { yo: 'viajo', tu: 'viajas', el: 'viaja', nos: 'viajamos', vos: 'viajáis', ellos: 'viajan' },
+                    past: { yo: 'viajé', tu: 'viajaste', el: 'viajó', nos: 'viajamos', vos: 'viajasteis', ellos: 'viajaron' }
+                }
+            },
+            {
+                inf: 'visitar', en: 'to visit', cat: 'reg-ar', conj: {
+                    present: { yo: 'visito', tu: 'visitas', el: 'visita', nos: 'visitamos', vos: 'visitáis', ellos: 'visitan' },
+                    past: { yo: 'visité', tu: 'visitaste', el: 'visitó', nos: 'visitamos', vos: 'visitasteis', ellos: 'visitaron' }
+                }
+            },
+            {
+                inf: 'limpiar', en: 'to clean', cat: 'reg-ar', conj: {
+                    present: { yo: 'limpio', tu: 'limpias', el: 'limpia', nos: 'limpiamos', vos: 'limpiáis', ellos: 'limpian' },
+                    past: { yo: 'limpié', tu: 'limpiaste', el: 'limpió', nos: 'limpiamos', vos: 'limpiasteis', ellos: 'limpiaron' }
+                }
+            },
+            {
+                inf: 'preparar', en: 'to prepare', cat: 'reg-ar', conj: {
+                    present: { yo: 'preparo', tu: 'preparas', el: 'prepara', nos: 'preparamos', vos: 'preparáis', ellos: 'preparan' },
+                    past: { yo: 'preparé', tu: 'preparaste', el: 'preparó', nos: 'preparamos', vos: 'preparasteis', ellos: 'prepararon' }
+                }
+            },
+            {
+                inf: 'usar', en: 'to use', cat: 'reg-ar', conj: {
+                    present: { yo: 'uso', tu: 'usas', el: 'usa', nos: 'usamos', vos: 'usáis', ellos: 'usan' },
+                    past: { yo: 'usé', tu: 'usaste', el: 'usó', nos: 'usamos', vos: 'usasteis', ellos: 'usaron' }
+                }
+            },
+            {
+                inf: 'tomar', en: 'to take / drink', cat: 'reg-ar', conj: {
+                    present: { yo: 'tomo', tu: 'tomas', el: 'toma', nos: 'tomamos', vos: 'tomáis', ellos: 'toman' },
+                    past: { yo: 'tomé', tu: 'tomaste', el: 'tomó', nos: 'tomamos', vos: 'tomasteis', ellos: 'tomaron' }
+                }
+            },
+            {
+                inf: 'dibujar', en: 'to draw', cat: 'reg-ar', conj: {
+                    present: { yo: 'dibujo', tu: 'dibujas', el: 'dibuja', nos: 'dibujamos', vos: 'dibujáis', ellos: 'dibujan' },
+                    past: { yo: 'dibujé', tu: 'dibujaste', el: 'dibujó', nos: 'dibujamos', vos: 'dibujasteis', ellos: 'dibujaron' }
+                }
+            },
+            {
+                inf: 'alquilar', en: 'to rent', cat: 'reg-ar', conj: {
+                    present: { yo: 'alquilo', tu: 'alquilas', el: 'alquila', nos: 'alquilamos', vos: 'alquiláis', ellos: 'alquilan' },
+                    past: { yo: 'alquilé', tu: 'alquilaste', el: 'alquiló', nos: 'alquilamos', vos: 'alquilasteis', ellos: 'alquilaron' }
+                }
+            },
+            {
+                inf: 'bailar', en: 'to dance', cat: 'reg-ar', conj: {
+                    present: { yo: 'bailo', tu: 'bailas', el: 'baila', nos: 'bailamos', vos: 'bailáis', ellos: 'bailan' },
+                    past: { yo: 'bailé', tu: 'bailaste', el: 'bailó', nos: 'bailamos', vos: 'bailasteis', ellos: 'bailaron' }
+                }
+            },
+            {
+                inf: 'cuidar', en: 'to care for', cat: 'reg-ar', conj: {
+                    present: { yo: 'cuido', tu: 'cuidas', el: 'cuida', nos: 'cuidamos', vos: 'cuidáis', ellos: 'cuidan' },
+                    past: { yo: 'cuidé', tu: 'cuidaste', el: 'cuidó', nos: 'cuidamos', vos: 'cuidasteis', ellos: 'cuidaron' }
+                }
+            },
+            {
+                inf: 'descansar', en: 'to rest', cat: 'reg-ar', conj: {
+                    present: { yo: 'descanso', tu: 'descansas', el: 'descansa', nos: 'descansamos', vos: 'descansáis', ellos: 'descansan' },
+                    past: { yo: 'descansé', tu: 'descansaste', el: 'descansó', nos: 'descansamos', vos: 'descansasteis', ellos: 'descansaron' }
+                }
+            },
+            {
+                inf: 'llevar', en: 'to carry / wear', cat: 'reg-ar', conj: {
+                    present: { yo: 'llevo', tu: 'llevas', el: 'lleva', nos: 'llevamos', vos: 'lleváis', ellos: 'llevan' },
+                    past: { yo: 'llevé', tu: 'llevaste', el: 'llevó', nos: 'llevamos', vos: 'llevasteis', ellos: 'llevaron' }
+                }
+            },
+            {
+                inf: 'enseñar', en: 'to teach', cat: 'reg-ar', conj: {
+                    present: { yo: 'enseño', tu: 'enseñas', el: 'enseña', nos: 'enseñamos', vos: 'enseñáis', ellos: 'enseñan' },
+                    past: { yo: 'enseñé', tu: 'enseñaste', el: 'enseñó', nos: 'enseñamos', vos: 'enseñasteis', ellos: 'enseñaron' }
+                }
+            },
+            {
+                inf: 'llamar', en: 'to call', cat: 'reg-ar', conj: {
+                    present: { yo: 'llamo', tu: 'llamas', el: 'llama', nos: 'llamamos', vos: 'llamáis', ellos: 'llaman' },
+                    past: { yo: 'llamé', tu: 'llamaste', el: 'llamó', nos: 'llamamos', vos: 'llamasteis', ellos: 'llamaron' }
+                }
+            },
+            {
+                inf: 'odiar', en: 'to hate', cat: 'reg-ar', conj: {
+                    present: { yo: 'odio', tu: 'odias', el: 'odia', nos: 'odiamos', vos: 'odiáis', ellos: 'odian' },
+                    past: { yo: 'odié', tu: 'odiaste', el: 'odió', nos: 'odiamos', vos: 'odiasteis', ellos: 'odiaron' }
+                }
+            },
+            {
+                inf: 'cenar', en: 'to have dinner', cat: 'reg-ar', conj: {
+                    present: { yo: 'ceno', tu: 'cenas', el: 'cena', nos: 'cenamos', vos: 'cenáis', ellos: 'cenan' },
+                    past: { yo: 'cené', tu: 'cenaste', el: 'cenó', nos: 'cenamos', vos: 'cenasteis', ellos: 'cenaron' }
+                }
+            },
+            {
+                inf: 'desayunar', en: 'to have breakfast', cat: 'reg-ar', conj: {
+                    present: { yo: 'desayuno', tu: 'desayunas', el: 'desayuna', nos: 'desayunamos', vos: 'desayunáis', ellos: 'desayunan' },
+                    past: { yo: 'desayuné', tu: 'desayunaste', el: 'desayunó', nos: 'desayunamos', vos: 'desayunasteis', ellos: 'desayunaron' }
+                }
+            },
+            // Orthographic-change -AR verbs: present only (yo-past has c→qu or g→gu)
+            {
+                inf: 'practicar', en: 'to practice', cat: 'reg-ar', conj: {
+                    present: { yo: 'practico', tu: 'practicas', el: 'practica', nos: 'practicamos', vos: 'practicáis', ellos: 'practican' }
+                }
+            },
+            {
+                inf: 'pagar', en: 'to pay', cat: 'reg-ar', conj: {
+                    present: { yo: 'pago', tu: 'pagas', el: 'paga', nos: 'pagamos', vos: 'pagáis', ellos: 'pagan' }
+                }
+            },
+            {
+                inf: 'buscar', en: 'to search / look for', cat: 'reg-ar', conj: {
+                    present: { yo: 'busco', tu: 'buscas', el: 'busca', nos: 'buscamos', vos: 'buscáis', ellos: 'buscan' }
+                }
+            },
+            {
+                inf: 'llegar', en: 'to arrive', cat: 'reg-ar', conj: {
+                    present: { yo: 'llego', tu: 'llegas', el: 'llega', nos: 'llegamos', vos: 'llegáis', ellos: 'llegan' }
+                }
+            },
+
+            // ===== Regular -ER =====
+            {
+                inf: 'comer', en: 'to eat', cat: 'reg-er', conj: {
+                    present: { yo: 'como', tu: 'comes', el: 'come', nos: 'comemos', vos: 'coméis', ellos: 'comen' },
+                    past: { yo: 'comí', tu: 'comiste', el: 'comió', nos: 'comimos', vos: 'comisteis', ellos: 'comieron' }
+                }
+            },
+            {
+                inf: 'beber', en: 'to drink', cat: 'reg-er', conj: {
+                    present: { yo: 'bebo', tu: 'bebes', el: 'bebe', nos: 'bebemos', vos: 'bebéis', ellos: 'beben' },
+                    past: { yo: 'bebí', tu: 'bebiste', el: 'bebió', nos: 'bebimos', vos: 'bebisteis', ellos: 'bebieron' }
+                }
+            },
+            {
+                inf: 'aprender', en: 'to learn', cat: 'reg-er', conj: {
+                    present: { yo: 'aprendo', tu: 'aprendes', el: 'aprende', nos: 'aprendemos', vos: 'aprendéis', ellos: 'aprenden' },
+                    past: { yo: 'aprendí', tu: 'aprendiste', el: 'aprendió', nos: 'aprendimos', vos: 'aprendisteis', ellos: 'aprendieron' }
+                }
+            },
+            {
+                inf: 'vender', en: 'to sell', cat: 'reg-er', conj: {
+                    present: { yo: 'vendo', tu: 'vendes', el: 'vende', nos: 'vendemos', vos: 'vendéis', ellos: 'venden' },
+                    past: { yo: 'vendí', tu: 'vendiste', el: 'vendió', nos: 'vendimos', vos: 'vendisteis', ellos: 'vendieron' }
+                }
+            },
+            {
+                inf: 'comprender', en: 'to understand', cat: 'reg-er', conj: {
+                    present: { yo: 'comprendo', tu: 'comprendes', el: 'comprende', nos: 'comprendemos', vos: 'comprendéis', ellos: 'comprenden' },
+                    past: { yo: 'comprendí', tu: 'comprendiste', el: 'comprendió', nos: 'comprendimos', vos: 'comprendisteis', ellos: 'comprendieron' }
+                }
+            },
+            {
+                inf: 'correr', en: 'to run', cat: 'reg-er', conj: {
+                    present: { yo: 'corro', tu: 'corres', el: 'corre', nos: 'corremos', vos: 'corréis', ellos: 'corren' },
+                    past: { yo: 'corrí', tu: 'corriste', el: 'corrió', nos: 'corrimos', vos: 'corristeis', ellos: 'corrieron' }
+                }
+            },
+            {
+                inf: 'leer', en: 'to read', cat: 'reg-er', conj: {
+                    present: { yo: 'leo', tu: 'lees', el: 'lee', nos: 'leemos', vos: 'leéis', ellos: 'leen' }
+                }
+            },
+
+            // ===== Regular -IR =====
+            {
+                inf: 'vivir', en: 'to live', cat: 'reg-ir', conj: {
+                    present: { yo: 'vivo', tu: 'vives', el: 'vive', nos: 'vivimos', vos: 'vivís', ellos: 'viven' },
+                    past: { yo: 'viví', tu: 'viviste', el: 'vivió', nos: 'vivimos', vos: 'vivisteis', ellos: 'vivieron' }
+                }
+            },
+            {
+                inf: 'escribir', en: 'to write', cat: 'reg-ir', conj: {
+                    present: { yo: 'escribo', tu: 'escribes', el: 'escribe', nos: 'escribimos', vos: 'escribís', ellos: 'escriben' },
+                    past: { yo: 'escribí', tu: 'escribiste', el: 'escribió', nos: 'escribimos', vos: 'escribisteis', ellos: 'escribieron' }
+                }
+            },
+            {
+                inf: 'abrir', en: 'to open', cat: 'reg-ir', conj: {
+                    present: { yo: 'abro', tu: 'abres', el: 'abre', nos: 'abrimos', vos: 'abrís', ellos: 'abren' },
+                    past: { yo: 'abrí', tu: 'abriste', el: 'abrió', nos: 'abrimos', vos: 'abristeis', ellos: 'abrieron' }
+                }
+            },
+            {
+                inf: 'recibir', en: 'to receive', cat: 'reg-ir', conj: {
+                    present: { yo: 'recibo', tu: 'recibes', el: 'recibe', nos: 'recibimos', vos: 'recibís', ellos: 'reciben' },
+                    past: { yo: 'recibí', tu: 'recibiste', el: 'recibió', nos: 'recibimos', vos: 'recibisteis', ellos: 'recibieron' }
+                }
+            },
+            {
+                inf: 'subir', en: 'to go up', cat: 'reg-ir', conj: {
+                    present: { yo: 'subo', tu: 'subes', el: 'sube', nos: 'subimos', vos: 'subís', ellos: 'suben' },
+                    past: { yo: 'subí', tu: 'subiste', el: 'subió', nos: 'subimos', vos: 'subisteis', ellos: 'subieron' }
+                }
+            },
+            {
+                inf: 'decidir', en: 'to decide', cat: 'reg-ir', conj: {
+                    present: { yo: 'decido', tu: 'decides', el: 'decide', nos: 'decidimos', vos: 'decidís', ellos: 'deciden' },
+                    past: { yo: 'decidí', tu: 'decidiste', el: 'decidió', nos: 'decidimos', vos: 'decidisteis', ellos: 'decidieron' }
+                }
+            },
+
+            // ===== Stem E→IE =====
+            {
+                inf: 'querer', en: 'to want', cat: 'stem-ie', conj: {
+                    present: { yo: 'quiero', tu: 'quieres', el: 'quiere', nos: 'queremos', vos: 'queréis', ellos: 'quieren' }
+                }
+            },
+            {
+                inf: 'despertar', en: 'to wake (something)', cat: 'stem-ie', conj: {
+                    present: { yo: 'despierto', tu: 'despiertas', el: 'despierta', nos: 'despertamos', vos: 'despertáis', ellos: 'despiertan' }
+                }
+            },
+            {
+                inf: 'preferir', en: 'to prefer', cat: 'stem-ie', conj: {
+                    present: { yo: 'prefiero', tu: 'prefieres', el: 'prefiere', nos: 'preferimos', vos: 'preferís', ellos: 'prefieren' }
+                }
+            },
+            {
+                inf: 'entender', en: 'to understand', cat: 'stem-ie', conj: {
+                    present: { yo: 'entiendo', tu: 'entiendes', el: 'entiende', nos: 'entendemos', vos: 'entendéis', ellos: 'entienden' }
+                }
+            },
+            {
+                inf: 'empezar', en: 'to begin', cat: 'stem-ie', conj: {
+                    present: { yo: 'empiezo', tu: 'empiezas', el: 'empieza', nos: 'empezamos', vos: 'empezáis', ellos: 'empiezan' }
+                }
+            },
+            {
+                inf: 'perder', en: 'to lose', cat: 'stem-ie', conj: {
+                    present: { yo: 'pierdo', tu: 'pierdes', el: 'pierde', nos: 'perdemos', vos: 'perdéis', ellos: 'pierden' }
+                }
+            },
+            {
+                inf: 'sentir', en: 'to feel', cat: 'stem-ie', conj: {
+                    present: { yo: 'siento', tu: 'sientes', el: 'siente', nos: 'sentimos', vos: 'sentís', ellos: 'sienten' }
+                }
+            },
+            {
+                inf: 'merendar', en: 'to have a snack', cat: 'stem-ie', conj: {
+                    present: { yo: 'meriendo', tu: 'meriendas', el: 'merienda', nos: 'merendamos', vos: 'merendáis', ellos: 'meriendan' }
+                }
+            },
+            {
+                inf: 'mentir', en: 'to lie', cat: 'stem-ie', conj: {
+                    present: { yo: 'miento', tu: 'mientes', el: 'miente', nos: 'mentimos', vos: 'mentís', ellos: 'mienten' }
+                }
+            },
+            {
+                inf: 'cerrar', en: 'to close', cat: 'stem-ie', conj: {
+                    present: { yo: 'cierro', tu: 'cierras', el: 'cierra', nos: 'cerramos', vos: 'cerráis', ellos: 'cierran' }
+                }
+            },
+            {
+                inf: 'pensar', en: 'to think', cat: 'stem-ie', conj: {
+                    present: { yo: 'pienso', tu: 'piensas', el: 'piensa', nos: 'pensamos', vos: 'pensáis', ellos: 'piensan' }
+                }
+            },
+
+            // ===== Stem O→UE (and U→UE for jugar) =====
+            {
+                inf: 'poder', en: 'to be able / can', cat: 'stem-ue', conj: {
+                    present: { yo: 'puedo', tu: 'puedes', el: 'puede', nos: 'podemos', vos: 'podéis', ellos: 'pueden' }
+                }
+            },
+            {
+                inf: 'volver', en: 'to return', cat: 'stem-ue', conj: {
+                    present: { yo: 'vuelvo', tu: 'vuelves', el: 'vuelve', nos: 'volvemos', vos: 'volvéis', ellos: 'vuelven' }
+                }
+            },
+            {
+                inf: 'recordar', en: 'to remember', cat: 'stem-ue', conj: {
+                    present: { yo: 'recuerdo', tu: 'recuerdas', el: 'recuerda', nos: 'recordamos', vos: 'recordáis', ellos: 'recuerdan' }
+                }
+            },
+            {
+                inf: 'dormir', en: 'to sleep', cat: 'stem-ue', conj: {
+                    present: { yo: 'duermo', tu: 'duermes', el: 'duerme', nos: 'dormimos', vos: 'dormís', ellos: 'duermen' }
+                }
+            },
+            {
+                inf: 'almorzar', en: 'to have lunch', cat: 'stem-ue', conj: {
+                    present: { yo: 'almuerzo', tu: 'almuerzas', el: 'almuerza', nos: 'almorzamos', vos: 'almorzáis', ellos: 'almuerzan' }
+                }
+            },
+            {
+                inf: 'contar', en: 'to count / tell', cat: 'stem-ue', conj: {
+                    present: { yo: 'cuento', tu: 'cuentas', el: 'cuenta', nos: 'contamos', vos: 'contáis', ellos: 'cuentan' }
+                }
+            },
+            {
+                inf: 'soñar', en: 'to dream', cat: 'stem-ue', conj: {
+                    present: { yo: 'sueño', tu: 'sueñas', el: 'sueña', nos: 'soñamos', vos: 'soñáis', ellos: 'sueñan' }
+                }
+            },
+            {
+                inf: 'encontrar', en: 'to find / to meet', cat: 'stem-ue', conj: {
+                    present: { yo: 'encuentro', tu: 'encuentras', el: 'encuentra', nos: 'encontramos', vos: 'encontráis', ellos: 'encuentran' }
+                }
+            },
+            {
+                inf: 'jugar', en: 'to play', cat: 'stem-ue', conj: {
+                    present: { yo: 'juego', tu: 'juegas', el: 'juega', nos: 'jugamos', vos: 'jugáis', ellos: 'juegan' }
+                }
+            },
+
+            // ===== Stem E→I =====
+            {
+                inf: 'pedir', en: 'to ask for', cat: 'stem-i', conj: {
+                    present: { yo: 'pido', tu: 'pides', el: 'pide', nos: 'pedimos', vos: 'pedís', ellos: 'piden' }
+                }
+            },
+            {
+                inf: 'servir', en: 'to serve', cat: 'stem-i', conj: {
+                    present: { yo: 'sirvo', tu: 'sirves', el: 'sirve', nos: 'servimos', vos: 'servís', ellos: 'sirven' }
+                }
+            },
+            {
+                inf: 'repetir', en: 'to repeat', cat: 'stem-i', conj: {
+                    present: { yo: 'repito', tu: 'repites', el: 'repite', nos: 'repetimos', vos: 'repetís', ellos: 'repiten' }
+                }
+            },
+
+            // ===== Irregular (present only) =====
+            {
+                inf: 'ser', en: 'to be (permanent)', cat: 'irreg', conj: {
+                    present: { yo: 'soy', tu: 'eres', el: 'es', nos: 'somos', vos: 'sois', ellos: 'son' }
+                }
+            },
+            {
+                inf: 'estar', en: 'to be (temporary)', cat: 'irreg', conj: {
+                    present: { yo: 'estoy', tu: 'estás', el: 'está', nos: 'estamos', vos: 'estáis', ellos: 'están' }
+                }
+            },
+            {
+                inf: 'tener', en: 'to have', cat: 'irreg', conj: {
+                    present: { yo: 'tengo', tu: 'tienes', el: 'tiene', nos: 'tenemos', vos: 'tenéis', ellos: 'tienen' }
+                }
+            },
+            {
+                inf: 'hacer', en: 'to do / make', cat: 'irreg', conj: {
+                    present: { yo: 'hago', tu: 'haces', el: 'hace', nos: 'hacemos', vos: 'hacéis', ellos: 'hacen' }
+                }
+            },
+            {
+                inf: 'ir', en: 'to go', cat: 'irreg', conj: {
+                    present: { yo: 'voy', tu: 'vas', el: 'va', nos: 'vamos', vos: 'vais', ellos: 'van' }
+                }
+            },
+            {
+                inf: 'dar', en: 'to give', cat: 'irreg', conj: {
+                    present: { yo: 'doy', tu: 'das', el: 'da', nos: 'damos', vos: 'dais', ellos: 'dan' }
+                }
+            },
+            {
+                inf: 'venir', en: 'to come', cat: 'irreg', conj: {
+                    present: { yo: 'vengo', tu: 'vienes', el: 'viene', nos: 'venimos', vos: 'venís', ellos: 'vienen' }
+                }
+            },
+            {
+                inf: 'decir', en: 'to say / tell', cat: 'irreg', conj: {
+                    present: { yo: 'digo', tu: 'dices', el: 'dice', nos: 'decimos', vos: 'decís', ellos: 'dicen' }
+                }
+            },
+            {
+                inf: 'ver', en: 'to see / watch', cat: 'irreg', conj: {
+                    present: { yo: 'veo', tu: 'ves', el: 've', nos: 'vemos', vos: 'veis', ellos: 'ven' }
+                }
+            },
+            {
+                inf: 'poner', en: 'to put / place', cat: 'irreg', conj: {
+                    present: { yo: 'pongo', tu: 'pones', el: 'pone', nos: 'ponemos', vos: 'ponéis', ellos: 'ponen' }
+                }
+            },
+
+            // ===== Reflexive =====
+            // Conjugations include the reflexive pronoun (me/te/se/nos/os/se) baked in.
+            {
+                inf: 'llamarse', en: 'to be called', cat: 'reflexive', conj: {
+                    present: { yo: 'me llamo', tu: 'te llamas', el: 'se llama', nos: 'nos llamamos', vos: 'os llamáis', ellos: 'se llaman' }
+                }
+            },
+            {
+                inf: 'ducharse', en: 'to shower', cat: 'reflexive', conj: {
+                    present: { yo: 'me ducho', tu: 'te duchas', el: 'se ducha', nos: 'nos duchamos', vos: 'os ducháis', ellos: 'se duchan' }
+                }
+            },
+            {
+                inf: 'bañarse', en: 'to bathe', cat: 'reflexive', conj: {
+                    present: { yo: 'me baño', tu: 'te bañas', el: 'se baña', nos: 'nos bañamos', vos: 'os bañáis', ellos: 'se bañan' }
+                }
+            },
+            {
+                inf: 'lavarse', en: 'to wash oneself', cat: 'reflexive', conj: {
+                    present: { yo: 'me lavo', tu: 'te lavas', el: 'se lava', nos: 'nos lavamos', vos: 'os laváis', ellos: 'se lavan' }
+                }
+            },
+            {
+                inf: 'cepillarse', en: 'to brush oneself', cat: 'reflexive', conj: {
+                    present: { yo: 'me cepillo', tu: 'te cepillas', el: 'se cepilla', nos: 'nos cepillamos', vos: 'os cepilláis', ellos: 'se cepillan' }
+                }
+            },
+            {
+                inf: 'levantarse', en: 'to get up', cat: 'reflexive', conj: {
+                    present: { yo: 'me levanto', tu: 'te levantas', el: 'se levanta', nos: 'nos levantamos', vos: 'os levantáis', ellos: 'se levantan' }
+                }
+            },
+            {
+                inf: 'vestirse', en: 'to get dressed', cat: 'reflexive', conj: {
+                    present: { yo: 'me visto', tu: 'te vistes', el: 'se viste', nos: 'nos vestimos', vos: 'os vestís', ellos: 'se visten' }
+                }
+            },
+            {
+                inf: 'despertarse', en: 'to wake up', cat: 'reflexive', conj: {
+                    present: { yo: 'me despierto', tu: 'te despiertas', el: 'se despierta', nos: 'nos despertamos', vos: 'os despertáis', ellos: 'se despiertan' }
+                }
+            },
+            {
+                inf: 'dormirse', en: 'to fall asleep', cat: 'reflexive', conj: {
+                    present: { yo: 'me duermo', tu: 'te duermes', el: 'se duerme', nos: 'nos dormimos', vos: 'os dormís', ellos: 'se duermen' }
+                }
+            },
+            {
+                inf: 'irse', en: 'to leave / go away', cat: 'reflexive', conj: {
+                    present: { yo: 'me voy', tu: 'te vas', el: 'se va', nos: 'nos vamos', vos: 'os vais', ellos: 'se van' }
+                }
+            },
+            {
+                inf: 'ponerse', en: 'to put on (clothes)', cat: 'reflexive', conj: {
+                    present: { yo: 'me pongo', tu: 'te pones', el: 'se pone', nos: 'nos ponemos', vos: 'os ponéis', ellos: 'se ponen' }
+                }
+            },
+            {
+                inf: 'acostarse', en: 'to lay down / go to bed', cat: 'reflexive', conj: {
+                    present: { yo: 'me acuesto', tu: 'te acuestas', el: 'se acuesta', nos: 'nos acostamos', vos: 'os acostáis', ellos: 'se acuestan' }
+                }
+            },
+            {
+                inf: 'quedarse', en: 'to stay / remain', cat: 'reflexive', conj: {
+                    present: { yo: 'me quedo', tu: 'te quedas', el: 'se queda', nos: 'nos quedamos', vos: 'os quedáis', ellos: 'se quedan' }
+                }
+            },
+            {
+                inf: 'llevarse', en: 'to take away / get along', cat: 'reflexive', conj: {
+                    present: { yo: 'me llevo', tu: 'te llevas', el: 'se lleva', nos: 'nos llevamos', vos: 'os lleváis', ellos: 'se llevan' }
+                }
+            },
+            {
+                inf: 'sentirse', en: 'to feel (a way)', cat: 'reflexive', conj: {
+                    present: { yo: 'me siento', tu: 'te sientes', el: 'se siente', nos: 'nos sentimos', vos: 'os sentís', ellos: 'se sienten' }
+                }
+            },
+            {
+                inf: 'encontrarse', en: 'to meet up / feel', cat: 'reflexive', conj: {
+                    present: { yo: 'me encuentro', tu: 'te encuentras', el: 'se encuentra', nos: 'nos encontramos', vos: 'os encontráis', ellos: 'se encuentran' }
+                }
+            }
+        ],
+
+        // ARTICLE NOUNS: el/la pairs. Includes the tricky exceptions.
+        articleNouns: [
+            { noun: 'casa', article: 'la' }, { noun: 'coche', article: 'el' },
+            { noun: 'mariposa', article: 'la' }, { noun: 'universidad', article: 'la' },
+            { noun: 'ciudad', article: 'la' }, { noun: 'familia', article: 'la' },
+            { noun: 'día', article: 'el' }, { noun: 'estación', article: 'la' },
+            { noun: 'cocina', article: 'la' }, { noun: 'mañana', article: 'la' },
+            { noun: 'noche', article: 'la' }, { noun: 'playa', article: 'la' },
+            { noun: 'pasta', article: 'la' }, { noun: 'supermercado', article: 'el' },
+            { noun: 'restaurante', article: 'el' }, { noun: 'gimnasio', article: 'el' },
+            { noun: 'banco', article: 'el' }, { noun: 'parque', article: 'el' },
+            { noun: 'café', article: 'el' }, { noun: 'reunión', article: 'la' },
+            { noun: 'libertad', article: 'la' }, { noun: 'iglesia', article: 'la' },
+            { noun: 'hospital', article: 'el' }, { noun: 'tren', article: 'el' },
+            { noun: 'sol', article: 'el' }, { noun: 'luna', article: 'la' },
+            { noun: 'manzana', article: 'la' }, { noun: 'plátano', article: 'el' },
+            { noun: 'leche', article: 'la' }, { noun: 'agua', article: 'el' },
+            { noun: 'pez', article: 'el' }, { noun: 'tortuga', article: 'la' },
+            // Extended set from food, city, home, weather vocab:
+            { noun: 'tomate', article: 'el' }, { noun: 'bocadillo', article: 'el' },
+            { noun: 'tostada', article: 'la' }, { noun: 'helado', article: 'el' },
+            { noun: 'zumo', article: 'el' }, { noun: 'jamón', article: 'el' },
+            { noun: 'fruta', article: 'la' }, { noun: 'verdura', article: 'la' },
+            { noun: 'postre', article: 'el' }, { noun: 'merienda', article: 'la' },
+            { noun: 'naranja', article: 'la' }, { noun: 'zanahoria', article: 'la' },
+            { noun: 'hotel', article: 'el' }, { noun: 'tienda', article: 'la' },
+            { noun: 'zapatería', article: 'la' }, { noun: 'bar', article: 'el' },
+            { noun: 'teatro', article: 'el' }, { noun: 'montaña', article: 'la' },
+            { noun: 'bosque', article: 'el' }, { noun: 'biblioteca', article: 'la' },
+            { noun: 'apartamento', article: 'el' }, { noun: 'ático', article: 'el' },
+            { noun: 'nube', article: 'la' }, { noun: 'nieve', article: 'la' },
+            { noun: 'tormenta', article: 'la' }, { noun: 'viento', article: 'el' },
+            { noun: 'lluvia', article: 'la' }, { noun: 'hijo', article: 'el' },
+            { noun: 'hija', article: 'la' }, { noun: 'perro', article: 'el' },
+            { noun: 'gato', article: 'el' }, { noun: 'pájaro', article: 'el' },
+            { noun: 'amistad', article: 'la' }, { noun: 'verdad', article: 'la' },
+            // House rooms and objects:
+            { noun: 'cocina', article: 'la' }, { noun: 'salón', article: 'el' },
+            { noun: 'comedor', article: 'el' }, { noun: 'dormitorio', article: 'el' },
+            { noun: 'pasillo', article: 'el' }, { noun: 'estudio', article: 'el' },
+            { noun: 'garaje', article: 'el' }, { noun: 'aseo', article: 'el' },
+            { noun: 'cama', article: 'la' }, { noun: 'armario', article: 'el' },
+            { noun: 'estantería', article: 'la' }, { noun: 'ventana', article: 'la' },
+            { noun: 'sofá', article: 'el' }, { noun: 'sillón', article: 'el' },
+            { noun: 'televisión', article: 'la' }, { noun: 'espejo', article: 'el' },
+            { noun: 'toalla', article: 'la' }, { noun: 'ducha', article: 'la' },
+            { noun: 'ordenador', article: 'el' }, { noun: 'escritorio', article: 'el' },
+            { noun: 'lámpara', article: 'la' }, { noun: 'reloj', article: 'el' },
+            { noun: 'planta', article: 'la' }, { noun: 'horno', article: 'el' },
+            { noun: 'silla', article: 'la' }, { noun: 'mesa', article: 'la' }
+        ],
+
+        // SENTENCES: for fill-in-blank, sentence builder, translation.
+        // Each: { en, es, focus (the word being tested) }
+        // For sentence builder, es is split into word tiles.
+        sentences: [
+            { en: 'I eat pasta on Thursdays.', es: 'Como pasta los jueves.', focus: 'Como' },
+            { en: 'My sister lives in Madrid.', es: 'Mi hermana vive en Madrid.', focus: 'vive' },
+            { en: 'Yesterday I drank coffee.', es: 'Ayer bebí café.', focus: 'bebí' },
+            { en: 'My father is a mechanic.', es: 'Mi padre es mecánico.', focus: 'es' },
+            { en: 'We are at the restaurant.', es: 'Estamos en el restaurante.', focus: 'Estamos' },
+            { en: "It's cloudy today.", es: 'Hoy está nublado.', focus: 'está' },
+            { en: 'I get up at seven.', es: 'Me levanto a las siete.', focus: 'Me levanto' },
+            { en: 'After dinner, I read.', es: 'Después de la cena, leo.', focus: 'Después de' },
+            { en: 'I like dogs.', es: 'Me gustan los perros.', focus: 'gustan' },
+            { en: 'Last week we visited Madrid.', es: 'La semana pasada visitamos Madrid.', focus: 'visitamos' },
+            { en: 'My brother eats a sandwich.', es: 'Mi hermano come un bocadillo.', focus: 'come' },
+            { en: 'You (tú) drink tea.', es: 'Bebes té.', focus: 'Bebes' },
+            { en: 'I have forty years.', es: 'Tengo cuarenta años.', focus: 'Tengo' },
+            { en: 'She is friendly.', es: 'Ella es simpática.', focus: 'es' },
+            { en: 'They live in Sevilla.', es: 'Viven en Sevilla.', focus: 'Viven' },
+            { en: 'I went to the supermarket.', es: 'Fui al supermercado.', focus: 'Fui' },
+            { en: 'After working, I rest.', es: 'Después de trabajar, descanso.', focus: 'Después de' },
+            { en: 'My dog is called Pluto.', es: 'Mi perro se llama Pluto.', focus: 'se llama' },
+            { en: 'We eat at eight.', es: 'Comemos a las ocho.', focus: 'Comemos' },
+            { en: 'Last night they ate paella.', es: 'Anoche comieron paella.', focus: 'comieron' },
+            // === Added with the expanded verb + adjective set ===
+            { en: 'I read every day.', es: 'Leo todos los días.', focus: 'Leo' },
+            { en: 'We dance on Saturdays.', es: 'Bailamos los sábados.', focus: 'Bailamos' },
+            { en: 'He is very tall.', es: 'Él es muy alto.', focus: 'es' },
+            { en: 'The food is tasty.', es: 'La comida está sabrosa.', focus: 'está' },
+            { en: 'I always wake up at seven.', es: 'Siempre me despierto a las siete.', focus: 'me despierto' },
+            { en: 'My friends are friendly.', es: 'Mis amigos son simpáticos.', focus: 'son' },
+            { en: 'He never has lunch at home.', es: 'Él nunca almuerza en casa.', focus: 'almuerza' },
+            { en: 'We travel to Spain in summer.', es: 'Viajamos a España en verano.', focus: 'Viajamos' },
+            { en: 'I prefer coffee.', es: 'Prefiero el café.', focus: 'Prefiero' },
+            { en: 'She can speak Spanish.', es: 'Ella puede hablar español.', focus: 'puede' },
+            { en: 'I get up early.', es: 'Me levanto temprano.', focus: 'Me levanto' },
+            { en: 'My grandmother lives in a small house.', es: 'Mi abuela vive en una casa pequeña.', focus: 'pequeña' },
+            { en: 'The children play in the park.', es: 'Los niños juegan en el parque.', focus: 'juegan' },
+            { en: 'We are at the cinema.', es: 'Estamos en el cine.', focus: 'Estamos' },
+            { en: 'I love sweet food.', es: 'Me encanta la comida dulce.', focus: 'Me encanta' },
+            { en: "He doesn't like spicy food.", es: 'No le gusta la comida picante.', focus: 'le gusta' },
+            { en: 'Yesterday I rested.', es: 'Ayer descansé.', focus: 'descansé' },
+            { en: 'We took the train to Madrid.', es: 'Tomamos el tren a Madrid.', focus: 'Tomamos' },
+            { en: 'I work as an IT manager.', es: 'Trabajo como gerente de IT.', focus: 'Trabajo' },
+            { en: 'She prepares dinner.', es: 'Ella prepara la cena.', focus: 'prepara' },
+            { en: 'I want to learn Spanish.', es: 'Quiero aprender español.', focus: 'Quiero' },
+            { en: 'He cleans the house on Saturdays.', es: 'Él limpia la casa los sábados.', focus: 'limpia' },
+            { en: 'The shop is small.', es: 'La tienda es pequeña.', focus: 'pequeña' },
+            { en: 'I write letters.', es: 'Escribo cartas.', focus: 'Escribo' },
+            { en: 'Last weekend we visited my parents.', es: 'El fin de semana pasado visitamos a mis padres.', focus: 'visitamos' },
+            { en: 'I have a small dog.', es: 'Tengo un perro pequeño.', focus: 'pequeño' },
+            { en: 'She brushes her teeth in the morning.', es: 'Ella se cepilla los dientes por la mañana.', focus: 'se cepilla' },
+            { en: 'We have dinner at eight.', es: 'Cenamos a las ocho.', focus: 'Cenamos' },
+            { en: 'I never lie.', es: 'Nunca miento.', focus: 'miento' },
+            { en: 'He sleeps a lot on weekends.', es: 'Él duerme mucho los fines de semana.', focus: 'duerme' },
+            // === En La Casa, tener idioms, and new verbs ===
+            { en: "I'm hungry.", es: 'Tengo hambre.', focus: 'hambre' },
+            { en: "I'm thirsty.", es: 'Tengo sed.', focus: 'sed' },
+            { en: 'She is sleepy.', es: 'Ella tiene sueño.', focus: 'sueño' },
+            { en: 'My brother is afraid of spiders.', es: 'Mi hermano tiene miedo de las arañas.', focus: 'tiene miedo' },
+            { en: "It's cold in winter, I'm always cold.", es: 'En invierno siempre tengo frío.', focus: 'tengo frío' },
+            { en: "I'm lucky.", es: 'Tengo suerte.', focus: 'suerte' },
+            { en: 'I have to study for the exam.', es: 'Tengo que estudiar para el examen.', focus: 'Tengo que' },
+            { en: 'In the kitchen I cook.', es: 'En la cocina cocino.', focus: 'cocino' },
+            { en: 'In the bedroom I sleep.', es: 'En el dormitorio duermo.', focus: 'duermo' },
+            { en: 'In the office I work.', es: 'En el estudio trabajo.', focus: 'trabajo' },
+            { en: 'In the garage I park my car.', es: 'En el garaje aparco mi coche.', focus: 'aparco' },
+            { en: 'My bedroom has a big bed.', es: 'Mi dormitorio tiene una cama grande.', focus: 'grande' },
+            { en: 'The window is open.', es: 'La ventana está abierta.', focus: 'está' },
+            { en: 'I close the door.', es: 'Cierro la puerta.', focus: 'Cierro' },
+            { en: 'I think in Spanish sometimes.', es: 'A veces pienso en español.', focus: 'pienso' },
+            { en: 'I go to bed at eleven.', es: 'Me acuesto a las once.', focus: 'Me acuesto' },
+            { en: 'I find my keys on the table.', es: 'Encuentro mis llaves en la mesa.', focus: 'Encuentro' },
+            { en: 'I feel happy today.', es: 'Hoy me siento feliz.', focus: 'me siento' },
+            { en: 'I stay at home on Sundays.', es: 'Los domingos me quedo en casa.', focus: 'me quedo' }
+        ],
+
+        // PLACES & ACTIONS: from "Actions in different places" section.
+        // For each verb, list of places where it's commonly done.
+        placeActions: [
+            { verb: 'leer', en: 'to read', places: ['biblioteca', 'casa', 'parque'] },
+            { verb: 'comer', en: 'to eat', places: ['restaurante', 'casa', 'cafetería'] },
+            { verb: 'comprar ropa', en: 'to buy clothes', places: ['tienda de ropa', 'centro comercial'] },
+            { verb: 'comprar medicinas', en: 'to buy medicines', places: ['farmacia'] },
+            { verb: 'ver una película', en: 'to watch a film', places: ['cine', 'casa'] },
+            { verb: 'aprender', en: 'to learn', places: ['escuela', 'biblioteca'] },
+            { verb: 'dormir', en: 'to sleep', places: ['hotel', 'casa'] },
+            { verb: 'hacer ejercicio', en: 'to exercise', places: ['gimnasio', 'parque'] },
+            { verb: 'enviar cartas', en: 'to send letters', places: ['correos'] },
+            { verb: 'rezar', en: 'to pray', places: ['iglesia'] },
+            { verb: 'comprar carne', en: 'to buy meat', places: ['carnicería', 'supermercado'] },
+            { verb: 'esperar el autobús', en: 'to wait for the bus', places: ['parada de autobús'] },
+            { verb: 'pedir y pagar', en: 'to order and pay', places: ['restaurante', 'cafetería', 'bar'] },
+            { verb: 'estudiar', en: 'to study', places: ['biblioteca', 'casa', 'escuela'] },
+            { verb: 'descansar', en: 'to rest', places: ['casa', 'parque', 'playa'] },
+            { verb: 'beber café', en: 'to drink coffee', places: ['cafetería', 'casa', 'bar'] },
+            { verb: 'cuidar a alguien', en: 'to care for someone', places: ['hospital', 'casa'] },
+            { verb: 'preparar la comida', en: 'to prepare food', places: ['casa', 'restaurante'] },
+            { verb: 'comprar verduras', en: 'to buy vegetables', places: ['supermercado', 'mercado', 'tienda'] },
+            { verb: 'ver arte', en: 'to see art', places: ['museo', 'teatro'] },
+            { verb: 'ir a misa', en: 'to attend mass', places: ['iglesia'] },
+            { verb: 'poner gasolina', en: 'to fill up with petrol', places: ['gasolinera'] }
+        ],
+
+        // All places used in placeActions, plus a few extras for distractors.
+        allPlaces: [
+            'biblioteca', 'casa', 'parque', 'restaurante', 'cafetería', 'tienda de ropa',
+            'centro comercial', 'farmacia', 'cine', 'escuela', 'hotel', 'gimnasio', 'correos',
+            'iglesia', 'carnicería', 'supermercado', 'parada de autobús', 'bar', 'hospital',
+            'banco', 'museo', 'playa', 'mercado', 'tienda', 'teatro', 'gasolinera', 'montaña',
+            'bosque', 'ayuntamiento', 'zapatería'
+        ],
+
+        // NUMBERS: digit to Spanish word.
+        numbers: [
+            { num: 0, es: 'cero' }, { num: 1, es: 'uno' }, { num: 2, es: 'dos' },
+            { num: 3, es: 'tres' }, { num: 4, es: 'cuatro' }, { num: 5, es: 'cinco' },
+            { num: 6, es: 'seis' }, { num: 7, es: 'siete' }, { num: 8, es: 'ocho' },
+            { num: 9, es: 'nueve' }, { num: 10, es: 'diez' },
+            { num: 11, es: 'once' }, { num: 12, es: 'doce' }, { num: 13, es: 'trece' },
+            { num: 14, es: 'catorce' }, { num: 15, es: 'quince' }, { num: 16, es: 'dieciséis' },
+            { num: 17, es: 'diecisiete' }, { num: 18, es: 'dieciocho' }, { num: 19, es: 'diecinueve' },
+            { num: 20, es: 'veinte' }, { num: 21, es: 'veintiuno' }, { num: 22, es: 'veintidós' },
+            { num: 23, es: 'veintitrés' }, { num: 27, es: 'veintisiete' }, { num: 28, es: 'veintiocho' },
+            { num: 30, es: 'treinta' }, { num: 31, es: 'treinta y uno' },
+            { num: 33, es: 'treinta y tres' }, { num: 38, es: 'treinta y ocho' },
+            { num: 40, es: 'cuarenta' }, { num: 44, es: 'cuarenta y cuatro' },
+            { num: 47, es: 'cuarenta y siete' }, { num: 50, es: 'cincuenta' },
+            { num: 55, es: 'cincuenta y cinco' }, { num: 60, es: 'sesenta' },
+            { num: 66, es: 'sesenta y seis' }, { num: 70, es: 'setenta' },
+            { num: 73, es: 'setenta y tres' }, { num: 76, es: 'setenta y seis' },
+            { num: 80, es: 'ochenta' }, { num: 82, es: 'ochenta y dos' },
+            { num: 90, es: 'noventa' }, { num: 91, es: 'noventa y uno' },
+            { num: 95, es: 'noventa y cinco' }, { num: 99, es: 'noventa y nueve' },
+            { num: 100, es: 'cien' }
+        ],
+
+        // TIMES: digital time to Spanish phrase.
+        times: [
+            { display: '1:00', es: 'es la una' },
+            { display: '2:00', es: 'son las dos' },
+            { display: '3:00', es: 'son las tres' },
+            { display: '6:00', es: 'son las seis' },
+            { display: '8:00', es: 'son las ocho' },
+            { display: '12:00', es: 'son las doce' },
+            { display: '1:05', es: 'es la una y cinco' },
+            { display: '1:30', es: 'es la una y media' },
+            { display: '4:15', es: 'son las cuatro y cuarto' },
+            { display: '5:30', es: 'son las cinco y media' },
+            { display: '6:45', es: 'son las siete menos cuarto' },
+            { display: '7:10', es: 'son las siete y diez' },
+            { display: '8:20', es: 'son las ocho y veinte' },
+            { display: '9:05', es: 'son las nueve y cinco' },
+            { display: '10:50', es: 'son las once menos diez' },
+            { display: '11:15', es: 'son las once y cuarto' },
+            { display: '11:25', es: 'son las once y veinticinco' },
+            { display: '12:35', es: 'es la una menos veinticinco' },
+            { display: '1:45', es: 'son las dos menos cuarto' },
+            { display: '2:25', es: 'son las dos y veinticinco' },
+            { display: '2:55', es: 'son las tres menos cinco' },
+            { display: '4:40', es: 'son las cinco menos veinte' },
+            { display: '7:35', es: 'son las ocho menos veinticinco' },
+            { display: '9:50', es: 'son las diez menos diez' }
+        ],
+
+        // DIALOGUES: structured turns. For each turn, who speaks and what they say.
+        // The "user" plays one role; the other turns are shown automatically.
+        dialogues: [
+            {
+                id: 'sara-fernando',
+                name: 'Sara y Fernando',
+                description: 'Introductions, family, pets',
+                userRole: 'Sara',
+                turns: [
+                    { speaker: 'Sara', en: 'Good morning.', es: 'Buenos días.' },
+                    { speaker: 'Fernando', en: 'Good morning. How are you?', es: 'Buenos días. ¿Cómo estás?' },
+                    { speaker: 'Sara', en: "I'm good thanks. And you?", es: 'Estoy bien, gracias. ¿Y tú?' },
+                    { speaker: 'Fernando', en: "Not bad. My name's Fernando. What's yours?", es: 'Menos mal. Me llamo Fernando. ¿Cómo te llamas?' },
+                    { speaker: 'Sara', en: 'My name is Sara. Nice to meet you.', es: 'Me llamo Sara. Mucho gusto.' },
+                    { speaker: 'Fernando', en: 'Nice to meet you too. Where are you from?', es: 'Mucho gusto también. ¿De dónde eres?' },
+                    { speaker: 'Sara', en: "I'm from England. And you?", es: 'Soy de Inglaterra. ¿Y tú?' },
+                    { speaker: 'Fernando', en: "I'm from Spain. Do you have family?", es: 'Soy de España. ¿Tienes familia?' },
+                    { speaker: 'Sara', en: 'I have a boyfriend and a son. And you?', es: 'Tengo un novio y un hijo. ¿Y tú?' },
+                    { speaker: 'Fernando', en: 'I have a husband. Do you have pets?', es: 'Tengo marido. ¿Tienes mascotas?' },
+                    { speaker: 'Sara', en: 'I have three dogs.', es: 'Tengo tres perros.' },
+                    { speaker: 'Fernando', en: 'Very good. It was a pleasure. See you soon.', es: 'Muy bien. Fue un placer. Hasta pronto.' }
+                ]
+            },
+            {
+                id: 'carolina-miguel',
+                name: 'Carolina y Miguel',
+                description: 'At the bus stop. Time, jobs, age, family, pets, likes/dislikes.',
+                userRole: 'Carolina',
+                turns: [
+                    { speaker: 'Carolina', en: 'Excuse me, do you have the time?', es: 'Perdón, ¿tienes la hora?' },
+                    { speaker: 'Miguel', en: "It's half past three in the afternoon.", es: 'Son las tres y media de la tarde.' },
+                    { speaker: 'Carolina', en: 'Thank you. What is your name?', es: 'Gracias. ¿Cómo te llamas?' },
+                    { speaker: 'Miguel', en: "My name is Miguel. And you?", es: 'Me llamo Miguel. ¿Y tú?' },
+                    { speaker: 'Carolina', en: 'My name is Carolina. Where are you from?', es: 'Me llamo Carolina. ¿De dónde eres?' },
+                    { speaker: 'Miguel', en: "I'm from Spain. And you?", es: 'Soy de España. ¿Y tú?' },
+                    { speaker: 'Carolina', en: "I'm from England. Where do you live?", es: 'Soy de Inglaterra. ¿Dónde vives?' },
+                    { speaker: 'Miguel', en: 'I live in Madrid. And you?', es: 'Vivo en Madrid. ¿Y tú?' },
+                    { speaker: 'Carolina', en: 'I live in London. What do you do for work?', es: 'Vivo en Londres. ¿Qué haces por trabajo?' },
+                    { speaker: 'Miguel', en: "I'm a mechanic. And you?", es: 'Soy mecánico. ¿Y tú?' },
+                    { speaker: 'Carolina', en: "I'm an accountant. How old are you?", es: 'Soy contadora. ¿Cuántos años tienes?' },
+                    { speaker: 'Miguel', en: "I'm twenty-seven. And you?", es: 'Tengo veintisiete años. ¿Y tú?' },
+                    { speaker: 'Carolina', en: "I'm twenty-three. Do you have siblings?", es: 'Tengo veintitrés años. ¿Tienes hermanos?' },
+                    { speaker: 'Miguel', en: 'I have one sister and one brother. And you?', es: 'Tengo una hermana y un hermano. ¿Y tú?' },
+                    { speaker: 'Carolina', en: 'I have three brothers. Do you have a partner?', es: 'Tengo tres hermanos. ¿Tienes pareja?' },
+                    { speaker: 'Miguel', en: 'I have a husband. And you?', es: 'Tengo marido. ¿Y tú?' },
+                    { speaker: 'Carolina', en: 'I have a boyfriend. Do you have pets?', es: 'Tengo novio. ¿Tienes mascotas?' },
+                    { speaker: 'Miguel', en: 'I have two cats. And you?', es: 'Tengo dos gatos. ¿Y tú?' },
+                    { speaker: 'Carolina', en: 'I have one dog. What do you like?', es: 'Tengo un perro. ¿Qué te gusta?' },
+                    { speaker: 'Miguel', en: 'I like fish and reading. And you?', es: 'Me gusta el pescado y leer. ¿Y tú?' },
+                    { speaker: 'Carolina', en: "I like pineapple and basketball. What don't you like?", es: 'Me gusta la piña y el baloncesto. ¿Qué no te gusta?' },
+                    { speaker: 'Miguel', en: "I don't like eggs. And you?", es: 'No me gustan los huevos. ¿Y tú?' },
+                    { speaker: 'Carolina', en: "I don't like spicy food. Here's my bus. It was a pleasure.", es: 'No me gusta la comida picante. Aquí está mi autobús. Fue un placer.' },
+                    { speaker: 'Miguel', en: 'Yes, see you soon.', es: 'Sí, nos vemos.' }
+                ]
+            }
+        ]
+    };
+
+    // =============================================================================
+    // STORAGE
+    // =============================================================================
+    const STORAGE_KEY = 'jason-spanish-app-v1';
+    const GAME_KEYS = ['verbs', 'vocab', 'sentenceBuilder', 'fillBlank', 'articles', 'timeNumbers', 'placeAction', 'dialogue', 'recognition'];
+
+    // Use null-prototype objects so keys like "constructor", "toString", etc.
+    // don't collide with Object.prototype properties.
+    function makeProgress() {
+        const p = Object.create(null);
+        GAME_KEYS.forEach(k => { p[k] = Object.create(null); });
+        return p;
+    }
+    let progress = makeProgress();
+
+    async function loadProgress() {
+        try {
+            const r = await window.storage.get(STORAGE_KEY);
+            if (r && r.value) {
+                const loaded = JSON.parse(r.value);
+                const fresh = makeProgress();
+                for (const game of GAME_KEYS) {
+                    if (loaded[game] && typeof loaded[game] === 'object') {
+                        for (const key of Object.keys(loaded[game])) {
+                            fresh[game][key] = loaded[game][key];
+                        }
+                    }
+                }
+                progress = fresh;
+            }
+        } catch (e) { }
+    }
+
+    async function saveProgress() {
+        try { await window.storage.set(STORAGE_KEY, JSON.stringify(progress)); }
+        catch (e) { console.error('Save failed', e); }
+    }
+
+    // =============================================================================
+    // UTILITIES
+    // =============================================================================
+    function normalize(s) {
+        return s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function recordResult(game, key, correct) {
+        if (!progress[game][key]) progress[game][key] = { correct: 0, incorrect: 0 };
+        if (correct) progress[game][key].correct++;
+        else progress[game][key].incorrect++;
+        saveProgress();
+    }
+
+    function pickWeighted(items, weightFn) {
+        if (items.length === 0) return null;
+        const weights = items.map(weightFn);
+        // Safety: if any weight is not a finite positive number, fall back to uniform random.
+        if (!weights.every(w => Number.isFinite(w) && w > 0)) {
+            return items[Math.floor(Math.random() * items.length)];
+        }
+        const total = weights.reduce((a, b) => a + b, 0);
+        let r = Math.random() * total;
+        for (let i = 0; i < items.length; i++) {
+            r -= weights[i];
+            if (r <= 0) return items[i];
+        }
+        return items[items.length - 1];
+    }
+
+    function shuffle(arr) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    function weightForKey(gameKey, itemKey) {
+        const s = progress[gameKey][itemKey];
+        // Defensive: only treat s as stats if it's an actual stats object.
+        // Protects against prototype-pollution and corrupted storage.
+        if (!s || typeof s !== 'object' || typeof s.correct !== 'number' || typeof s.incorrect !== 'number') return 3;
+        const total = s.correct + s.incorrect;
+        if (total === 0) return 3;
+        const acc = s.correct / total;
+        return 1 + (1 - acc) * 4;
+    }
+
+    function gameAggregateStats(gameKey) {
+        let c = 0, i = 0;
+        Object.values(progress[gameKey]).forEach(s => { c += s.correct; i += s.incorrect; });
+        return { correct: c, incorrect: i, total: c + i };
+    }
+
+    function weakSpotsForGame(gameKey, formatFn) {
+        const items = [];
+        Object.keys(progress[gameKey]).forEach(key => {
+            const s = progress[gameKey][key];
+            const t = s.correct + s.incorrect;
+            if (t >= 2 && s.correct / t < 0.7) items.push({ key, acc: s.correct / t, total: t });
+        });
+        items.sort((a, b) => a.acc - b.acc);
+        return items.slice(0, 8).map(formatFn);
+    }
+
+    // =============================================================================
+    // NAVIGATION
+    // =============================================================================
+    let currentGame = null;
+
+    function navigateTo(view) {
+        const back = document.getElementById('back-btn');
+        const title = document.getElementById('page-title');
+        if (view === 'home') {
+            currentGame = null;
+            back.classList.add('hidden');
+            title.textContent = 'Spanish Practice';
+            renderHome();
+        } else {
+            currentGame = view;
+            back.classList.remove('hidden');
+            title.textContent = Games[view].name;
+            Games[view].init();
+        }
+    }
+
+    document.getElementById('back-btn').addEventListener('click', () => navigateTo('home'));
+
+    // =============================================================================
+    // HOME VIEW
+    // =============================================================================
+    function renderHome() {
+        let totalC = 0, totalI = 0;
+        Object.keys(progress).forEach(g => {
+            const s = gameAggregateStats(g);
+            totalC += s.correct; totalI += s.incorrect;
+        });
+        const total = totalC + totalI;
+        const acc = total > 0 ? Math.round((totalC / total) * 100) + '%' : '—';
+
+        const main = document.getElementById('main');
+        main.innerHTML = `
+    <div class="stats-overview">
+      <div class="stat-block">
+        <div class="stat-label">Total attempts</div>
+        <div class="stat-value">${total}</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-label">Overall accuracy</div>
+        <div class="stat-value">${acc}</div>
+      </div>
+    </div>
+    <div class="games-grid">
+      ${Object.keys(Games).map(key => {
+            const g = Games[key];
+            const s = gameAggregateStats(key);
+            const a = s.total > 0 ? Math.round((s.correct / s.total) * 100) + '% • ' + s.total + ' attempts' : 'Not started yet';
+            return `<button class="game-card" data-game="${key}">
+          <div class="game-card-title">${g.name}</div>
+          <div class="game-card-desc">${g.description}</div>
+          <div class="game-card-stats">${a}</div>
+        </button>`;
+        }).join('')}
+    </div>
+  `;
+        main.querySelectorAll('.game-card').forEach(card => {
+            card.addEventListener('click', () => navigateTo(card.dataset.game));
+        });
+    }
+
+    // =============================================================================
+    // GAMES
+    // =============================================================================
+
+    const Games = {};
+
+    // --- 1. VERB DRILL ---
+    Games.verbs = {
+        name: 'Verb Drill',
+        description: 'Conjugation across persons and tenses',
+        state: { mode: 'all', awaitingNext: false, currentCombo: null },
+
+        PERSONS: ['yo', 'tu', 'el', 'nos', 'vos', 'ellos'],
+        PERSON_LABELS: { yo: 'yo (I)', tu: 'tú (you)', el: 'él/ella (he/she)', nos: 'nosotros (we)', vos: 'vosotros (you all)', ellos: 'ellos (they)' },
+        TENSE_LABELS: { present: 'present', past: 'past (preterite)' },
+        CAT_LABELS: { 'reg-ar': 'regular -AR', 'reg-er': 'regular -ER', 'reg-ir': 'regular -IR', 'stem-ie': 'E→IE stem', 'stem-ue': 'O→UE stem', 'stem-i': 'E→I stem', 'irreg': 'irregular', 'reflexive': 'reflexive' },
+
+        init() {
+            this.state = { mode: 'all', awaitingNext: false, currentCombo: null };
+            const main = document.getElementById('main');
+            main.innerHTML = `
+      <div class="controls">
+        <button class="filter-btn active" data-mode="all">All</button>
+        <button class="filter-btn" data-mode="present">Present only</button>
+        <button class="filter-btn" data-mode="past">Past only</button>
+        <button class="filter-btn" data-mode="regular">Regular only</button>
+        <button class="filter-btn" data-mode="weak">Weak spots</button>
+      </div>
+      <div class="prompt-card">
+        <div class="prompt-main" id="verb-display">—</div>
+        <div class="prompt-meta" id="verb-meta">—</div>
+        <div class="prompt-ask">Conjugate for:</div>
+        <div class="prompt-target" id="person-display">—</div>
+      </div>
+      <div class="hint-row" id="verb-hint-row">
+        <button class="hint-btn">Show meaning</button>
+        <span class="hint-text hidden" id="verb-hint-text"></span>
+      </div>
+      <div class="input-row">
+        <input type="text" id="answer-input" placeholder="Type the conjugation" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="primary" id="submit-btn">Check</button>
+      </div>
+      <div id="feedback-area"></div>
+      ${this.renderStatsBlock()}
+    `;
+            main.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => this.setMode(b.dataset.mode)));
+            document.getElementById('submit-btn').addEventListener('click', () => this.check());
+            document.getElementById('answer-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); this.check(); } });
+            this.next();
+        },
+
+        renderStatsBlock() {
+            const s = gameAggregateStats('verbs');
+            const acc = s.total > 0 ? Math.round((s.correct / s.total) * 100) + '%' : '—';
+            const weak = weakSpotsForGame('verbs', it => {
+                const [verb, person, tense] = it.key.split(':');
+                return `<span class="weak-spot">${verb} • ${person} • ${tense} (${Math.round(it.acc * 100)}%)</span>`;
+            });
+            return `<div class="game-stats" id="stats-block">
+      <div class="stats-row"><span>Attempts</span><strong>${s.total}</strong></div>
+      <div class="stats-row"><span>Accuracy</span><strong>${acc}</strong></div>
+      <div class="weak-spots-title">Weak spots</div>
+      <div>${weak.length ? weak.join('') : (s.total > 0 ? 'None showing yet.' : 'None yet, keep going.')}</div>
+    </div>`;
+        },
+
+        refreshStatsBlock() {
+            const block = document.getElementById('stats-block');
+            if (block) block.outerHTML = this.renderStatsBlock();
+        },
+
+        setMode(mode) {
+            this.state.mode = mode;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+            this.next();
+        },
+
+        getActiveTenses() {
+            if (this.state.mode === 'present') return ['present'];
+            if (this.state.mode === 'past') return ['past'];
+            return ['present', 'past'];
+        },
+
+        pick() {
+            const activeTenses = this.getActiveTenses();
+            let pool = DATA.verbs.filter(v => activeTenses.some(t => v.conj[t]));
+            if (this.state.mode === 'regular') pool = pool.filter(v => v.cat.startsWith('reg-'));
+
+            const combos = [];
+            pool.forEach(verb => {
+                Object.keys(verb.conj).forEach(tense => {
+                    if (!activeTenses.includes(tense)) return;
+                    this.PERSONS.forEach(person => combos.push({ verb, tense, person }));
+                });
+            });
+
+            if (this.state.mode === 'weak') {
+                const weakCombos = combos.filter(c => {
+                    const k = `${c.verb.inf}:${c.person}:${c.tense}`;
+                    const s = progress.verbs[k];
+                    if (!s || s.correct + s.incorrect < 2) return false;
+                    return s.correct / (s.correct + s.incorrect) < 0.7;
+                });
+                if (weakCombos.length > 0) return pickWeighted(weakCombos, c => 1);
+            }
+            return pickWeighted(combos, c => weightForKey('verbs', `${c.verb.inf}:${c.person}:${c.tense}`));
+        },
+
+        next() {
+            const combo = this.pick();
+            this.state.currentCombo = combo;
+            document.getElementById('verb-display').textContent = combo.verb.inf;
+            document.getElementById('verb-meta').textContent = `${this.CAT_LABELS[combo.verb.cat]} • ${this.TENSE_LABELS[combo.tense]}`;
+            document.getElementById('verb-hint-text').textContent = combo.verb.en;
+            document.getElementById('verb-hint-text').classList.add('hidden');
+            document.getElementById('verb-hint-row').querySelector('.hint-btn').classList.remove('hidden');
+            document.getElementById('person-display').textContent = this.PERSON_LABELS[combo.person];
+            const input = document.getElementById('answer-input');
+            input.value = ''; input.focus();
+            document.getElementById('feedback-area').innerHTML = '';
+            document.getElementById('submit-btn').textContent = 'Check';
+            this.state.awaitingNext = false;
+        },
+
+        check() {
+            if (this.state.awaitingNext) { this.next(); this.refreshStatsBlock(); return; }
+            const input = document.getElementById('answer-input').value.trim();
+            if (!input) return;
+            const c = this.state.currentCombo;
+            const expected = c.verb.conj[c.tense][c.person];
+            const key = `${c.verb.inf}:${c.person}:${c.tense}`;
+            const nu = normalize(input), ne = normalize(expected);
+            let fb;
+            if (input.toLowerCase() === expected.toLowerCase()) {
+                recordResult('verbs', key, true);
+                fb = `<div class="feedback correct">✓ Correct: <strong>${expected}</strong></div>`;
+            } else if (nu === ne) {
+                recordResult('verbs', key, true);
+                fb = `<div class="feedback almost">Nearly. Your spelling matches but the accent matters: <strong>${expected}</strong>. In Spanish, accents can change meaning (e.g. <em>hablo</em> = I speak, <em>habló</em> = he/she spoke).</div>`;
+            } else {
+                recordResult('verbs', key, false);
+                fb = `<div class="feedback incorrect">✗ The correct form is <strong>${expected}</strong>. You wrote "<em>${input}</em>".</div>`;
+            }
+            document.getElementById('feedback-area').innerHTML = fb;
+            document.getElementById('submit-btn').textContent = 'Next';
+            this.state.awaitingNext = true;
+        }
+    };
+
+    // --- 2. VOCAB MATCHING ---
+    Games.vocab = {
+        name: 'Vocab Matching',
+        description: 'English to Spanish, by topic',
+        state: { topic: 'all', awaitingNext: false, current: null, mode: 'choice' },
+
+        init() {
+            this.state = { topic: 'all', awaitingNext: false, current: null, mode: 'choice' };
+            const topics = Object.keys(DATA.vocab);
+            const main = document.getElementById('main');
+            main.innerHTML = `
+      <div class="controls">
+        <button class="filter-btn active" data-topic="all">All topics</button>
+        ${topics.map(t => `<button class="filter-btn" data-topic="${t}">${t}</button>`).join('')}
+      </div>
+      <div class="controls">
+        <button class="filter-btn active" data-input="choice">Multiple choice</button>
+        <button class="filter-btn" data-input="type">Type the answer</button>
+      </div>
+      <div class="prompt-card">
+        <div class="prompt-main" id="vocab-prompt">—</div>
+        <div class="prompt-meta" id="vocab-meta">—</div>
+      </div>
+      <div id="vocab-input-area"></div>
+      <div id="feedback-area"></div>
+      ${this.renderStatsBlock()}
+    `;
+            main.querySelectorAll('[data-topic]').forEach(b => b.addEventListener('click', () => this.setTopic(b.dataset.topic)));
+            main.querySelectorAll('[data-input]').forEach(b => b.addEventListener('click', () => this.setMode(b.dataset.input)));
+            this.next();
+        },
+
+        renderStatsBlock() {
+            const s = gameAggregateStats('vocab');
+            const acc = s.total > 0 ? Math.round((s.correct / s.total) * 100) + '%' : '—';
+            return `<div class="game-stats" id="stats-block">
+      <div class="stats-row"><span>Attempts</span><strong>${s.total}</strong></div>
+      <div class="stats-row"><span>Accuracy</span><strong>${acc}</strong></div>
+    </div>`;
+        },
+
+        setTopic(t) {
+            this.state.topic = t;
+            document.querySelectorAll('[data-topic]').forEach(b => b.classList.toggle('active', b.dataset.topic === t));
+            this.next();
+        },
+
+        setMode(m) {
+            this.state.mode = m;
+            document.querySelectorAll('[data-input]').forEach(b => b.classList.toggle('active', b.dataset.input === m));
+            this.next();
+        },
+
+        pool() {
+            if (this.state.topic === 'all') {
+                return Object.entries(DATA.vocab).flatMap(([t, list]) => list.map(p => ({ ...p, topic: t })));
+            }
+            return DATA.vocab[this.state.topic].map(p => ({ ...p, topic: this.state.topic }));
+        },
+
+        next() {
+            const pool = this.pool();
+            const word = pickWeighted(pool, p => weightForKey('vocab', p.es));
+            this.state.current = word;
+            document.getElementById('vocab-prompt').textContent = word.en;
+            document.getElementById('vocab-meta').textContent = `topic: ${word.topic}`;
+            document.getElementById('feedback-area').innerHTML = '';
+            this.state.awaitingNext = false;
+
+            const area = document.getElementById('vocab-input-area');
+            if (this.state.mode === 'choice') {
+                const distractors = shuffle(pool.filter(p => p.es !== word.es)).slice(0, 3);
+                const options = shuffle([word, ...distractors]);
+                area.innerHTML = `<div class="option-grid">${options.map(o => `<button class="option-btn" data-value="${o.es}">${o.es}</button>`).join('')}</div>`;
+                area.querySelectorAll('.option-btn').forEach(b => b.addEventListener('click', () => this.check(b.dataset.value, b)));
+            } else {
+                area.innerHTML = `
+        <div class="input-row">
+          <input type="text" id="vocab-input" placeholder="Type the Spanish word" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button class="primary" id="vocab-submit">Check</button>
+        </div>`;
+                const input = document.getElementById('vocab-input');
+                input.focus();
+                input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); this.check(input.value.trim()); } });
+                document.getElementById('vocab-submit').addEventListener('click', () => this.check(input.value.trim()));
+            }
+        },
+
+        check(answer, clickedBtn) {
+            if (this.state.awaitingNext) { this.next(); this.refreshStatsBlock(); return; }
+            if (!answer) return;
+            const expected = this.state.current.es;
+            const nu = normalize(answer), ne = normalize(expected);
+            let fb;
+            if (answer.toLowerCase() === expected.toLowerCase()) {
+                recordResult('vocab', expected, true);
+                fb = `<div class="feedback correct">✓ Correct: <strong>${expected}</strong></div>`;
+            } else if (nu === ne) {
+                recordResult('vocab', expected, true);
+                fb = `<div class="feedback almost">Nearly. The accent matters: <strong>${expected}</strong>.</div>`;
+            } else {
+                recordResult('vocab', expected, false);
+                fb = `<div class="feedback incorrect">✗ Correct answer: <strong>${expected}</strong>. You picked "<em>${answer}</em>".</div>`;
+            }
+            document.getElementById('feedback-area').innerHTML = fb + `<div style="margin-top:0.5rem;"><button class="primary" id="vocab-next">Next</button></div>`;
+            document.getElementById('vocab-next').addEventListener('click', () => { this.next(); this.refreshStatsBlock(); });
+
+            if (this.state.mode === 'choice') {
+                document.querySelectorAll('.option-btn').forEach(b => {
+                    b.disabled = true;
+                    if (b.dataset.value === expected) b.classList.add('correct');
+                    else if (b === clickedBtn) b.classList.add('incorrect');
+                });
+            }
+            this.state.awaitingNext = true;
+        },
+
+        refreshStatsBlock() {
+            const block = document.getElementById('stats-block');
+            if (block) block.outerHTML = this.renderStatsBlock();
+        }
+    };
+
+    // --- 3. ARTICLE GAME ---
+    Games.articles = {
+        name: 'El or La',
+        description: 'Spanish noun gender training',
+        state: { awaitingNext: false, current: null },
+
+        init() {
+            this.state = { awaitingNext: false, current: null };
+            document.getElementById('main').innerHTML = `
+      <div class="prompt-card">
+        <div class="prompt-ask">What's the article?</div>
+        <div class="prompt-main" id="noun-display">—</div>
+      </div>
+      <div class="binary-options">
+        <button class="option-btn" data-choice="el">el</button>
+        <button class="option-btn" data-choice="la">la</button>
+      </div>
+      <div id="feedback-area"></div>
+      ${this.renderStatsBlock()}
+    `;
+            document.querySelectorAll('[data-choice]').forEach(b => b.addEventListener('click', () => this.check(b.dataset.choice, b)));
+            this.next();
+        },
+
+        renderStatsBlock() {
+            const s = gameAggregateStats('articles');
+            const acc = s.total > 0 ? Math.round((s.correct / s.total) * 100) + '%' : '—';
+            const weak = weakSpotsForGame('articles', it => `<span class="weak-spot">${it.key} (${Math.round(it.acc * 100)}%)</span>`);
+            return `<div class="game-stats" id="stats-block">
+      <div class="stats-row"><span>Attempts</span><strong>${s.total}</strong></div>
+      <div class="stats-row"><span>Accuracy</span><strong>${acc}</strong></div>
+      <div class="weak-spots-title">Tricky nouns</div>
+      <div>${weak.length ? weak.join('') : (s.total > 0 ? 'None showing yet.' : 'None yet, keep going.')}</div>
+    </div>`;
+        },
+
+        next() {
+            const noun = pickWeighted(DATA.articleNouns, n => weightForKey('articles', n.noun));
+            this.state.current = noun;
+            document.getElementById('noun-display').textContent = noun.noun;
+            document.getElementById('feedback-area').innerHTML = '';
+            document.querySelectorAll('[data-choice]').forEach(b => { b.disabled = false; b.classList.remove('correct', 'incorrect'); });
+            this.state.awaitingNext = false;
+        },
+
+        check(choice, btn) {
+            if (this.state.awaitingNext) return;
+            const expected = this.state.current.article;
+            let fb;
+            if (choice === expected) {
+                recordResult('articles', this.state.current.noun, true);
+                fb = `<div class="feedback correct">✓ <strong>${expected} ${this.state.current.noun}</strong></div>`;
+            } else {
+                recordResult('articles', this.state.current.noun, false);
+                fb = `<div class="feedback incorrect">✗ It's <strong>${expected} ${this.state.current.noun}</strong>${this.explain(this.state.current.noun, expected)}</div>`;
+            }
+            document.getElementById('feedback-area').innerHTML = fb + `<div style="margin-top:0.5rem;"><button class="primary" id="art-next">Next</button></div>`;
+            document.getElementById('art-next').addEventListener('click', () => { this.next(); this.refreshStatsBlock(); });
+            document.querySelectorAll('[data-choice]').forEach(b => {
+                b.disabled = true;
+                if (b.dataset.choice === expected) b.classList.add('correct');
+                else if (b === btn) b.classList.add('incorrect');
+            });
+            this.state.awaitingNext = true;
+        },
+
+        explain(noun, art) {
+            if (noun.endsWith('dad') || noun.endsWith('tad')) return ` (the -dad/-tad ending is reliably feminine).`;
+            if (noun.endsWith('ión')) return ` (the -ión ending is reliably feminine).`;
+            if (noun === 'día') return ` (día is masculine despite ending in -a, like in "buenos días").`;
+            if (noun === 'agua') return ` (agua is feminine but takes el for pronunciation reasons).`;
+            return '.';
+        },
+
+        refreshStatsBlock() {
+            const block = document.getElementById('stats-block');
+            if (block) block.outerHTML = this.renderStatsBlock();
+        }
+    };
+
+    // --- 4. FILL IN THE BLANK ---
+    Games.fillBlank = {
+        name: 'Fill the Blank',
+        description: 'Complete the sentence with the missing word',
+        state: { awaitingNext: false, current: null },
+
+        init() {
+            this.state = { awaitingNext: false, current: null };
+            document.getElementById('main').innerHTML = `
+      <div class="prompt-card">
+        <div class="prompt-main" id="fb-spanish">—</div>
+      </div>
+      <div class="hint-row" id="fb-hint-row">
+        <button class="hint-btn">Show meaning</button>
+        <span class="hint-text hidden" id="fb-english"></span>
+      </div>
+      <div class="input-row">
+        <input type="text" id="fb-input" placeholder="Type the missing word(s)" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="primary" id="fb-submit">Check</button>
+      </div>
+      <div id="feedback-area"></div>
+      ${this.renderStatsBlock()}
+    `;
+            document.getElementById('fb-submit').addEventListener('click', () => this.check());
+            document.getElementById('fb-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); this.check(); } });
+            this.next();
+        },
+
+        renderStatsBlock() {
+            const s = gameAggregateStats('fillBlank');
+            const acc = s.total > 0 ? Math.round((s.correct / s.total) * 100) + '%' : '—';
+            return `<div class="game-stats" id="stats-block">
+      <div class="stats-row"><span>Attempts</span><strong>${s.total}</strong></div>
+      <div class="stats-row"><span>Accuracy</span><strong>${acc}</strong></div>
+    </div>`;
+        },
+
+        next() {
+            const sentence = pickWeighted(DATA.sentences, s => weightForKey('fillBlank', s.es));
+            this.state.current = sentence;
+            document.getElementById('fb-english').textContent = sentence.en;
+            document.getElementById('fb-english').classList.add('hidden');
+            document.getElementById('fb-hint-row').querySelector('.hint-btn').classList.remove('hidden');
+            const masked = sentence.es.replace(sentence.focus, '______');
+            document.getElementById('fb-spanish').textContent = masked;
+            const input = document.getElementById('fb-input');
+            input.value = ''; input.focus();
+            document.getElementById('feedback-area').innerHTML = '';
+            document.getElementById('fb-submit').textContent = 'Check';
+            this.state.awaitingNext = false;
+        },
+
+        check() {
+            if (this.state.awaitingNext) { this.next(); this.refreshStatsBlock(); return; }
+            const input = document.getElementById('fb-input').value.trim();
+            if (!input) return;
+            const expected = this.state.current.focus;
+            const nu = normalize(input), ne = normalize(expected);
+            let fb;
+            if (input.toLowerCase() === expected.toLowerCase()) {
+                recordResult('fillBlank', this.state.current.es, true);
+                fb = `<div class="feedback correct">✓ <strong>${this.state.current.es}</strong></div>`;
+            } else if (nu === ne) {
+                recordResult('fillBlank', this.state.current.es, true);
+                fb = `<div class="feedback almost">Nearly. Watch the accent: <strong>${expected}</strong>. Full: <em>${this.state.current.es}</em>.</div>`;
+            } else {
+                recordResult('fillBlank', this.state.current.es, false);
+                fb = `<div class="feedback incorrect">✗ The missing word is <strong>${expected}</strong>. Full: <em>${this.state.current.es}</em>.</div>`;
+            }
+            document.getElementById('feedback-area').innerHTML = fb;
+            document.getElementById('fb-submit').textContent = 'Next';
+            this.state.awaitingNext = true;
+        },
+
+        refreshStatsBlock() {
+            const block = document.getElementById('stats-block');
+            if (block) block.outerHTML = this.renderStatsBlock();
+        }
+    };
+
+    // --- 5. SENTENCE BUILDER ---
+    Games.sentenceBuilder = {
+        name: 'Sentence Builder',
+        description: 'Tap word tiles to construct the Spanish sentence',
+        state: { awaitingNext: false, current: null, placed: [], bank: [] },
+
+        init() {
+            this.state = { awaitingNext: false, current: null, placed: [], bank: [] };
+            document.getElementById('main').innerHTML = `
+      <div class="prompt-card">
+        <div class="prompt-ask">Translate to Spanish:</div>
+        <div class="prompt-main" id="sb-english">—</div>
+      </div>
+      <div class="tile-target" id="sb-target"></div>
+      <div class="tile-bank" id="sb-bank"></div>
+      <div class="input-row">
+        <button class="primary" id="sb-check" style="flex:1;">Check</button>
+        <button class="primary" id="sb-clear" style="background:#7a7466;">Clear</button>
+      </div>
+      <div id="feedback-area"></div>
+      ${this.renderStatsBlock()}
+    `;
+            document.getElementById('sb-check').addEventListener('click', () => this.check());
+            document.getElementById('sb-clear').addEventListener('click', () => this.clear());
+            this.next();
+        },
+
+        renderStatsBlock() {
+            const s = gameAggregateStats('sentenceBuilder');
+            const acc = s.total > 0 ? Math.round((s.correct / s.total) * 100) + '%' : '—';
+            return `<div class="game-stats" id="stats-block">
+      <div class="stats-row"><span>Attempts</span><strong>${s.total}</strong></div>
+      <div class="stats-row"><span>Accuracy</span><strong>${acc}</strong></div>
+    </div>`;
+        },
+
+        next() {
+            const sentence = pickWeighted(DATA.sentences, s => weightForKey('sentenceBuilder', s.es));
+            this.state.current = sentence;
+            document.getElementById('sb-english').textContent = sentence.en;
+            const words = sentence.es.replace(/([,.!?¿¡])/g, ' $1').split(/\s+/).filter(Boolean);
+            this.state.bank = shuffle(words.map((w, i) => ({ word: w, id: i, used: false })));
+            this.state.placed = [];
+            this.renderTiles();
+            document.getElementById('feedback-area').innerHTML = '';
+            document.getElementById('sb-check').textContent = 'Check';
+            this.state.awaitingNext = false;
+        },
+
+        renderTiles() {
+            const target = document.getElementById('sb-target');
+            target.innerHTML = this.state.placed.length === 0
+                ? '<span style="color:#7a7466; font-style:italic;">Tap tiles below to build the sentence</span>'
+                : this.state.placed.map((t, idx) => `<button class="tile placed" data-placed-idx="${idx}">${t.word}</button>`).join('');
+            target.querySelectorAll('[data-placed-idx]').forEach(el => {
+                el.addEventListener('click', () => { if (!this.state.awaitingNext) this.unplace(parseInt(el.dataset.placedIdx)); });
+            });
+            const bank = document.getElementById('sb-bank');
+            bank.innerHTML = this.state.bank.filter(t => !t.used).map(t => `<button class="tile" data-bank-id="${t.id}">${t.word}</button>`).join('');
+            bank.querySelectorAll('[data-bank-id]').forEach(el => {
+                el.addEventListener('click', () => { if (!this.state.awaitingNext) this.place(parseInt(el.dataset.bankId)); });
+            });
+        },
+
+        place(id) {
+            const tile = this.state.bank.find(t => t.id === id);
+            if (!tile || tile.used) return;
+            tile.used = true;
+            this.state.placed.push(tile);
+            this.renderTiles();
+        },
+
+        unplace(idx) {
+            const tile = this.state.placed[idx];
+            tile.used = false;
+            this.state.placed.splice(idx, 1);
+            this.renderTiles();
+        },
+
+        clear() {
+            if (this.state.awaitingNext) return;
+            this.state.placed.forEach(t => { t.used = false; });
+            this.state.placed = [];
+            this.renderTiles();
+        },
+
+        check() {
+            if (this.state.awaitingNext) { this.next(); this.refreshStatsBlock(); return; }
+            const built = this.state.placed.map(t => t.word).join(' ').replace(/\s+([,.!?¿¡])/g, '$1');
+            const expected = this.state.current.es;
+            const nu = normalize(built), ne = normalize(expected);
+            let fb;
+            if (built === expected) {
+                recordResult('sentenceBuilder', expected, true);
+                fb = `<div class="feedback correct">✓ <strong>${expected}</strong></div>`;
+            } else if (nu === ne) {
+                recordResult('sentenceBuilder', expected, true);
+                fb = `<div class="feedback almost">Words right but capitalisation/punctuation off. Target: <strong>${expected}</strong>.</div>`;
+            } else {
+                recordResult('sentenceBuilder', expected, false);
+                fb = `<div class="feedback incorrect">✗ You built: <em>${built}</em>. Target: <strong>${expected}</strong>.</div>`;
+            }
+            document.getElementById('feedback-area').innerHTML = fb;
+            document.getElementById('sb-check').textContent = 'Next';
+            this.state.awaitingNext = true;
+        },
+
+        refreshStatsBlock() {
+            const block = document.getElementById('stats-block');
+            if (block) block.outerHTML = this.renderStatsBlock();
+        }
+    };
+
+    // --- 6. TIME & NUMBERS ---
+    Games.timeNumbers = {
+        name: 'Time & Numbers',
+        description: 'Write times and numbers in Spanish',
+        state: { mode: 'numbers', awaitingNext: false, current: null },
+
+        init() {
+            this.state = { mode: 'numbers', awaitingNext: false, current: null };
+            document.getElementById('main').innerHTML = `
+      <div class="controls">
+        <button class="filter-btn active" data-tn="numbers">Numbers</button>
+        <button class="filter-btn" data-tn="times">Times</button>
+        <button class="filter-btn" data-tn="both">Mix</button>
+      </div>
+      <div class="prompt-card">
+        <div class="prompt-ask" id="tn-ask">Write this number in Spanish:</div>
+        <div class="prompt-main" id="tn-display">—</div>
+      </div>
+      <div class="input-row">
+        <input type="text" id="tn-input" placeholder="Type in Spanish" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="primary" id="tn-submit">Check</button>
+      </div>
+      <div id="feedback-area"></div>
+      ${this.renderStatsBlock()}
+    `;
+            document.querySelectorAll('[data-tn]').forEach(b => b.addEventListener('click', () => this.setMode(b.dataset.tn)));
+            document.getElementById('tn-submit').addEventListener('click', () => this.check());
+            document.getElementById('tn-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); this.check(); } });
+            this.next();
+        },
+
+        renderStatsBlock() {
+            const s = gameAggregateStats('timeNumbers');
+            const acc = s.total > 0 ? Math.round((s.correct / s.total) * 100) + '%' : '—';
+            return `<div class="game-stats" id="stats-block">
+      <div class="stats-row"><span>Attempts</span><strong>${s.total}</strong></div>
+      <div class="stats-row"><span>Accuracy</span><strong>${acc}</strong></div>
+    </div>`;
+        },
+
+        setMode(m) {
+            this.state.mode = m;
+            document.querySelectorAll('[data-tn]').forEach(b => b.classList.toggle('active', b.dataset.tn === m));
+            this.next();
+        },
+
+        next() {
+            let pool;
+            if (this.state.mode === 'numbers') pool = DATA.numbers.map(n => ({ key: 'n:' + n.num, prompt: n.num, expected: n.es, ask: 'Write this number in Spanish:' }));
+            else if (this.state.mode === 'times') pool = DATA.times.map(t => ({ key: 't:' + t.display, prompt: t.display, expected: t.es, ask: 'Write this time in Spanish:' }));
+            else pool = [...DATA.numbers.map(n => ({ key: 'n:' + n.num, prompt: n.num, expected: n.es, ask: 'Write this number in Spanish:' })),
+            ...DATA.times.map(t => ({ key: 't:' + t.display, prompt: t.display, expected: t.es, ask: 'Write this time in Spanish:' }))];
+
+            const item = pickWeighted(pool, it => weightForKey('timeNumbers', it.key));
+            this.state.current = item;
+            document.getElementById('tn-ask').textContent = item.ask;
+            document.getElementById('tn-display').textContent = item.prompt;
+            const input = document.getElementById('tn-input');
+            input.value = ''; input.focus();
+            document.getElementById('feedback-area').innerHTML = '';
+            document.getElementById('tn-submit').textContent = 'Check';
+            this.state.awaitingNext = false;
+        },
+
+        check() {
+            if (this.state.awaitingNext) { this.next(); this.refreshStatsBlock(); return; }
+            const input = document.getElementById('tn-input').value.trim();
+            if (!input) return;
+            const c = this.state.current;
+            const nu = normalize(input), ne = normalize(c.expected);
+            let fb;
+            if (input.toLowerCase() === c.expected.toLowerCase()) {
+                recordResult('timeNumbers', c.key, true);
+                fb = `<div class="feedback correct">✓ <strong>${c.expected}</strong></div>`;
+            } else if (nu === ne) {
+                recordResult('timeNumbers', c.key, true);
+                fb = `<div class="feedback almost">Nearly. The accent matters: <strong>${c.expected}</strong>.</div>`;
+            } else {
+                recordResult('timeNumbers', c.key, false);
+                fb = `<div class="feedback incorrect">✗ Answer: <strong>${c.expected}</strong>. You wrote "<em>${input}</em>".</div>`;
+            }
+            document.getElementById('feedback-area').innerHTML = fb;
+            document.getElementById('tn-submit').textContent = 'Next';
+            this.state.awaitingNext = true;
+        },
+
+        refreshStatsBlock() {
+            const block = document.getElementById('stats-block');
+            if (block) block.outerHTML = this.renderStatsBlock();
+        }
+    };
+
+    // --- 7. PLACE-ACTION MATCH ---
+    Games.placeAction = {
+        name: 'Place Match',
+        description: "Pick the places where each verb fits",
+        state: { awaitingNext: false, current: null, selected: new Set(), shown: [] },
+
+        init() {
+            this.state = { awaitingNext: false, current: null, selected: new Set(), shown: [] };
+            document.getElementById('main').innerHTML = `
+      <div class="prompt-card">
+        <div class="prompt-ask">Where might you do this?</div>
+        <div class="prompt-main" id="pa-verb">—</div>
+      </div>
+      <div class="hint-row" id="pa-hint-row">
+        <button class="hint-btn">Show meaning</button>
+        <span class="hint-text hidden" id="pa-english"></span>
+      </div>
+      <div class="check-grid" id="pa-grid"></div>
+      <div class="input-row">
+        <button class="primary" id="pa-check" style="flex:1;">Check selection</button>
+      </div>
+      <div id="feedback-area"></div>
+      ${this.renderStatsBlock()}
+    `;
+            document.getElementById('pa-check').addEventListener('click', () => this.check());
+            this.next();
+        },
+
+        renderStatsBlock() {
+            const s = gameAggregateStats('placeAction');
+            const acc = s.total > 0 ? Math.round((s.correct / s.total) * 100) + '%' : '—';
+            return `<div class="game-stats" id="stats-block">
+      <div class="stats-row"><span>Attempts</span><strong>${s.total}</strong></div>
+      <div class="stats-row"><span>Accuracy</span><strong>${acc}</strong></div>
+    </div>`;
+        },
+
+        next() {
+            const entry = pickWeighted(DATA.placeActions, p => weightForKey('placeAction', p.verb));
+            this.state.current = entry;
+            this.state.selected = new Set();
+            document.getElementById('pa-verb').textContent = entry.verb;
+            document.getElementById('pa-english').textContent = entry.en;
+            document.getElementById('pa-english').classList.add('hidden');
+            document.getElementById('pa-hint-row').querySelector('.hint-btn').classList.remove('hidden');
+            const distractors = shuffle(DATA.allPlaces.filter(p => !entry.places.includes(p))).slice(0, 6);
+            this.state.shown = shuffle([...entry.places, ...distractors]);
+            this.renderGrid();
+            document.getElementById('feedback-area').innerHTML = '';
+            document.getElementById('pa-check').textContent = 'Check selection';
+            this.state.awaitingNext = false;
+        },
+
+        renderGrid() {
+            const grid = document.getElementById('pa-grid');
+            grid.innerHTML = this.state.shown.map(p => `<button class="check-item${this.state.selected.has(p) ? ' selected' : ''}" data-place="${p}">${p}</button>`).join('');
+            grid.querySelectorAll('[data-place]').forEach(b => {
+                b.addEventListener('click', () => {
+                    if (this.state.awaitingNext) return;
+                    const p = b.dataset.place;
+                    if (this.state.selected.has(p)) this.state.selected.delete(p);
+                    else this.state.selected.add(p);
+                    this.renderGrid();
+                });
+            });
+        },
+
+        check() {
+            if (this.state.awaitingNext) { this.next(); this.refreshStatsBlock(); return; }
+            const correct = new Set(this.state.current.places);
+            const chosen = this.state.selected;
+            const truePos = [...correct].filter(p => chosen.has(p));
+            const falsePos = [...chosen].filter(p => !correct.has(p));
+            const missed = [...correct].filter(p => !chosen.has(p));
+            const perfect = truePos.length === correct.size && falsePos.length === 0;
+            const grid = document.getElementById('pa-grid');
+            grid.innerHTML = this.state.shown.map(p => {
+                let cls = 'check-item';
+                if (correct.has(p) && chosen.has(p)) cls += ' true-positive';
+                else if (!correct.has(p) && chosen.has(p)) cls += ' false-positive';
+                else if (correct.has(p) && !chosen.has(p)) cls += ' missed';
+                return `<button class="${cls}" disabled>${p}</button>`;
+            }).join('');
+            recordResult('placeAction', this.state.current.verb, perfect);
+            let fb;
+            if (perfect) fb = `<div class="feedback correct">✓ All correct.</div>`;
+            else {
+                const bits = [];
+                if (falsePos.length) bits.push(`extras you picked: ${falsePos.join(', ')}`);
+                if (missed.length) bits.push(`places you missed: ${missed.join(', ')}`);
+                fb = `<div class="feedback incorrect">✗ ${bits.join('; ')}.</div>`;
+            }
+            document.getElementById('feedback-area').innerHTML = fb;
+            document.getElementById('pa-check').textContent = 'Next';
+            this.state.awaitingNext = true;
+        },
+
+        refreshStatsBlock() {
+            const block = document.getElementById('stats-block');
+            if (block) block.outerHTML = this.renderStatsBlock();
+        }
+    };
+
+    // --- 8. DIALOGUE REPLAY ---
+    Games.dialogue = {
+        name: 'Dialogue Replay',
+        description: 'Play one role in a Spanish conversation',
+        state: { current: null, turnIdx: 0, awaitingNext: false },
+
+        init() {
+            this.state = { current: null, turnIdx: 0, awaitingNext: false };
+            if (DATA.dialogues.length === 0) {
+                document.getElementById('main').innerHTML = `<div class="empty-state">No dialogues in the database yet. Add one to DATA.dialogues to enable this game.</div>`;
+                return;
+            }
+            if (DATA.dialogues.length === 1) {
+                this.startDialogue(DATA.dialogues[0]);
+            } else {
+                document.getElementById('main').innerHTML = `
+        <div class="prompt-card">
+          <div class="prompt-ask">Pick a dialogue:</div>
+        </div>
+        <div class="games-grid" id="d-list"></div>
+      `;
+                const list = document.getElementById('d-list');
+                list.innerHTML = DATA.dialogues.map(d => `<button class="game-card" data-id="${d.id}">
+        <div class="game-card-title">${d.name}</div>
+        <div class="game-card-desc">${d.description}</div>
+        <div class="game-card-stats">Play as ${d.userRole}</div>
+      </button>`).join('');
+                list.querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', () => {
+                    const d = DATA.dialogues.find(x => x.id === b.dataset.id);
+                    this.startDialogue(d);
+                }));
+            }
+        },
+
+        startDialogue(d) {
+            this.state.current = d;
+            this.state.turnIdx = 0;
+            document.getElementById('main').innerHTML = `
+      <div class="prompt-card">
+        <div class="prompt-meta">${d.name} • You are ${d.userRole}</div>
+      </div>
+      <div id="d-history"></div>
+      <div id="d-current"></div>
+      <div id="feedback-area"></div>
+      ${this.renderStatsBlock()}
+    `;
+            this.renderTurn();
+        },
+
+        renderStatsBlock() {
+            const s = gameAggregateStats('dialogue');
+            const acc = s.total > 0 ? Math.round((s.correct / s.total) * 100) + '%' : '—';
+            return `<div class="game-stats" id="stats-block">
+      <div class="stats-row"><span>Attempts</span><strong>${s.total}</strong></div>
+      <div class="stats-row"><span>Accuracy</span><strong>${acc}</strong></div>
+    </div>`;
+        },
+
+        renderTurn() {
+            const d = this.state.current;
+            const history = document.getElementById('d-history');
+            history.innerHTML = d.turns.slice(0, this.state.turnIdx).map(t => `
+      <div class="dialogue-turn ${t.speaker === d.userRole ? 'you' : 'other'}">
+        <div class="dialogue-speaker">${t.speaker}</div>
+        <div class="dialogue-text">${t.es}</div>
+      </div>
+    `).join('');
+
+            if (this.state.turnIdx >= d.turns.length) {
+                document.getElementById('d-current').innerHTML = `<div class="feedback correct">✓ Dialogue complete.</div>
+        <div style="margin-top:0.5rem;"><button class="primary" id="d-restart">Restart</button></div>`;
+                document.getElementById('d-restart').addEventListener('click', () => this.startDialogue(d));
+                return;
+            }
+
+            const turn = d.turns[this.state.turnIdx];
+            const isUser = turn.speaker === d.userRole;
+            if (isUser) {
+                document.getElementById('d-current').innerHTML = `
+        <div class="dialogue-turn you">
+          <div class="dialogue-speaker">Your turn (${d.userRole})</div>
+          <div class="dialogue-english">"${turn.en}"</div>
+        </div>
+        <div class="input-row">
+          <input type="text" id="d-input" placeholder="Type your line in Spanish" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button class="primary" id="d-submit">Say it</button>
+        </div>`;
+                const input = document.getElementById('d-input');
+                input.focus();
+                input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); this.checkLine(); } });
+                document.getElementById('d-submit').addEventListener('click', () => this.checkLine());
+            } else {
+                // Auto-advance after a brief moment for other speaker's turns
+                document.getElementById('d-current').innerHTML = `
+        <div class="dialogue-turn other">
+          <div class="dialogue-speaker">${turn.speaker}</div>
+          <div class="dialogue-text">${turn.es}</div>
+        </div>
+        <div class="hint-row">
+          <button class="hint-btn">Show meaning</button>
+          <span class="hint-text hidden">${turn.en}</span>
+        </div>
+        <div style="margin-top:0.5rem;"><button class="primary" id="d-continue">Continue</button></div>`;
+                document.getElementById('d-continue').addEventListener('click', () => {
+                    this.state.turnIdx++;
+                    this.renderTurn();
+                });
+            }
+        },
+
+        checkLine() {
+            const input = document.getElementById('d-input').value.trim();
+            if (!input) return;
+            const turn = this.state.current.turns[this.state.turnIdx];
+            const expected = turn.es;
+            const nu = normalize(input), ne = normalize(expected);
+            let fb, correct = false;
+            if (input.toLowerCase() === expected.toLowerCase()) {
+                correct = true;
+                fb = `<div class="feedback correct">✓ <strong>${expected}</strong></div>`;
+            } else if (nu === ne) {
+                correct = true;
+                fb = `<div class="feedback almost">Nearly. Watch accents/punctuation: <strong>${expected}</strong>.</div>`;
+            } else {
+                fb = `<div class="feedback incorrect">✗ Expected: <strong>${expected}</strong>. You wrote: <em>${input}</em>.</div>`;
+            }
+            recordResult('dialogue', `${this.state.current.id}:${this.state.turnIdx}`, correct);
+            document.getElementById('feedback-area').innerHTML = fb + `<div style="margin-top:0.5rem;"><button class="primary" id="d-advance">Continue</button></div>`;
+            document.getElementById('d-advance').addEventListener('click', () => {
+                this.state.turnIdx++;
+                document.getElementById('feedback-area').innerHTML = '';
+                this.renderTurn();
+                this.refreshStatsBlock();
+            });
+        },
+
+        refreshStatsBlock() {
+            const block = document.getElementById('stats-block');
+            if (block) block.outerHTML = this.renderStatsBlock();
+        }
+    };
+
+    // --- 9. RECOGNITION (Reconocer) ---
+    Games.recognition = {
+        name: 'Reconocer',
+        description: 'Recognize words and parse sentences',
+        state: { mode: 'words', currentItem: null, revealed: false, activeWordIdx: -1 },
+
+        // Common Spanish function words and high-frequency forms.
+        // Used for sentence parsing when a word isn't in the main vocab/verb pool.
+        FUNCTION_WORDS: {
+            // Articles
+            'el': { en: 'the', meta: 'masculine singular article' },
+            'la': { en: 'the', meta: 'feminine singular article' },
+            'los': { en: 'the', meta: 'masculine plural article' },
+            'las': { en: 'the', meta: 'feminine plural article' },
+            'un': { en: 'a / an', meta: 'masculine indefinite article' },
+            'una': { en: 'a / an', meta: 'feminine indefinite article' },
+            'unos': { en: 'some', meta: 'masculine plural indefinite' },
+            'unas': { en: 'some', meta: 'feminine plural indefinite' },
+            'al': { en: 'to the', meta: 'contraction (a + el)' },
+            'del': { en: 'of the / from the', meta: 'contraction (de + el)' },
+            // Prepositions
+            'a': { en: 'to / at', meta: 'preposition' },
+            'de': { en: 'of / from', meta: 'preposition' },
+            'en': { en: 'in / on / at', meta: 'preposition' },
+            'con': { en: 'with', meta: 'preposition' },
+            'sin': { en: 'without', meta: 'preposition' },
+            'por': { en: 'for / through / by', meta: 'preposition' },
+            'para': { en: 'for / in order to', meta: 'preposition' },
+            'sobre': { en: 'on / about', meta: 'preposition' },
+            'desde': { en: 'from / since', meta: 'preposition' },
+            'hasta': { en: 'until / up to', meta: 'preposition' },
+            'entre': { en: 'between', meta: 'preposition' },
+            // Subject pronouns
+            'yo': { en: 'I', meta: 'subject pronoun' },
+            'tú': { en: 'you (informal)', meta: 'subject pronoun' },
+            'él': { en: 'he', meta: 'subject pronoun' },
+            'ella': { en: 'she', meta: 'subject pronoun' },
+            'usted': { en: 'you (formal)', meta: 'subject pronoun' },
+            'nosotros': { en: 'we', meta: 'subject pronoun' },
+            'nosotras': { en: 'we (feminine)', meta: 'subject pronoun' },
+            'vosotros': { en: 'you all (Spain)', meta: 'subject pronoun' },
+            'vosotras': { en: 'you all (Spain, fem)', meta: 'subject pronoun' },
+            'ellos': { en: 'they', meta: 'subject pronoun' },
+            'ellas': { en: 'they (feminine)', meta: 'subject pronoun' },
+            // Reflexive / object pronouns
+            'me': { en: 'me / myself', meta: 'object or reflexive pronoun' },
+            'te': { en: 'you / yourself', meta: 'object or reflexive pronoun' },
+            'se': { en: 'himself / herself / themselves', meta: 'reflexive pronoun' },
+            'nos': { en: 'us / ourselves', meta: 'object or reflexive pronoun' },
+            'os': { en: 'you all / yourselves', meta: 'object or reflexive pronoun' },
+            'le': { en: 'to him / her', meta: 'indirect object pronoun' },
+            'les': { en: 'to them', meta: 'indirect object pronoun' },
+            'lo': { en: 'it / him', meta: 'direct object pronoun' },
+            // Possessives
+            'mi': { en: 'my', meta: 'possessive (singular)' },
+            'mis': { en: 'my', meta: 'possessive (plural)' },
+            'tu': { en: 'your (informal)', meta: 'possessive (singular)' },
+            'tus': { en: 'your (informal)', meta: 'possessive (plural)' },
+            'su': { en: 'his / her / your (formal) / their', meta: 'possessive (singular)' },
+            'sus': { en: 'his / her / your / their', meta: 'possessive (plural)' },
+            'nuestro': { en: 'our', meta: 'possessive (m sg)' },
+            'nuestra': { en: 'our', meta: 'possessive (f sg)' },
+            'nuestros': { en: 'our', meta: 'possessive (m pl)' },
+            'nuestras': { en: 'our', meta: 'possessive (f pl)' },
+            // Conjunctions
+            'y': { en: 'and', meta: 'conjunction' },
+            'e': { en: 'and', meta: 'conjunction (before i/hi)' },
+            'o': { en: 'or', meta: 'conjunction' },
+            'pero': { en: 'but', meta: 'conjunction' },
+            'porque': { en: 'because', meta: 'conjunction' },
+            'cuando': { en: 'when', meta: 'conjunction' },
+            'si': { en: 'if', meta: 'conjunction' },
+            'también': { en: 'also / too', meta: 'adverb' },
+            'tampoco': { en: 'neither / not either', meta: 'adverb' },
+            // Question words
+            'qué': { en: 'what?', meta: 'question word' },
+            'quién': { en: 'who?', meta: 'question word' },
+            'cómo': { en: 'how?', meta: 'question word' },
+            'dónde': { en: 'where?', meta: 'question word' },
+            'cuándo': { en: 'when?', meta: 'question word' },
+            'cuánto': { en: 'how much?', meta: 'question word' },
+            'cuántos': { en: 'how many?', meta: 'question word' },
+            'cuál': { en: 'which?', meta: 'question word' },
+            'cuáles': { en: 'which (plural)?', meta: 'question word' },
+            // Negation / affirmation
+            'no': { en: 'no / not', meta: 'negation' },
+            'sí': { en: 'yes', meta: 'affirmation' },
+            'nunca': { en: 'never', meta: 'adverb' },
+            'siempre': { en: 'always', meta: 'adverb' },
+            'nada': { en: 'nothing', meta: 'indefinite pronoun' },
+            'algo': { en: 'something', meta: 'indefinite pronoun' },
+            // Common adverbs
+            'que': { en: 'that / which', meta: 'relative pronoun' },
+            'muy': { en: 'very', meta: 'adverb' },
+            'mucho': { en: 'a lot / much', meta: 'adverb / quantifier' },
+            'mucha': { en: 'a lot (f)', meta: 'quantifier' },
+            'poco': { en: 'a little', meta: 'adverb / quantifier' },
+            'más': { en: 'more', meta: 'adverb' },
+            'menos': { en: 'less', meta: 'adverb' },
+            'cada': { en: 'each / every', meta: 'quantifier' },
+            'otro': { en: 'other / another', meta: 'adjective (m)' },
+            'otra': { en: 'other / another', meta: 'adjective (f)' },
+            'fue': { en: 'was / went', meta: 'past form of ser or ir' },
+            'era': { en: 'was / used to be', meta: 'imperfect of ser' },
+            'fui': { en: 'I was / I went', meta: 'past yo of ser or ir' },
+            'fueron': { en: 'they were / went', meta: 'past ellos of ser or ir' },
+            'tuvo': { en: 'had', meta: 'past él of tener' },
+            'tuve': { en: 'I had', meta: 'past yo of tener' },
+            'dijo': { en: 'said / told', meta: 'past él of decir' },
+            'dije': { en: 'I said', meta: 'past yo of decir' },
+            'hizo': { en: 'did / made', meta: 'past él of hacer' },
+            'hice': { en: 'I did', meta: 'past yo of hacer' },
+            'estuvo': { en: 'was', meta: 'past él of estar' },
+            'vino': { en: 'came', meta: 'past él of venir' },
+            'vio': { en: 'saw', meta: 'past él of ver' },
+            'vi': { en: 'I saw', meta: 'past yo of ver' },
+            // Common nouns appearing in sentences
+            'gerente': { en: 'manager', meta: 'masculine/feminine noun' },
+            'fin': { en: 'end', meta: 'masculine noun (often in "fin de semana")' },
+            'fines': { en: 'ends', meta: 'masculine plural (often "fines de semana" = weekends)' },
+            'veces': { en: 'times / occasions', meta: 'feminine plural of vez (used in "a veces")' },
+            'vez': { en: 'time / occasion', meta: 'feminine noun' },
+            'abierta': { en: 'open', meta: 'past participle of abrir, used as adjective (f)' },
+            'abierto': { en: 'open', meta: 'past participle of abrir, used as adjective (m)' },
+            'aparco': { en: 'I park', meta: 'present yo of aparcar (regular -AR)' },
+            'aparca': { en: 'parks', meta: 'present él of aparcar' },
+            'aparcar': { en: 'to park', meta: 'verb (regular -AR)' },
+            // Common nouns appearing in sentences but not in topical vocab
+            'hambre': { en: 'hunger', meta: 'feminine noun (used in tener idiom)' },
+            'sed': { en: 'thirst', meta: 'feminine noun (used in tener idiom)' },
+            'sueño': { en: 'sleep / sleepiness', meta: 'masculine noun (used in tener idiom)' },
+            'frío': { en: 'cold', meta: 'masculine noun (used in tener idiom)' },
+            'calor': { en: 'heat', meta: 'masculine noun (used in tener idiom)' },
+            'miedo': { en: 'fear', meta: 'masculine noun (used in tener idiom)' },
+            'suerte': { en: 'luck', meta: 'feminine noun (used in tener idiom)' },
+            'prisa': { en: 'hurry', meta: 'feminine noun (used in tener idiom)' },
+            'razón': { en: 'reason / right', meta: 'feminine noun (used in tener idiom)' },
+            'puerta': { en: 'door', meta: 'feminine noun' },
+            'ventana': { en: 'window', meta: 'feminine noun' },
+            'llaves': { en: 'keys', meta: 'feminine plural' },
+            'llave': { en: 'key', meta: 'feminine noun' },
+            'examen': { en: 'exam', meta: 'masculine noun' },
+            'invierno': { en: 'winter', meta: 'masculine noun (season)' },
+            'verano': { en: 'summer', meta: 'masculine noun (season)' },
+            'otoño': { en: 'autumn', meta: 'masculine noun (season)' },
+            'primavera': { en: 'spring', meta: 'feminine noun (season)' },
+            'arañas': { en: 'spiders', meta: 'feminine plural' },
+            'araña': { en: 'spider', meta: 'feminine noun' },
+            'español': { en: 'Spanish (language) / Spaniard (m)', meta: 'noun / adjective' },
+            'española': { en: 'Spanish (f) / Spaniard (f)', meta: 'adjective / noun' },
+            'inglés': { en: 'English (language) / Englishman', meta: 'noun / adjective' },
+            'inglesa': { en: 'English (f)', meta: 'adjective / noun' },
+            'francés': { en: 'French (language)', meta: 'noun / adjective' },
+            'gente': { en: 'people', meta: 'feminine noun (singular form, takes singular verb)' },
+            'cartas': { en: 'letters', meta: 'feminine plural' },
+            'carta': { en: 'letter', meta: 'feminine noun' },
+            'tren': { en: 'train', meta: 'masculine noun' },
+            'idioma': { en: 'language', meta: 'masculine noun (despite -a ending)' },
+            'idiomas': { en: 'languages', meta: 'masculine plural' },
+            'niño': { en: 'boy / child', meta: 'masculine noun' },
+            'niña': { en: 'girl / child', meta: 'feminine noun' },
+            'niños': { en: 'children / boys', meta: 'masculine plural' },
+            'amigo': { en: 'friend (m)', meta: 'masculine noun' },
+            'amiga': { en: 'friend (f)', meta: 'feminine noun' },
+            'amigos': { en: 'friends', meta: 'masculine plural' },
+            'dientes': { en: 'teeth', meta: 'masculine plural' },
+            'pijama': { en: 'pyjamas', meta: 'masculine noun (despite -a ending)' },
+            'ropa': { en: 'clothes', meta: 'feminine noun (singular form)' },
+            'tiempo': { en: 'time / weather', meta: 'masculine noun' },
+            'libre': { en: 'free', meta: 'adjective' },
+            'dinero': { en: 'money', meta: 'masculine noun' },
+            // Time and frequency adverbs / common temporal nouns
+            'antes': { en: 'before', meta: 'adverb / preposition' },
+            'después': { en: 'after / afterwards', meta: 'adverb / preposition' },
+            'todos': { en: 'all / every', meta: 'quantifier (m pl)' },
+            'todas': { en: 'all / every', meta: 'quantifier (f pl)' },
+            'todo': { en: 'all / everything', meta: 'quantifier / pronoun (m)' },
+            'toda': { en: 'all', meta: 'quantifier (f)' },
+            'semana': { en: 'week', meta: 'feminine noun' },
+            'mes': { en: 'month', meta: 'masculine noun' },
+            'año': { en: 'year', meta: 'masculine noun' },
+            'años': { en: 'years', meta: 'masculine plural' },
+            'pasada': { en: 'past / last', meta: 'adjective (f)' },
+            'pasado': { en: 'past / last', meta: 'adjective (m)' },
+            'anoche': { en: 'last night', meta: 'adverb' },
+            'comida': { en: 'food / meal', meta: 'feminine noun' },
+            'paella': { en: 'paella', meta: 'feminine noun (Spanish dish)' },
+            // Gustar family — these have a reverse construction so only two forms are common
+            'gusta': { en: 'is pleasing', meta: 'gustar (singular: it pleases)' },
+            'gustan': { en: 'are pleasing', meta: 'gustar (plural: they please)' },
+            'encanta': { en: 'is delightful', meta: 'encantar (singular)' },
+            'encantan': { en: 'are delightful', meta: 'encantar (plural)' },
+            'importa': { en: 'matters / minds', meta: 'importar (singular)' },
+            'importan': { en: 'matter / mind', meta: 'importar (plural)' }
+        },
+
+        // Map vocab topic → word type for the pool builder
+        TYPE_BY_TOPIC: {
+            family: 'noun', pets: 'noun', food: 'noun', city: 'noun',
+            jobs: 'noun', countries: 'place', days: 'noun', homes: 'noun',
+            rooms: 'noun', houseObjects: 'noun',
+            weather: 'phrase', timeOfDay: 'phrase',
+            adjectives: 'adjective', colours: 'adjective',
+            emotions: 'adjective', flavours: 'adjective'
+        },
+
+        _pool: null,
+
+        // Build the unified word pool. Lazy/cached.
+        buildPool() {
+            if (this._pool) return this._pool;
+            const pool = [];
+            const seen = Object.create(null);
+
+            // Article gender lookup
+            const articleMap = Object.create(null);
+            DATA.articleNouns.forEach(an => articleMap[an.noun.toLowerCase()] = an.article);
+
+            // From vocab
+            Object.entries(DATA.vocab).forEach(([topic, items]) => {
+                const wordType = this.TYPE_BY_TOPIC[topic] || 'word';
+                items.forEach(item => {
+                    const key = item.es.toLowerCase();
+                    if (seen[key]) return;
+                    seen[key] = true;
+                    const entry = { es: item.es, en: item.en, type: wordType, topic };
+                    if (wordType === 'noun' && articleMap[key]) {
+                        entry.article = articleMap[key];
+                        entry.gender = articleMap[key] === 'el' ? 'm' : 'f';
+                    }
+                    pool.push(entry);
+                });
+            });
+
+            // From articleNouns (catch ones missed by vocab — they get type 'noun')
+            DATA.articleNouns.forEach(an => {
+                const key = an.noun.toLowerCase();
+                if (seen[key]) return;
+                seen[key] = true;
+                pool.push({
+                    es: an.noun,
+                    en: '(see article quiz)', // placeholder — these don't all have English glosses
+                    type: 'noun',
+                    article: an.article,
+                    gender: an.article === 'el' ? 'm' : 'f'
+                });
+            });
+
+            // From verbs
+            DATA.verbs.forEach(v => {
+                const key = v.inf.toLowerCase();
+                if (seen[key]) return;
+                seen[key] = true;
+                pool.push({
+                    es: v.inf,
+                    en: v.en,
+                    type: 'verb',
+                    cat: v.cat,
+                    sampleYo: v.conj.present.yo,
+                    conj: v.conj
+                });
+            });
+
+            this._pool = pool;
+            return pool;
+        },
+
+        // Look up a single word for sentence parsing.
+        // Tries function words, exact match, conjugated verb forms, plurals, and adjective agreement.
+        lookupWord(rawWord) {
+            const w = rawWord.toLowerCase()
+                .replace(/[.,;:!?¿¡()"]/g, '')
+                .trim();
+            if (!w) return null;
+
+            // Pure-digit check (e.g. "1995"): skip
+            if (/^\d+$/.test(w)) return { es: rawWord, en: rawWord, type: 'number' };
+
+            // Function words
+            if (this.FUNCTION_WORDS[w]) {
+                const fw = this.FUNCTION_WORDS[w];
+                return { es: w, en: fw.en, type: 'function', meta: fw.meta };
+            }
+
+            // Match without accents (so "está" and "esta" both find it)
+            const wn = normalize(w);
+            if (this.FUNCTION_WORDS[wn]) {
+                const fw = this.FUNCTION_WORDS[wn];
+                return { es: w, en: fw.en, type: 'function', meta: fw.meta };
+            }
+
+            const pool = this.buildPool();
+            // Exact match in pool
+            let entry = pool.find(p => normalize(p.es) === wn);
+            if (entry) return entry;
+
+            // Conjugated verb form — search through all verbs' conjugations.
+            // For reflexives the stored form includes "me/te/se/" — also try matching
+            // without that prefix (so "levanto" finds the yo form of "levantarse").
+            for (const v of DATA.verbs) {
+                for (const tenseKey of Object.keys(v.conj)) {
+                    const tense = v.conj[tenseKey];
+                    for (const person of Object.keys(tense)) {
+                        const form = tense[person];
+                        const formNorm = normalize(form);
+                        const formStripped = formNorm.replace(/^(me|te|se|nos|os) /, '');
+                        if (formNorm === wn || formStripped === wn) {
+                            return {
+                                es: w,
+                                en: v.en,
+                                type: 'verb-form',
+                                infinitive: v.inf,
+                                person: person,
+                                tense: tenseKey,
+                                cat: v.cat
+                            };
+                        }
+                    }
+                }
+            }
+
+            // Number text (cinco, treinta, etc.)
+            for (const n of DATA.numbers) {
+                if (normalize(n.es) === wn) {
+                    return { es: w, en: String(n.num), type: 'number', meta: 'number word' };
+                }
+            }
+
+            // Reflexive form: split off pronoun prefix and try again
+            // e.g. "duchame" rare, but "ducharse" should match base verb "ducharse"
+            for (const pn of ['me ', 'te ', 'se ', 'nos ', 'os ']) {
+                if (w.startsWith(pn)) {
+                    const rest = w.slice(pn.length);
+                    const m = this.lookupWord(rest);
+                    if (m) return { ...m, es: w, note: 'reflexive: ' + pn.trim() + ' ' + rest };
+                }
+            }
+
+            // Plural -es: "reuniones" → "reunión", "lápices" → "lápiz" (z→c first)
+            if (wn.endsWith('es') && wn.length > 3) {
+                const sing1 = wn.slice(0, -2);
+                const sing2 = sing1.endsWith('c') ? sing1.slice(0, -1) + 'z' : sing1;
+                entry = pool.find(p => {
+                    const pn2 = normalize(p.es);
+                    return pn2 === sing1 || pn2 === sing2;
+                });
+                if (entry) return { ...entry, es: w, note: 'plural form' };
+            }
+            // Plural -s
+            if (wn.endsWith('s') && wn.length > 2) {
+                const sing = wn.slice(0, -1);
+                entry = pool.find(p => normalize(p.es) === sing);
+                if (entry) return { ...entry, es: w, note: 'plural form' };
+            }
+
+            // Adjective gender variants: bonita → bonito, bonitos → bonito, bonitas → bonito
+            const variants = [];
+            if (wn.endsWith('a') && wn.length > 2) variants.push(wn.slice(0, -1) + 'o');
+            if (wn.endsWith('os') && wn.length > 3) variants.push(wn.slice(0, -2) + 'o');
+            if (wn.endsWith('as') && wn.length > 3) variants.push(wn.slice(0, -2) + 'o');
+            for (const v of variants) {
+                entry = pool.find(p => normalize(p.es) === v);
+                if (entry && (entry.type === 'adjective' || entry.type === 'noun')) {
+                    return { ...entry, es: w, note: 'agreement variant' };
+                }
+            }
+
+            return null;
+        },
+
+        init() {
+            this.state = { mode: 'words', currentItem: null, revealed: false, activeWordIdx: -1 };
+            this.renderShell();
+            this.next();
+        },
+
+        renderShell() {
+            const main = document.getElementById('main');
+            main.innerHTML = `
+      <div class="recog-mode-toggle">
+        <button class="filter-btn active" data-mode="words">Words</button>
+        <button class="filter-btn" data-mode="sentences">Sentences</button>
+      </div>
+      <div id="recog-card" class="prompt-card"></div>
+      <div id="recog-controls"></div>
+      ${this.renderStatsBlock()}
+    `;
+            main.querySelectorAll('.recog-mode-toggle .filter-btn').forEach(b =>
+                b.addEventListener('click', () => this.setMode(b.dataset.mode))
+            );
+        },
+
+        setMode(mode) {
+            this.state.mode = mode;
+            this.state.revealed = false;
+            document.querySelectorAll('.recog-mode-toggle .filter-btn').forEach(b =>
+                b.classList.toggle('active', b.dataset.mode === mode)
+            );
+            this.next();
+        },
+
+        renderStatsBlock() {
+            const s = gameAggregateStats('recognition');
+            const acc = s.total > 0 ? Math.round((s.correct / s.total) * 100) + '%' : '—';
+            const weak = weakSpotsForGame('recognition', it => {
+                const [mode, key] = it.key.split('|');
+                return `<span class="weak-spot">${key} • ${mode} (${Math.round(it.acc * 100)}%)</span>`;
+            });
+            return `<div class="game-stats" id="stats-block">
+      <div class="stats-row"><span>Attempts</span><strong>${s.total}</strong></div>
+      <div class="stats-row"><span>Accuracy</span><strong>${acc}</strong></div>
+      <div class="weak-spots-title">Weak spots</div>
+      <div>${weak.length ? weak.join('') : (s.total > 0 ? 'None showing yet.' : 'None yet, keep going.')}</div>
+    </div>`;
+        },
+
+        refreshStatsBlock() {
+            const block = document.getElementById('stats-block');
+            if (block) block.outerHTML = this.renderStatsBlock();
+        },
+
+        next() {
+            this.state.revealed = false;
+            this.state.activeWordIdx = -1;
+            if (this.state.mode === 'words') {
+                this.pickWord();
+            } else {
+                this.pickSentence();
+            }
+        },
+
+        pickWord() {
+            const pool = this.buildPool();
+            // Filter out entries with no English meaning (placeholders)
+            const usable = pool.filter(p => p.en && p.en !== '(see article quiz)');
+            const item = pickWeighted(usable, p => weightForKey('recognition', 'words|' + p.es));
+            this.state.currentItem = item;
+            this.renderWordCard();
+        },
+
+        pickSentence() {
+            const item = pickWeighted(DATA.sentences, s => weightForKey('recognition', 'sentences|' + s.es));
+            this.state.currentItem = item;
+            this.renderSentenceCard();
+        },
+
+        renderWordCard() {
+            const w = this.state.currentItem;
+            const card = document.getElementById('recog-card');
+            card.innerHTML = `
+      <div class="recog-word">${w.es}</div>
+      <div class="recog-reveal-area hidden" id="reveal-area"></div>
+    `;
+            const ctrl = document.getElementById('recog-controls');
+            ctrl.innerHTML = `
+      <button class="primary" id="reveal-btn">Reveal</button>
+    `;
+            document.getElementById('reveal-btn').addEventListener('click', () => this.revealWord());
+        },
+
+        revealWord() {
+            const w = this.state.currentItem;
+            this.state.revealed = true;
+            const area = document.getElementById('reveal-area');
+            area.classList.remove('hidden');
+            area.innerHTML = this.formatWordReveal(w);
+            const ctrl = document.getElementById('recog-controls');
+            ctrl.innerHTML = `
+      <div class="rate-row">
+        <button class="rate-btn knew" data-rate="knew">Knew it</button>
+        <button class="rate-btn fuzzy" data-rate="fuzzy">Fuzzy</button>
+        <button class="rate-btn didnt" data-rate="didnt">Didn't know</button>
+      </div>
+    `;
+            ctrl.querySelectorAll('.rate-btn').forEach(b =>
+                b.addEventListener('click', () => this.rateWord(b.dataset.rate))
+            );
+        },
+
+        // Format detailed reveal HTML for a pool entry
+        formatWordReveal(w) {
+            let meaning = `<div class="recog-meaning">"${w.en}"</div>`;
+            let meta = '';
+            let sample = '';
+
+            if (w.type === 'noun') {
+                const artLabel = w.article ? `${w.article} ${w.es}` : w.es;
+                meta = `<div class="recog-meta">Noun${w.gender ? ` · ${w.gender === 'm' ? 'masculine' : 'feminine'}` : ''}${w.topic ? ` · ${w.topic}` : ''}</div>`;
+                if (w.article) sample = `<div class="recog-sample">${artLabel} (singular)</div>`;
+            } else if (w.type === 'verb') {
+                const catLabels = {
+                    'reg-ar': 'regular -AR', 'reg-er': 'regular -ER', 'reg-ir': 'regular -IR',
+                    'stem-ie': 'E→IE stem-changer', 'stem-ue': 'O→UE stem-changer', 'stem-i': 'E→I stem-changer',
+                    'irreg': 'irregular', 'reflexive': 'reflexive'
+                };
+                meta = `<div class="recog-meta">Verb · ${catLabels[w.cat] || w.cat}</div>`;
+                if (w.conj && w.conj.present) {
+                    const p = w.conj.present;
+                    sample = `<div class="recog-sample">Yo ${p.yo} · Tú ${p.tu} · Él ${p.el}<br>Nos ${p.nos} · Vos ${p.vos} · Ellos ${p.ellos}</div>`;
+                }
+            } else if (w.type === 'adjective') {
+                meta = `<div class="recog-meta">Adjective${w.topic ? ` · ${w.topic}` : ''}</div>`;
+                // Show agreement forms if the base ends in -o
+                if (w.es.endsWith('o')) {
+                    const base = w.es.slice(0, -1);
+                    sample = `<div class="recog-sample">${w.es} (m) · ${base}a (f) · ${w.es}s (m pl) · ${base}as (f pl)</div>`;
+                } else if (w.es.endsWith('e') || w.es.endsWith('z') || w.es.endsWith('l')) {
+                    sample = `<div class="recog-sample">Same form for masculine and feminine. Plural adds -s or -es.</div>`;
+                }
+            } else if (w.type === 'phrase') {
+                meta = `<div class="recog-meta">Phrase${w.topic ? ` · ${w.topic}` : ''}</div>`;
+            } else if (w.type === 'place') {
+                meta = `<div class="recog-meta">Place name${w.topic ? ` · ${w.topic}` : ''}</div>`;
+            }
+
+            return meaning + meta + sample;
+        },
+
+        rateWord(rating) {
+            const w = this.state.currentItem;
+            const key = 'words|' + w.es;
+            const correct = rating === 'knew';
+            recordResult('recognition', key, correct);
+            // "Fuzzy" partially counts: record as incorrect once but also a correct,
+            // so it tilts toward "needs review" but less heavily than "didn't know"
+            if (rating === 'fuzzy') {
+                recordResult('recognition', key, true);
+            }
+            this.refreshStatsBlock();
+            setTimeout(() => this.next(), 200);
+        },
+
+        // ---- Sentence mode ----
+        renderSentenceCard() {
+            const s = this.state.currentItem;
+            const card = document.getElementById('recog-card');
+            // Split sentence into words+punctuation segments
+            const words = s.es.split(/(\s+)/); // keep whitespace as separator
+            const chips = words.map((segment, idx) => {
+                if (/^\s+$/.test(segment)) return segment;
+                return `<span class="word-chip" data-idx="${idx}">${segment}</span>`;
+            }).join('');
+            card.innerHTML = `
+      <div class="recog-sentence">${chips}</div>
+      <div id="word-popover-container"></div>
+      <div class="recog-reveal-area hidden" id="reveal-area">
+        <div class="recog-meaning">"${s.en}"</div>
+      </div>
+    `;
+            card.querySelectorAll('.word-chip').forEach(chip =>
+                chip.addEventListener('click', (e) => this.showWordInfo(chip))
+            );
+
+            const ctrl = document.getElementById('recog-controls');
+            ctrl.innerHTML = `
+      <button class="primary" id="reveal-btn">Show full translation</button>
+    `;
+            document.getElementById('reveal-btn').addEventListener('click', () => this.revealSentence());
+        },
+
+        showWordInfo(chip) {
+            document.querySelectorAll('.word-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            const word = chip.textContent;
+            const entry = this.lookupWord(word);
+            const container = document.getElementById('word-popover-container');
+            if (!entry) {
+                container.innerHTML = `<div class="word-popover">
+        <div class="pop-word">${word}</div>
+        <div class="pop-meta">Not in dictionary</div>
+      </div>`;
+                chip.classList.add('unknown');
+                return;
+            }
+            let popMeta = '';
+            if (entry.type === 'noun') {
+                popMeta = `noun${entry.gender ? ` · ${entry.gender === 'm' ? 'm' : 'f'}` : ''}${entry.note ? ` · ${entry.note}` : ''}`;
+            } else if (entry.type === 'verb') {
+                const catLabels = {
+                    'reg-ar': 'reg -AR', 'reg-er': 'reg -ER', 'reg-ir': 'reg -IR',
+                    'stem-ie': 'E→IE stem', 'stem-ue': 'O→UE stem', 'stem-i': 'E→I stem',
+                    'irreg': 'irregular', 'reflexive': 'reflexive'
+                };
+                popMeta = `verb (infinitive) · ${catLabels[entry.cat] || entry.cat}`;
+            } else if (entry.type === 'verb-form') {
+                const catLabels = {
+                    'reg-ar': 'reg -AR', 'reg-er': 'reg -ER', 'reg-ir': 'reg -IR',
+                    'stem-ie': 'E→IE', 'stem-ue': 'O→UE', 'stem-i': 'E→I',
+                    'irreg': 'irregular', 'reflexive': 'reflexive'
+                };
+                popMeta = `${entry.tense || 'present'} of ${entry.infinitive} · ${entry.person} · ${catLabels[entry.cat] || entry.cat}`;
+            } else if (entry.type === 'adjective') {
+                popMeta = 'adjective' + (entry.note ? ' · ' + entry.note : '');
+            } else if (entry.type === 'function') {
+                popMeta = entry.meta;
+            } else if (entry.type === 'phrase') {
+                popMeta = 'phrase';
+            } else if (entry.type === 'number') {
+                popMeta = entry.meta || 'number';
+            } else {
+                popMeta = entry.type;
+            }
+            container.innerHTML = `<div class="word-popover">
+      <div class="pop-word">${entry.es} — "${entry.en}"</div>
+      <div class="pop-meta">${popMeta}</div>
+    </div>`;
+        },
+
+        revealSentence() {
+            this.state.revealed = true;
+            document.getElementById('reveal-area').classList.remove('hidden');
+            const ctrl = document.getElementById('recog-controls');
+            ctrl.innerHTML = `
+      <div class="rate-row binary">
+        <button class="rate-btn knew" data-rate="knew">Got it</button>
+        <button class="rate-btn didnt" data-rate="didnt">Needed help</button>
+      </div>
+    `;
+            ctrl.querySelectorAll('.rate-btn').forEach(b =>
+                b.addEventListener('click', () => this.rateSentence(b.dataset.rate))
+            );
+        },
+
+        rateSentence(rating) {
+            const s = this.state.currentItem;
+            const key = 'sentences|' + s.es;
+            recordResult('recognition', key, rating === 'knew');
+            this.refreshStatsBlock();
+            setTimeout(() => this.next(), 200);
+        }
+    };
+
+    // =============================================================================
+    // INIT
+    // =============================================================================
+
+    // Global hint button handler — event delegation so it works for any game
+    document.addEventListener('click', (e) => {
+        if (e.target.classList && e.target.classList.contains('hint-btn')) {
+            const row = e.target.closest('.hint-row');
+            if (row) {
+                const text = row.querySelector('.hint-text');
+                if (text) text.classList.remove('hidden');
+                e.target.classList.add('hidden');
+            }
+        }
+    });
+
+    async function init() {
+        await loadProgress();
+        navigateTo('home');
+    }
+    init();
+</script>
