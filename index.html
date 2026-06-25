@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>super-gill</title>
+<style>
+  :root{
+    --bg:#fbf8f3; --ink:#1a2332; --muted:#6b7280; --line:#e6e0d4;
+    --card:#ffffff; --accent:#1769aa; --accent-soft:#eef5fb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.5}
+  .wrap{max-width:880px;margin:0 auto;padding:3rem 1.25rem 4rem}
+  header h1{margin:0;font-size:2rem;letter-spacing:-.5px}
+  header p{margin:.35rem 0 0;color:var(--muted)}
+  h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+     margin:2.5rem 0 .9rem;border-bottom:1px solid var(--line);padding-bottom:.4rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.85rem}
+  a.card{display:block;text-decoration:none;color:inherit;background:var(--card);
+         border:1px solid var(--line);border-radius:12px;padding:1rem 1.1rem;
+         transition:border-color .15s,transform .15s,box-shadow .15s}
+  a.card:hover{border-color:var(--accent);transform:translateY(-2px);
+               box-shadow:0 6px 18px rgba(23,105,170,.08)}
+  .card .name{font-weight:600}
+  .card .desc{color:var(--muted);font-size:.9rem;margin-top:.2rem}
+  .ext .card{background:var(--accent-soft)}
+  footer{margin-top:3rem;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>super-gill</h1>
+      <p>A few small web apps and games. Projects with their own repo are linked too.</p>
+    </header>
+
+    <h2>Apps &amp; games</h2>
+    <div class="grid">
+      <a class="card" href="./Archery%20Apps/index.html"><div class="name">Archery Trainer</div><div class="desc">Archery practice app</div></a>
+      <a class="card" href="./ArcheryScorePractice/index.html"><div class="name">Archery Score Trainer</div><div class="desc">Scoring practice</div></a>
+      <a class="card" href="./Archery%20Timer/index.html"><div class="name">Interval Timer</div><div class="desc">Training intervals</div></a>
+      <a class="card" href="./Calendar/index.html"><div class="name">Weekly Calendar</div><div class="desc">15-minute increment planner</div></a>
+      <a class="card" href="./higher-or-lower/index.html"><div class="name">Higher or Lower</div><div class="desc">Guessing game</div></a>
+      <a class="card" href="./Argo/argo.html"><div class="name">Argonaut IT</div><div class="desc">Argo</div></a>
+    </div>
+
+    <h2>Projects (own repos)</h2>
+    <div class="grid ext">
+      <a class="card" href="/spanishgame/"><div class="name">Spanish Game</div><div class="desc">Spain-Spanish learning, 9 games</div></a>
+      <a class="card" href="/steadybubble/"><div class="name">Steady Bubble</div><div class="desc">Submarine sim (current + version archive)</div></a>
+    </div>
+
+    <footer>Hosted on GitHub Pages. Project links go live once each repo has Pages enabled.</footer>
+  </div>
+</body>
+</html>
