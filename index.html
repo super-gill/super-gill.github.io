@@ -26,6 +26,9 @@
   .card .name{font-weight:600}
   .card .desc{color:var(--muted);font-size:.9rem;margin-top:.2rem}
   .ext .card{background:var(--accent-soft)}
+  .card .name{display:flex;align-items:center;gap:.4rem}
+  .lock{font-size:.85rem;opacity:.55}
+  .card.locked{opacity:.75}
   footer{margin-top:3rem;color:var(--muted);font-size:.85rem}
 </style>
 </head>
@@ -50,6 +53,13 @@
     <div class="grid ext">
       <a class="card" href="/spanish-game/"><div class="name">Spanish Game</div><div class="desc">Spain-Spanish learning, 9 games</div></a>
       <a class="card" href="/steadybubble/"><div class="name">Steady Bubble</div><div class="desc">Submarine sim (current + version archive)</div></a>
+    </div>
+
+    <h2>Tome (Markdown docs)</h2>
+    <div class="grid ext">
+      <a class="card" href="/tome.personal/"><div class="name">Tome Personal</div><div class="desc">Personal books &amp; notes</div></a>
+      <a class="card locked" href="/tome-platform/"><div class="name">Tome Platform <span class="lock" title="Private repo">🔒</span></div><div class="desc">Shared TOME platform &amp; engine</div></a>
+      <a class="card locked" href="/tome-helpdeskoperations/"><div class="name">Helpdesk Operations <span class="lock" title="Private repo">🔒</span></div><div class="desc">Digital Origin Solutions helpdesk docs</div></a>
     </div>
 
     <footer>Hosted on GitHub Pages. Project links go live once each repo has Pages enabled.</footer>
